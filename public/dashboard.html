@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Metal Adventures — Dashboard MJ</title>
+  <link rel="stylesheet" href="/css/tailwind.css">
+  <style>
+    body.mj-readonly [data-mj-action="true"] {
+      opacity: 0.45;
+      pointer-events: none;
+      cursor: not-allowed;
+      filter: grayscale(0.35);
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+  <!-- Header -->
+  <header class="border-b border-gray-700 bg-gray-800">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="text-xl font-bold">
+        <a href="/" class="hover:text-blue-400 transition-colors">⚙️ Metal Adventures</a>
+      </h1>
+      <nav class="flex items-center gap-4 text-sm">
+        <!-- Table context -->
+        <span id="header-table-info" class="hidden flex items-center gap-2 text-gray-300 border-r border-gray-600 pr-4 mr-2">
+          <span id="header-table-name" class="font-medium"></span>
+          <span id="header-table-role" class="text-xs"></span>
+          <a href="#" id="header-change-table"
+             class="text-blue-400 hover:text-blue-300 text-xs ml-1" title="Changer de table">✕</a>
+        </span>
+        <span id="auth-user-info" class="hidden flex items-center gap-3">
+          <span id="auth-user-name" class="text-gray-300"></span>
+          <a href="#" id="auth-logout-btn"
+             class="text-red-400 hover:text-red-300 hover:underline">Déconnexion</a>
+        </span>
+        <a href="/login.html" id="auth-login-link" class="text-blue-400 hover:underline">Connexion</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="flex-1 max-w-4xl mx-auto w-full px-4 py-6 space-y-8">
+
+    <!-- Search bar (always visible) -->
+    <section>
+      <div class="relative">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">🔍</span>
+        <input id="search-input" type="text"
+               class="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-10 py-3 min-h-[44px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+               placeholder="Rechercher systèmes, factions, vaisseaux…" autocomplete="off">
+        <button id="search-clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 min-w-[44px] min-h-[44px] flex items-center justify-center" title="Effacer">✕</button>
+      </div>
+      <div id="search-results" class="hidden mt-2 bg-gray-800 border border-gray-700 rounded-lg divide-y divide-gray-700 max-h-96 overflow-y-auto"></div>
+    </section>
+
+    <!-- Loading state -->
+    <div id="loading" class="text-center py-12 text-gray-400">Chargement du tableau de bord…</div>
+
+    <!-- Dashboard content (hidden until loaded) -->
+    <div id="dashboard-content" class="hidden space-y-8">
+
+      <!-- Stats section -->
+      <section>
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">📊 État de la session</h2>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <p class="text-xs text-gray-400 mb-1">Systèmes visibles</p>
+            <p id="stats-systems" class="text-2xl font-bold text-blue-300">—</p>
+          </div>
+          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <p class="text-xs text-gray-400 mb-1">Joueurs</p>
+            <p id="stats-players" class="text-2xl font-bold text-blue-300">—</p>
+          </div>
+        </div>
+
+        <div class="mt-4 bg-gray-800 rounded-lg p-4 border border-gray-700 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p class="text-xs text-gray-400 mb-1">Mode session</p>
+            <p id="session-state-label" class="text-sm font-medium text-gray-200">Inactif</p>
+          </div>
+          <button id="session-toggle-btn"
+              data-mj-action="true"
+                  class="min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-emerald-700 hover:bg-emerald-600 text-white">
+            Activer la session
+          </button>
+        </div>
+        <p id="session-toggle-error" class="hidden mt-2 text-sm text-red-400"></p>
+      </section>
+
+      <!-- Quick access shortcuts -->
+      <section>
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">🚀 Accès rapide</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <a href="/compendium.html"
+             class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-4 transition-colors flex flex-col gap-1 min-h-[80px]">
+            <span class="text-2xl">📚</span>
+            <span class="font-medium text-sm">Compendium</span>
+            <span class="text-xs text-gray-400">Systèmes, factions, vaisseaux</span>
+          </a>
+          <a href="/carte_interactive.html"
+             class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-4 transition-colors flex flex-col gap-1 min-h-[80px]">
+            <span class="text-2xl">🗺️</span>
+            <span class="font-medium text-sm">Carte Galactique</span>
+            <span class="text-xs text-gray-400">Navigation et révélation</span>
+          </a>
+          <a href="/itineraire.html"
+             class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-4 transition-colors flex flex-col gap-1 min-h-[80px]">
+            <span class="text-2xl">🛸</span>
+            <span class="font-medium text-sm">Itinéraire</span>
+            <span class="text-xs text-gray-400">Routes et vaisseaux</span>
+          </a>
+        </div>
+      </section>
+
+      <!-- Bulk reveal -->
+      <section>
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">👁️ Révélation en masse</h2>
+        <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
+          <div class="flex flex-wrap gap-3">
+            <select id="bulk-type"
+                    class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 min-h-[40px]">
+              <option value="systems">Systèmes</option>
+              <option value="factions">Factions</option>
+              <option value="ship_models">Vaisseaux</option>
+            </select>
+            <select id="bulk-quadrant"
+                    class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 min-h-[40px]">
+              <option value="">— Tous les quadrants —</option>
+            </select>
+            <select id="bulk-action"
+                    class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 min-h-[40px]">
+              <option value="true">Révéler</option>
+              <option value="false">Masquer</option>
+            </select>
+          </div>
+          <!-- Micro-confirmation (inline, no blocking modal) -->
+          <div id="bulk-confirm-bar" class="hidden flex items-center justify-between bg-gray-700 border border-yellow-600 rounded-lg px-4 py-3 text-sm gap-3">
+            <span id="bulk-confirm-label" class="text-yellow-200"></span>
+            <div class="flex gap-2">
+              <button id="bulk-confirm-btn"
+                      data-mj-action="true"
+                      class="bg-blue-600 hover:bg-blue-500 text-white rounded px-4 py-1.5 font-medium transition-colors min-h-[36px]">
+                Confirmer
+              </button>
+              <button id="bulk-cancel-btn"
+                      data-mj-action="true"
+                      class="bg-gray-600 hover:bg-gray-500 text-white rounded px-4 py-1.5 transition-colors min-h-[36px]">
+                Annuler
+              </button>
+            </div>
+          </div>
+          <button id="bulk-preview-btn"
+              data-mj-action="true"
+                  class="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-sm text-gray-200 rounded-lg px-4 py-2 transition-colors min-h-[40px]">
+            Prévisualiser l'action…
+          </button>
+          <p id="bulk-result" class="hidden text-sm text-green-400"></p>
+          <p id="bulk-error" class="hidden text-sm text-red-400"></p>
+        </div>
+      </section>
+
+      <!-- Recent activity -->
+      <section>
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">🕐 Modifications récentes <span class="text-xs text-gray-500 font-normal">(24h)</span></h2>
+        <div id="recent-changes" class="bg-gray-800 border border-gray-700 rounded-lg divide-y divide-gray-700">
+          <!-- Filled dynamically -->
+        </div>
+        <div id="recent-empty" class="hidden bg-gray-800 border border-gray-700 rounded-lg px-4 py-6 text-center text-gray-400 text-sm">
+          Aucune modification dans les dernières 24 heures.
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Error state -->
+    <div id="error-state" class="hidden text-center py-12">
+      <p class="text-red-400 mb-2">⚠️ Impossible de charger le tableau de bord</p>
+      <p id="error-message" class="text-gray-400 text-sm"></p>
+    </div>
+
+  </main>
+
+  <!-- Deferred commit toast -->
+  <section id="deferred-toast" class="hidden fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:w-[28rem] z-50">
+    <div class="min-h-[56px] bg-amber-100 text-amber-900 border-2 border-amber-500 rounded-xl shadow-2xl px-4 py-3 flex items-center justify-between gap-3">
+      <div>
+        <p id="deferred-toast-title" class="font-semibold text-sm">Action en attente d'envoi</p>
+        <p id="deferred-toast-sub" class="text-xs"></p>
+      </div>
+      <button id="deferred-undo-btn"
+              data-mj-action="true"
+              class="bg-amber-600 hover:bg-amber-500 text-white rounded-lg px-4 py-2 text-sm font-medium min-h-[44px] min-w-[44px] transition-colors">
+        Annuler
+      </button>
+    </div>
+  </section>
+
+  <section id="network-toast" class="hidden fixed top-4 right-4 z-50">
+    <div class="bg-emerald-800 text-emerald-100 border border-emerald-500 rounded-lg px-4 py-3 shadow-xl text-sm">
+      Reconnecté — données synchronisées
+    </div>
+  </section>
+
+  <script type="module">
+    import { initAuthUI } from '/js/shared/auth-ui.js';
+    import { createPoller } from '/js/shared/poller.js';
+    import { createDeferredCommitQueue } from '/js/shared/deferred-commit.js';
+    import { getActiveTableId } from '/js/shared/table-selector.js';
+
+    const $ = id => document.getElementById(id);
+    let sessionActive = false;
+    let networkLastPollTime = Date.now();
+    let networkPollFailureCount = 0;
+    let networkSyncing = false;
+    let networkOfflineSince = null;
+    let networkWasOffline = false;
+
+    const header = $('auth-user-info')?.parentElement || document.querySelector('header');
+    const indicator = document.createElement('span');
+    indicator.id = 'connection-indicator';
+    indicator.className = 'ml-2 px-3 py-1 rounded text-sm bg-green-900 text-green-100';
+    indicator.title = 'État réseau';
+    indicator.textContent = '🟢 Connecté';
+    if (header) header.appendChild(indicator);
+
+    function showNetworkToast() {
+      const toast = $('network-toast');
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+
+    function setMjReadOnly(active) {
+      document.body.classList.toggle('mj-readonly', !!active);
+    }
+
+    function getNetworkStatus(now = Date.now()) {
+      const ageMs = now - networkLastPollTime;
+      const offline = networkPollFailureCount >= 2 || ageMs > 15000;
+      const longOffline = offline && networkOfflineSince != null && (now - networkOfflineSince > 60000);
+      if (longOffline) return 'offline-long';
+      if (offline) return 'offline';
+      if (networkSyncing || ageMs >= 5000) return 'syncing';
+      return 'connected';
+    }
+
+    function refreshConnectionIndicator() {
+      const now = Date.now();
+      const status = getNetworkStatus(now);
+      const ind = $('connection-indicator');
+      if (!ind) return;
+
+      if (status === 'offline' || status === 'offline-long') {
+        if (networkOfflineSince == null) {
+          networkOfflineSince = now;
+        }
+        networkWasOffline = true;
+      } else {
+        networkOfflineSince = null;
+      }
+
+      switch (status) {
+        case 'offline-long':
+          ind.className = 'ml-2 px-3 py-1 rounded text-sm bg-red-900 text-red-100';
+          ind.textContent = '🔴 Connexion perdue depuis plus d\'une minute. Vérifiez votre réseau.';
+          break;
+        case 'offline':
+          ind.className = 'ml-2 px-3 py-1 rounded text-sm bg-red-900 text-red-100';
+          ind.textContent = '🔴 Hors ligne';
+          break;
+        case 'syncing':
+          ind.className = 'ml-2 px-3 py-1 rounded text-sm bg-yellow-900 text-yellow-100';
+          ind.textContent = '🔄 Synchronisation';
+          break;
+        default:
+          ind.className = 'ml-2 px-3 py-1 rounded text-sm bg-green-900 text-green-100';
+          ind.textContent = '🟢 Connecté';
+      }
+
+      setMjReadOnly(status === 'offline' || status === 'offline-long');
+    }
+
+    function renderSessionState(active) {
+      sessionActive = !!active;
+      $('session-state-label').textContent = sessionActive ? 'Active (polling joueur accéléré)' : 'Inactif (polling joueur réduit)';
+      $('session-toggle-btn').textContent = sessionActive ? 'Désactiver la session' : 'Activer la session';
+      $('session-toggle-btn').className = sessionActive
+        ? 'min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-red-700 hover:bg-red-600 text-white'
+        : 'min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-emerald-700 hover:bg-emerald-600 text-white';
+    }
+
+    // Auth check — redirect joueurs vers la page d'accueil
+    const currentUser = await initAuthUI();
+    if (!currentUser) {
+      window.location.href = '/login.html';
+    }
+
+    // Vérifier le rôle via l'API dashboard — si 403, c'est un joueur
+    async function loadDashboardData() {
+      try {
+        const res = await fetch('/api/dashboard', { credentials: 'include' });
+
+        if (res.status === 403) {
+          window.location.href = '/index.html';
+          return;
+        }
+
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          $('error-message').textContent = errBody?.error?.message || `Erreur ${res.status}`;
+          $('loading').classList.add('hidden');
+          $('error-state').classList.remove('hidden');
+          return;
+        }
+
+        const { data } = await res.json();
+        renderDashboard(data);
+      } catch (err) {
+        $('error-message').textContent = 'Impossible de joindre le serveur.';
+        $('loading').classList.add('hidden');
+        $('error-state').classList.remove('hidden');
+      }
+    }
+
+    function renderDashboard(data) {
+      // Stats
+      const { stats, recent_changes, quadrants = [], session_active = false } = data;
+      $('stats-systems').textContent = `${stats.systems_visible} / ${stats.systems_total}`;
+      $('stats-players').textContent = `${stats.players_total} joueur${stats.players_total !== 1 ? 's' : ''}`;
+      renderSessionState(session_active);
+
+      // Populate bulk reveal quadrant dropdown
+      populateBulkQuadrants(quadrants);
+
+      // Recent changes
+      const container = $('recent-changes');
+      const empty = $('recent-empty');
+      container.innerHTML = '';
+
+      if (!recent_changes || recent_changes.length === 0) {
+        container.classList.add('hidden');
+        empty.classList.remove('hidden');
+      } else {
+        container.classList.remove('hidden');
+        empty.classList.add('hidden');
+
+        for (const change of recent_changes) {
+          const icon = change.action === 'revealed' ? '👁️' : '🔒';
+          const timeStr = change.updated_at
+            ? new Date(change.updated_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+            : '';
+          const typeLabel = {
+            systems: 'Système',
+            factions: 'Faction',
+            ship_models: 'Vaisseau'
+          }[change.entity_type] || change.entity_type;
+
+          const link = change.entity_type === 'systems'
+            ? `/compendium.html#system-${change.entity_id}`
+            : `/compendium.html`;
+
+          const item = document.createElement('a');
+          item.href = link;
+          item.className = 'flex items-center justify-between px-4 py-3 hover:bg-gray-700 transition-colors';
+          item.innerHTML = `
+            <div class="flex items-center gap-3">
+              <span class="text-lg">${icon}</span>
+              <div>
+                <p class="text-sm font-medium">${escapeHtml(change.entity_name || String(change.entity_id))}</p>
+                <p class="text-xs text-gray-400">${escapeHtml(typeLabel)}</p>
+              </div>
+            </div>
+            <div class="text-right text-xs text-gray-400 shrink-0 ml-4">${escapeHtml(timeStr)}</div>
+          `;
+          container.appendChild(item);
+        }
+      }
+
+      // Show content
+      $('loading').classList.add('hidden');
+      $('dashboard-content').classList.remove('hidden');
+    }
+
+    function escapeHtml(str) {
+      if (str == null) return '';
+      const d = document.createElement('div');
+      d.textContent = String(str);
+      return d.innerHTML;
+    }
+
+    async function toggleSessionActive() {
+      if (document.body.classList.contains('mj-readonly')) {
+        $('session-toggle-error').textContent = 'Mode lecture seule hors ligne: action MJ temporairement indisponible.';
+        $('session-toggle-error').classList.remove('hidden');
+        return;
+      }
+      $('session-toggle-error').classList.add('hidden');
+      try {
+        const target = !sessionActive;
+        const res = await fetch('/api/dashboard/session-active', {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ active: target })
+        });
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody?.error?.message || `Erreur ${res.status}`);
+        }
+        const { data } = await res.json();
+        renderSessionState(!!data.session_active);
+      } catch (err) {
+        $('session-toggle-error').textContent = err?.message || 'Impossible de changer le mode session.';
+        $('session-toggle-error').classList.remove('hidden');
+      }
+    }
+
+    // ── Search logic ──────────────────────────────────────────────────────────
+
+    function debounce(fn, ms) {
+      let timer;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), ms);
+      };
+    }
+
+    const TYPE_META = {
+      systems:     { label: 'Système',  icon: '🌟' },
+      factions:    { label: 'Faction',  icon: '⚔️' },
+      ship_models: { label: 'Vaisseau', icon: '🚀' }
+    };
+
+    function renderSearchResults(results, query) {
+      const container = $('search-results');
+      container.innerHTML = '';
+
+      const limited = results.slice(0, 20);
+
+      if (limited.length === 0) {
+        container.innerHTML = `<p class="px-4 py-3 text-sm text-gray-400">Aucun résultat pour <strong>"${escapeHtml(query)}"</strong></p>`;
+      } else {
+        for (const item of limited) {
+          const meta = TYPE_META[item.type] || { label: item.type, icon: '📄' };
+          const name = item.nom || item.name || String(item.id);
+          const visIcon = item.visible === true ? '👁️' : item.visible === false ? '🔒' : '';
+          const a = document.createElement('a');
+          a.href = '/compendium.html';
+          a.className = 'flex items-center justify-between px-4 py-3 hover:bg-gray-700 transition-colors';
+          a.innerHTML = `
+            <div class="flex items-center gap-3">
+              <span class="text-lg">${meta.icon}</span>
+              <div>
+                <p class="text-sm font-medium">${escapeHtml(name)}</p>
+                <p class="text-xs text-gray-400">${escapeHtml(meta.label)}</p>
+              </div>
+            </div>
+            <span class="text-base" title="${item.visible ? 'Visible' : 'Caché'}">${visIcon}</span>
+          `;
+          container.appendChild(a);
+        }
+      }
+
+      container.classList.remove('hidden');
+    }
+
+    async function performSearch(query) {
+      if (query.length < 2) {
+        $('search-results').classList.add('hidden');
+        $('search-clear').classList.add('hidden');
+        return;
+      }
+      $('search-clear').classList.remove('hidden');
+
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { credentials: 'include' });
+        if (!res.ok) return;
+        const { data } = await res.json();
+        renderSearchResults(Array.isArray(data) ? data : [], query);
+      } catch {
+        // Ignore search errors — silent
+      }
+    }
+
+    const debouncedSearch = debounce(performSearch, 300);
+
+    $('search-input').addEventListener('input', e => {
+      debouncedSearch(e.target.value.trim());
+    });
+
+    $('search-clear').addEventListener('click', () => {
+      $('search-input').value = '';
+      $('search-results').classList.add('hidden');
+      $('search-clear').classList.add('hidden');
+      $('search-input').focus();
+    });
+
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#search-input') && !e.target.closest('#search-results') && !e.target.closest('#search-clear')) {
+        $('search-results').classList.add('hidden');
+      }
+    });
+    // ── Bulk reveal logic ──────────────────────────────────────────────────────
+
+    // Populate quadrant dropdown from data loaded later
+    function populateBulkQuadrants(quadrants) {
+      const sel = $('bulk-quadrant');
+      // Remove existing options (keep first "all" option)
+      while (sel.options.length > 1) sel.remove(1);
+      for (const q of quadrants) {
+        const opt = document.createElement('option');
+        opt.value = q;
+        opt.textContent = q;
+        sel.appendChild(opt);
+      }
+    }
+
+    // Show the inline confirmation bar
+    function showBulkConfirm(type, quadrant, visible) {
+      const typeLabels = { systems: 'Systèmes', factions: 'Factions', ship_models: 'Vaisseaux' };
+      const actionLabel = visible ? 'Révéler' : 'Masquer';
+      const scopeLabel = quadrant ? `du quadrant « ${escapeHtml(quadrant)} »` : `(tous les ${typeLabels[type] || type})`;
+      $('bulk-confirm-label').textContent = `${actionLabel} tous les ${typeLabels[type] || type} ${scopeLabel} ?`;
+      $('bulk-confirm-bar').classList.remove('hidden');
+      $('bulk-preview-btn').classList.add('hidden');
+      $('bulk-result').classList.add('hidden');
+      $('bulk-error').classList.add('hidden');
+    }
+
+    function hideBulkConfirm() {
+      $('bulk-confirm-bar').classList.add('hidden');
+      $('bulk-preview-btn').classList.remove('hidden');
+    }
+
+    async function sendBulkRequest(payload, { keepalive = false } = {}) {
+      const res = await fetch('/api/visibility/bulk', {
+        method: 'POST',
+        credentials: 'include',
+        keepalive,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        const error = new Error(errBody?.error?.message || `Erreur ${res.status}`);
+        error.status = res.status;
+        throw error;
+      }
+
+      const json = await res.json();
+      return json.data;
+    }
+
+    function getDashboardQueueStorageKey() {
+      const tableId = getActiveTableId();
+      return tableId ? `mj-offline-queue:dashboard:${tableId}` : '';
+    }
+
+    function isTransientCommitError(err) {
+      const status = Number(err?.status || 0);
+      if (status >= 500 || status === 429) return true;
+      if (status >= 400 && status < 500) return false;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+      const msg = String(err?.message || '').toLowerCase();
+      return err?.name === 'TypeError' || msg.includes('network') || msg.includes('fetch') || msg.includes('connexion') || msg.includes('offline');
+    }
+
+    function buildBulkDeferredEntry({ label, payload, optimisticMessage, rollbackMessage, createdAt, retainCount }) {
+      return {
+        label,
+        payload,
+        createdAt,
+        retainCount: retainCount || 0,
+        onOptimisticApply: () => {
+          $('bulk-result').textContent = optimisticMessage || 'Action planifiée. Envoi automatique dans 8s (ou Annuler).';
+          $('bulk-result').classList.remove('hidden');
+          $('bulk-error').classList.add('hidden');
+          $('search-results').classList.add('hidden');
+        },
+        onOptimisticRollback: () => {
+          $('bulk-result').textContent = rollbackMessage || 'Action annulée. Aucun envoi serveur.';
+          $('bulk-result').classList.remove('hidden');
+          $('bulk-error').classList.add('hidden');
+        },
+        onCommitError: async (err) => {
+          $('bulk-error').textContent = err?.message || 'Impossible de contacter le serveur.';
+          $('bulk-error').classList.remove('hidden');
+          $('bulk-result').classList.add('hidden');
+          await loadDashboardData();
+        }
+      };
+    }
+
+    function renderDeferredToast(state) {
+      const toast = $('deferred-toast');
+      if (state.pendingCount === 0 || !state.latest) {
+        toast.classList.add('hidden');
+        return;
+      }
+
+      $('deferred-toast-title').textContent = state.latest.label || 'Action en attente d\'envoi';
+      $('deferred-toast-sub').textContent = state.collapsedCount > 0
+        ? `${state.collapsedCount} autre${state.collapsedCount > 1 ? 's' : ''} action${state.collapsedCount > 1 ? 's' : ''} annulable${state.collapsedCount > 1 ? 's' : ''}`
+        : 'Annulable pendant 8 secondes';
+
+      toast.classList.remove('hidden');
+    }
+
+    const deferredQueue = createDeferredCommitQueue({
+      delayMs: 8000,
+      maxPending: 3,
+      persistenceKey: getDashboardQueueStorageKey(),
+      hydrateEntry: (record) => {
+        const payload = record?.payload;
+        const hasPayload = payload
+          && typeof payload.entityType === 'string'
+          && typeof payload.visible === 'boolean'
+          && payload.filter
+          && typeof payload.filter === 'object';
+        if (!hasPayload) return null;
+        return buildBulkDeferredEntry({
+          label: record.label,
+          payload,
+          createdAt: record.createdAt,
+          retainCount: record.retainCount
+        });
+      },
+      canAttemptCommit: () => getNetworkStatus() !== 'offline' && getNetworkStatus() !== 'offline-long',
+      retainOnCommitError: (_entry, err) => {
+        const offline = getNetworkStatus() === 'offline' || getNetworkStatus() === 'offline-long';
+        return offline || isTransientCommitError(err);
+      },
+      onStateChange: renderDeferredToast,
+      commitFn: async (entry, options = {}) => {
+        const data = await sendBulkRequest(entry.payload, options);
+        const actionLabel = entry.payload.visible ? 'révélés' : 'masqués';
+        $('bulk-result').textContent = `✓ ${data.affected} élément${data.affected !== 1 ? 's' : ''} ${actionLabel}.`;
+        $('bulk-result').classList.remove('hidden');
+        $('bulk-error').classList.add('hidden');
+        await loadDashboardData();
+      }
+    });
+
+    async function executeBulkDeferred() {
+      if (document.body.classList.contains('mj-readonly')) {
+        $('bulk-error').textContent = 'Mode lecture seule hors ligne: action MJ temporairement indisponible.';
+        $('bulk-error').classList.remove('hidden');
+        return;
+      }
+
+      const type = $('bulk-type').value;
+      const quadrant = $('bulk-quadrant').value;
+      const visible = $('bulk-action').value === 'true';
+      const filter = quadrant ? { quadrant_id: quadrant } : {};
+
+      hideBulkConfirm();
+
+      const typeLabel = { systems: 'systèmes', factions: 'factions', ship_models: 'vaisseaux' }[type] || type;
+      const actionLabel = visible ? 'Révéler' : 'Masquer';
+      const scope = quadrant ? `quadrant ${quadrant}` : 'tout';
+
+      await deferredQueue.enqueue(buildBulkDeferredEntry({
+        label: `${actionLabel} ${typeLabel} (${scope})`,
+        payload: { entityType: type, filter, visible },
+      }));
+    }
+
+    $('bulk-type').addEventListener('change', () => {
+      // Hide quadrant selector for non-systems types
+      const isSystemType = $('bulk-type').value === 'systems';
+      $('bulk-quadrant').style.display = isSystemType ? '' : 'none';
+    });
+
+    $('bulk-preview-btn').addEventListener('click', () => {
+      const type = $('bulk-type').value;
+      const quadrant = $('bulk-quadrant').value;
+      const visible = $('bulk-action').value === 'true';
+      showBulkConfirm(type, quadrant, visible);
+    });
+
+    $('bulk-confirm-btn').addEventListener('click', () => {
+      void executeBulkDeferred();
+    });
+    $('session-toggle-btn').addEventListener('click', () => {
+      void toggleSessionActive();
+    });
+    $('bulk-cancel-btn').addEventListener('click', () => hideBulkConfirm());
+    $('deferred-undo-btn').addEventListener('click', () => {
+      deferredQueue.undoLatest();
+    });
+
+    // ── Load initial data ─────────────────────────────────────────────────────
+
+    const restoredDeferred = deferredQueue.restorePersisted();
+    if (restoredDeferred.discarded > 0) {
+      $('bulk-error').textContent = 'Une action différée invalide a été ignorée après rechargement.';
+      $('bulk-error').classList.remove('hidden');
+    }
+    if (restoredDeferred.restored > 0) {
+      $('bulk-result').textContent = `${restoredDeferred.restored} action${restoredDeferred.restored > 1 ? 's' : ''} MJ restaurée${restoredDeferred.restored > 1 ? 's' : ''} en attente de reconnexion.`;
+      $('bulk-result').classList.remove('hidden');
+    }
+
+    // Load initial data
+    await loadDashboardData();
+
+    // Polling — refresh stats sur chaque tick sync
+    const poller = createPoller({
+      enableErrorBackoff: true,
+      retryBaseMs: 1000,
+      retryMaxMs: 30000,
+      onPollStart: () => {
+        networkSyncing = true;
+        refreshConnectionIndicator();
+      },
+      onData: async () => {
+        networkSyncing = false;
+        networkPollFailureCount = 0;
+        networkLastPollTime = Date.now();
+        await loadDashboardData();
+        refreshConnectionIndicator();
+      },
+      onError: () => {
+        networkSyncing = false;
+        networkPollFailureCount += 1;
+        refreshConnectionIndicator();
+      },
+      onReconnect: async () => {
+        networkSyncing = false;
+        networkPollFailureCount = 0;
+        networkLastPollTime = Date.now();
+        const replaySummary = deferredQueue.pendingCount() > 0
+          ? await deferredQueue.drainNow({ stopOnError: true, reason: 'reconnect' })
+          : { flushed: 0, failed: 0, stoppedOnError: false };
+        await loadDashboardData();
+        refreshConnectionIndicator();
+        if (replaySummary.flushed > 0) {
+          $('bulk-result').textContent = `✓ ${replaySummary.flushed} action${replaySummary.flushed > 1 ? 's' : ''} hors ligne synchronisée${replaySummary.flushed > 1 ? 's' : ''}.`;
+          $('bulk-result').classList.remove('hidden');
+          $('bulk-error').classList.add('hidden');
+        }
+        if (replaySummary.failed > 0) {
+          $('bulk-error').textContent = 'Une action différée n’a pas pu être rejouée. Les données serveur ont été rechargées.';
+          $('bulk-error').classList.remove('hidden');
+          $('bulk-result').classList.add('hidden');
+        }
+        if (replaySummary.retained > 0) {
+          $('bulk-result').textContent = `${replaySummary.retained} action${replaySummary.retained > 1 ? 's' : ''} reste${replaySummary.retained > 1 ? 'nt' : ''} en attente réseau.`;
+          $('bulk-result').classList.remove('hidden');
+        }
+        if (networkWasOffline) {
+          networkWasOffline = false;
+          showNetworkToast();
+        }
+      }
+    });
+    setInterval(refreshConnectionIndicator, 1000);
+    poller.start('/api/sync');
+  </script>
+</body>
+</html>

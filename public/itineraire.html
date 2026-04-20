@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Metal Adventures — Itinéraire & Vaisseaux</title>
+  <link rel="stylesheet" href="/css/tailwind.css">
+  <style>
+    body.mj-readonly #ship-form-panel,
+    body.mj-readonly #route-form-panel,
+    body.mj-readonly #routes-list,
+    body.mj-readonly #perils-panel {
+      opacity: 0.45;
+      pointer-events: none;
+      cursor: not-allowed;
+      filter: grayscale(0.35);
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+  <header class="border-b border-gray-700 bg-gray-800">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+      <div>
+        <h1 class="text-xl font-bold"><a href="/" class="hover:text-blue-400 transition-colors">⚙️ Metal Adventures</a></h1>
+        <p class="text-sm text-gray-400">Itinéraire & Vaisseaux de table</p>
+      </div>
+      <nav class="flex items-center gap-4 text-sm">
+        <button id="preview-toggle-btn"
+                class="hidden min-h-[44px] px-3 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-medium transition-colors">
+          Mode Preview Joueur
+        </button>
+        <span id="auth-user-info" class="hidden flex items-center gap-3">
+          <span id="auth-user-name" class="text-gray-300"></span>
+          <a href="#" id="auth-logout-btn" class="text-red-400 hover:text-red-300 hover:underline">Déconnexion</a>
+        </span>
+        <a href="/login.html" id="auth-login-link" class="text-blue-400 hover:underline">Connexion</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-6xl mx-auto w-full px-4 py-6 space-y-6">
+    <section class="bg-gray-800 border border-gray-700 rounded-lg p-4 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <p class="text-xs text-gray-400 mb-1">Table active</p>
+        <p id="table-summary" class="text-sm font-medium text-gray-200">Aucune table sélectionnée</p>
+      </div>
+      <button id="change-table-btn" class="min-h-[44px] px-4 py-2 rounded-lg border border-gray-600 hover:border-blue-500 hover:bg-gray-700 transition-colors text-sm">
+        Changer de table
+      </button>
+    </section>
+
+    <section id="table-selector-section" class="hidden">
+      <div id="table-selector-root"></div>
+    </section>
+
+    <section id="ships-content" class="hidden grid lg:grid-cols-[24rem,1fr] gap-6">
+      <aside id="ship-form-panel" class="hidden bg-gray-800 border border-gray-700 rounded-lg p-5 space-y-4 self-start">
+        <div>
+          <h2 id="ship-form-title" class="text-lg font-semibold text-gray-100">➕ Nouveau vaisseau</h2>
+          <p class="text-sm text-gray-400">Créez un vaisseau libre ou instanciez un modèle existant.</p>
+        </div>
+
+        <div class="space-y-3">
+          <label class="block">
+            <span class="block text-xs text-gray-400 mb-1">Nom</span>
+            <input id="ship-name" type="text" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] focus:outline-none focus:border-blue-500" placeholder="Ex: Atlas">
+          </label>
+
+          <label class="block">
+            <span class="block text-xs text-gray-400 mb-1">Modèle</span>
+            <select id="ship-model" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] focus:outline-none focus:border-blue-500">
+              <option value="">Création libre</option>
+            </select>
+          </label>
+
+          <div class="grid grid-cols-3 gap-3">
+            <label class="block">
+              <span class="block text-xs text-gray-400 mb-1">Coque</span>
+              <input id="ship-hull" type="number" min="0" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] focus:outline-none focus:border-blue-500">
+            </label>
+            <label class="block">
+              <span class="block text-xs text-gray-400 mb-1">Équipage</span>
+              <input id="ship-crew" type="number" min="0" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] focus:outline-none focus:border-blue-500">
+            </label>
+            <label class="block">
+              <span class="block text-xs text-gray-400 mb-1">Soute</span>
+              <input id="ship-cargo" type="number" min="0" step="0.1" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] focus:outline-none focus:border-blue-500">
+            </label>
+          </div>
+
+          <label class="block">
+            <span class="block text-xs text-gray-400 mb-1">Notes</span>
+            <textarea id="ship-notes" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 min-h-[120px] focus:outline-none focus:border-blue-500" placeholder="Rôle dans la campagne, état, équipage, cargaison..."></textarea>
+          </label>
+        </div>
+
+        <div class="flex gap-3">
+          <button id="ship-save-btn" class="flex-1 min-h-[44px] px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors font-medium">Enregistrer</button>
+          <button id="ship-cancel-btn" class="hidden min-h-[44px] px-4 py-2 rounded-lg border border-gray-600 hover:border-gray-400 transition-colors">Annuler</button>
+        </div>
+        <p id="ship-form-error" class="hidden text-sm text-red-400"></p>
+      </aside>
+
+      <section class="space-y-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-100">🚀 Vaisseaux de la table</h2>
+            <p id="ships-subtitle" class="text-sm text-gray-400">Chargement...</p>
+          </div>
+        </div>
+
+        <div id="ships-empty" class="hidden bg-gray-800 border border-dashed border-gray-700 rounded-lg px-6 py-10 text-center text-gray-400">
+          Aucun vaisseau disponible pour cette table.
+        </div>
+
+        <div id="ships-list" class="space-y-3"></div>
+      </section>
+    </section>
+
+    <section id="routes-content" class="hidden grid lg:grid-cols-[28rem,1fr] gap-6">
+      <aside id="route-form-panel" class="hidden bg-gray-800 border border-gray-700 rounded-lg p-5 space-y-4 self-start">
+        <div>
+          <h2 id="route-form-title" class="text-lg font-semibold text-gray-100">🧭 Nouvel itinéraire</h2>
+          <p class="text-sm text-gray-400">Ajoutez les systèmes dans l’ordre du parcours. Chaque tap les ajoute en fin de liste.</p>
+        </div>
+
+        <label class="block">
+          <span class="block text-xs text-gray-400 mb-1">Nom</span>
+          <input id="route-name" type="text" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] focus:outline-none focus:border-blue-500" placeholder="Ex: Route du Convoyage">
+        </label>
+
+        <label class="flex items-center gap-3 rounded-lg border border-gray-700 bg-gray-900 px-3 py-3">
+          <input id="route-active" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500">
+          <span class="text-sm text-gray-200">Définir comme itinéraire actif</span>
+        </label>
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-sm font-medium text-gray-200">Waypoints</h3>
+            <button id="route-clear-btn" class="min-h-[44px] px-3 py-2 rounded-lg border border-gray-600 hover:border-gray-400 transition-colors text-xs">Vider</button>
+          </div>
+          <div id="route-waypoints-empty" class="rounded-lg border border-dashed border-gray-700 px-4 py-4 text-sm text-gray-400">
+            Touchez des systèmes ci-dessous pour construire le parcours.
+          </div>
+          <div id="route-waypoints-list" class="space-y-2"></div>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-sm font-medium text-gray-200">Ajouter un système</h3>
+            <span class="text-xs text-gray-500">Tap séquentiel</span>
+          </div>
+          <div id="route-system-picker" class="max-h-[20rem] overflow-y-auto rounded-lg border border-gray-700 bg-gray-900 p-2 grid sm:grid-cols-2 gap-2"></div>
+        </div>
+
+        <div class="flex gap-3">
+          <button id="route-save-btn" class="flex-1 min-h-[44px] px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors font-medium">Enregistrer</button>
+          <button id="route-cancel-btn" class="hidden min-h-[44px] px-4 py-2 rounded-lg border border-gray-600 hover:border-gray-400 transition-colors">Annuler</button>
+        </div>
+        <p id="route-form-error" class="hidden text-sm text-red-400"></p>
+      </aside>
+
+      <section class="space-y-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-100">🛰️ Itinéraires de voyage</h2>
+            <p id="routes-subtitle" class="text-sm text-gray-400">Chargement...</p>
+          </div>
+          <button id="routes-create-cta" class="hidden min-h-[44px] px-4 py-2 rounded-lg border border-blue-500 text-blue-300 hover:bg-blue-500/10 transition-colors text-sm">
+            Créer un itinéraire
+          </button>
+        </div>
+
+        <div id="routes-empty" class="hidden bg-gray-800 border border-dashed border-gray-700 rounded-lg px-6 py-10 text-center text-gray-400 space-y-3">
+          <p class="text-base text-gray-200">Aucun itinéraire pour cette table.</p>
+          <p class="text-sm">Créez un trajet préparatoire avant la génération des périls.</p>
+          <button id="routes-empty-cta" class="hidden min-h-[44px] px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors font-medium">
+            Créer un itinéraire
+          </button>
+        </div>
+
+        <div id="routes-list" class="space-y-3"></div>
+
+        <section id="perils-panel" class="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-4">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h3 class="text-base font-semibold text-gray-100">⚠️ Périls d'itinéraire</h3>
+              <p id="route-perils-subtitle" class="text-sm text-gray-400">Sélectionnez un itinéraire pour afficher ses périls.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button id="perils-reveal-btn" class="hidden min-h-[44px] px-3 py-2 rounded-lg border border-emerald-600 text-emerald-300 hover:bg-emerald-900/20 transition-colors text-sm">
+                Révéler aux joueurs
+              </button>
+              <button id="perils-hide-btn" class="hidden min-h-[44px] px-3 py-2 rounded-lg border border-red-700 text-red-300 hover:bg-red-900/20 transition-colors text-sm">
+                Masquer aux joueurs
+              </button>
+              <button id="perils-generate-btn" class="hidden min-h-[44px] px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 transition-colors text-sm font-medium">
+                Générer périls
+              </button>
+            </div>
+          </div>
+
+          <div id="perils-empty" class="hidden rounded-lg border border-dashed border-gray-700 px-4 py-6 text-sm text-gray-400 text-center">
+            Aucun péril pour cet itinéraire.
+          </div>
+
+          <div id="perils-list" class="space-y-3"></div>
+
+          <div id="perils-manual-box" class="hidden rounded-lg border border-gray-700 bg-gray-900 p-3 space-y-3">
+            <p class="text-sm text-gray-200 font-medium">Ajouter un péril manuel</p>
+            <div class="grid sm:grid-cols-[8rem,1fr,auto] gap-2">
+              <input id="perils-manual-segment" type="number" min="1" class="min-h-[44px] bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" placeholder="Segment">
+              <input id="perils-manual-text" type="text" class="min-h-[44px] bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" placeholder="Description du péril manuel">
+              <button id="perils-manual-add-btn" class="min-h-[44px] px-4 py-2 rounded-lg border border-emerald-600 text-emerald-300 hover:bg-emerald-900/20 text-sm">Ajouter</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="itinerary-journal" class="hidden bg-slate-900/70 border border-slate-700 rounded-xl p-5 space-y-4">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h3 class="text-lg font-semibold text-slate-100">📖 Journal de bord</h3>
+              <p id="journal-subtitle" class="text-sm text-slate-400">Aucun itinéraire en cours</p>
+            </div>
+          </div>
+          <div id="journal-empty" class="hidden rounded-lg border border-dashed border-slate-700 px-4 py-6 text-sm text-slate-400 text-center">
+            Aucun itinéraire en cours
+          </div>
+          <div id="journal-ships" class="space-y-2"></div>
+          <div id="journal-timeline" class="space-y-3"></div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <div id="preview-frame" class="hidden fixed inset-0 border-4 border-cyan-400 pointer-events-none z-40"></div>
+  <button id="preview-exit-btn"
+          class="hidden fixed bottom-4 right-4 z-50 min-h-[48px] px-5 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold shadow-xl">
+    Quitter Preview
+  </button>
+
+  <section id="visibility-toast" class="hidden fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:w-[28rem] z-50">
+    <div class="min-h-[56px] bg-amber-100 text-amber-900 border-2 border-amber-500 rounded-xl shadow-2xl px-4 py-3 flex items-center justify-between gap-3">
+      <div>
+        <p id="visibility-toast-title" class="font-semibold text-sm">Visibilité en attente</p>
+        <p id="visibility-toast-sub" class="text-xs">Annulable pendant 8 secondes</p>
+      </div>
+      <button id="visibility-undo-btn" class="bg-amber-600 hover:bg-amber-500 text-white rounded-lg px-4 py-2 text-sm font-medium min-h-[44px]">Annuler</button>
+    </div>
+  </section>
+
+  <section id="network-toast" class="hidden fixed top-4 right-4 z-50">
+    <div class="bg-emerald-800 text-emerald-100 border border-emerald-500 rounded-lg px-4 py-3 shadow-xl text-sm">
+      Reconnecté — données synchronisées
+    </div>
+  </section>
+
+  <script type="module">
+    import { initAuthUI } from '/js/shared/auth-ui.js';
+    import { createDeferredCommitQueue } from '/js/shared/deferred-commit.js';
+    import { createPoller } from '/js/shared/poller.js';
+    import { fetchWithTable, getActiveTableId, clearActiveTable, renderTableSelector } from '/js/shared/table-selector.js';
+
+    const $ = id => document.getElementById(id);
+
+    const state = {
+      currentUser: null,
+      currentTable: null,
+      isMj: false,
+      ships: [],
+      shipModels: [],
+      systems: [],
+      travelRoutes: [],
+      routePerils: [],
+      editingShipId: null,
+      editingRouteId: null,
+      routeDraftIds: [],
+      selectedPerilsRouteId: null,
+      previewMode: false,
+      sharedItinerary: null,
+      poller: null,
+      networkLastPollTime: Date.now(),
+      networkPollFailureCount: 0,
+      networkSyncing: false,
+      networkOfflineSince: null,
+      networkWasOffline: false,
+      isReadOnlyOffline: false
+    };
+
+    function canEditAsMj() {
+      return state.isMj && !state.previewMode && !state.isReadOnlyOffline;
+    }
+
+    function isPlayerView() {
+      return !state.isMj || state.previewMode;
+    }
+
+    function setPreviewChrome(active) {
+      $('preview-frame').classList.toggle('hidden', !active);
+      $('preview-exit-btn').classList.toggle('hidden', !active);
+      $('preview-toggle-btn').textContent = active ? 'Quitter Preview Joueur' : 'Mode Preview Joueur';
+    }
+
+    const header = $('auth-user-info')?.parentElement || document.querySelector('header');
+    const indicator = document.createElement('span');
+    indicator.id = 'connection-indicator';
+    indicator.className = 'ml-2 px-3 py-1 rounded text-sm bg-green-900 text-green-100';
+    indicator.title = 'État réseau';
+    indicator.textContent = '🟢 Connecté';
+    if (header) header.appendChild(indicator);
+
+    function showNetworkToast() {
+      const toast = $('network-toast');
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+
+    function getNetworkStatus(now = Date.now()) {
+      const ageMs = now - state.networkLastPollTime;
+      const offline = state.networkPollFailureCount >= 2 || ageMs > 15000;
+      const offlineLong = offline && state.networkOfflineSince != null && (now - state.networkOfflineSince > 60000);
+      if (offlineLong) return 'offline-long';
+      if (offline) return 'offline';
+      if (state.networkSyncing || ageMs >= 5000) return 'syncing';
+      return 'connected';
+    }
+
+    function refreshConnectionIndicator() {
+      const now = Date.now();
+      const ageMs = now - state.networkLastPollTime;
+      const offline = state.networkPollFailureCount >= 2 || ageMs > 15000;
+      const status = getNetworkStatus(now);
+
+      if (offline) {
+        if (state.networkOfflineSince == null) state.networkOfflineSince = now;
+        state.networkWasOffline = true;
+      } else {
+        state.networkOfflineSince = null;
+      }
+
+      const ind = $('connection-indicator');
+      if (ind) {
+        if (status === 'offline-long') {
+          ind.className = 'ml-2 px-3 py-1 rounded text-sm bg-red-900 text-red-100';
+          ind.textContent = '🔴 Connexion perdue depuis plus d\'une minute. Vérifiez votre réseau.';
+        } else if (status === 'offline') {
+          ind.className = 'ml-2 px-3 py-1 rounded text-sm bg-red-900 text-red-100';
+          ind.textContent = '🔴 Hors ligne';
+        } else if (status === 'syncing') {
+          ind.className = 'ml-2 px-3 py-1 rounded text-sm bg-yellow-900 text-yellow-100';
+          ind.textContent = '🔄 Synchronisation';
+        } else {
+          ind.className = 'ml-2 px-3 py-1 rounded text-sm bg-green-900 text-green-100';
+          ind.textContent = '🟢 Connecté';
+        }
+      }
+
+      const readonlyNow = offline && state.isMj && !state.previewMode;
+      if (readonlyNow !== state.isReadOnlyOffline) {
+        state.isReadOnlyOffline = readonlyNow;
+        document.body.classList.toggle('mj-readonly', readonlyNow);
+        renderTableState();
+        renderShips();
+        renderRoutes();
+        renderRoutePerils();
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text == null ? '' : String(text);
+      return div.innerHTML;
+    }
+
+    async function fetchJson(url, options = {}) {
+      const res = await fetchWithTable(url, { credentials: 'include', ...options });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const error = new Error(json?.error?.message || `Erreur ${res.status}`);
+        error.status = res.status;
+        throw error;
+      }
+      return json.data;
+    }
+
+    function isTransientCommitError(err) {
+      const status = Number(err?.status || 0);
+      if (status >= 500 || status === 429) return true;
+      if (status >= 400 && status < 500) return false;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+      const msg = String(err?.message || '').toLowerCase();
+      return err?.name === 'TypeError' || msg.includes('network') || msg.includes('fetch') || msg.includes('connexion') || msg.includes('offline');
+    }
+
+    function assertWritableMj() {
+      if (state.isReadOnlyOffline && state.isMj && !state.previewMode) {
+        throw new Error('Mode lecture seule hors ligne: action MJ temporairement indisponible.');
+      }
+    }
+
+    async function loadTableContext() {
+      const activeTableId = getActiveTableId();
+      if (!activeTableId) {
+        state.currentTable = null;
+        state.isMj = false;
+        return;
+      }
+
+      const res = await fetch('/api/game_tables', { credentials: 'include' });
+      const json = await res.json().catch(() => ({}));
+      const tables = Array.isArray(json.data) ? json.data : [];
+      const match = tables.find(table => String(table.id) === String(activeTableId));
+
+      if (!match) {
+        clearActiveTable();
+        state.currentTable = null;
+        state.isMj = false;
+        return;
+      }
+
+      state.currentTable = match;
+      state.isMj = match.role === 'mj';
+    }
+
+    function renderTableState() {
+      const mjEdit = canEditAsMj();
+      if (!state.currentTable) {
+        $('table-summary').textContent = 'Aucune table sélectionnée';
+        $('table-selector-section').classList.remove('hidden');
+        $('ships-content').classList.add('hidden');
+        $('routes-content').classList.add('hidden');
+        $('itinerary-journal').classList.add('hidden');
+        return;
+      }
+
+      const roleLabel = mjEdit ? 'MJ' : 'Joueur';
+      $('table-summary').textContent = `${state.currentTable.name} • ${roleLabel}`;
+      $('table-selector-section').classList.add('hidden');
+      $('ships-content').classList.remove('hidden');
+      $('routes-content').classList.remove('hidden');
+      $('ship-form-panel').classList.toggle('hidden', !mjEdit);
+      $('route-form-panel').classList.toggle('hidden', !mjEdit);
+      $('routes-create-cta').classList.toggle('hidden', !mjEdit);
+      $('routes-empty-cta').classList.toggle('hidden', !mjEdit);
+      $('perils-generate-btn').classList.toggle('hidden', !mjEdit);
+      $('perils-reveal-btn').classList.toggle('hidden', !mjEdit);
+      $('perils-hide-btn').classList.toggle('hidden', !mjEdit);
+      $('perils-manual-box').classList.toggle('hidden', !mjEdit);
+      $('itinerary-journal').classList.toggle('hidden', !isPlayerView());
+      $('routes-list').classList.toggle('hidden', isPlayerView());
+      $('routes-empty').classList.toggle('hidden', isPlayerView());
+      $('perils-panel').classList.toggle('hidden', isPlayerView());
+      $('ships-subtitle').textContent = mjEdit
+        ? 'Créez, modifiez, supprimez et gérez la visibilité des vaisseaux de votre table.'
+        : 'Consultez les vaisseaux visibles de votre campagne.';
+      $('routes-subtitle').textContent = mjEdit
+        ? 'Créez, activez et ajustez vos itinéraires par tap séquentiel sur les systèmes.'
+        : 'Consultez l’itinéraire actif et les données partagées du MJ.';
+    }
+
+    function getSystemName(systemId) {
+      const match = state.systems.find(system => Number(system.id) === Number(systemId));
+      if (!match) return `Système #${systemId}`;
+      return `${match.nom} • ${match.quadrant}`;
+    }
+
+    function populateShipModels() {
+      const select = $('ship-model');
+      select.innerHTML = '<option value="">Création libre</option>';
+      for (const model of state.shipModels) {
+        const option = document.createElement('option');
+        option.value = model.id;
+        option.textContent = model.nom;
+        option.dataset.hull = Number(model.coque || 0);
+        option.dataset.crew = Number(model.equipage || 0);
+        option.dataset.cargo = Number(model.soute || 0);
+        select.appendChild(option);
+      }
+    }
+
+    function resetShipForm() {
+      state.editingShipId = null;
+      $('ship-form-title').textContent = '➕ Nouveau vaisseau';
+      $('ship-name').value = '';
+      $('ship-model').value = '';
+      $('ship-hull').value = 0;
+      $('ship-crew').value = 0;
+      $('ship-cargo').value = 0;
+      $('ship-notes').value = '';
+      $('ship-cancel-btn').classList.add('hidden');
+      $('ship-form-error').classList.add('hidden');
+    }
+
+    function fillShipForm(ship) {
+      state.editingShipId = ship.id;
+      $('ship-form-title').textContent = `✏️ Modifier ${ship.name}`;
+      $('ship-name').value = ship.name;
+      $('ship-model').value = ship.model_id || '';
+      $('ship-hull').value = ship.hull;
+      $('ship-crew').value = ship.crew;
+      $('ship-cargo').value = ship.cargo_capacity;
+      $('ship-notes').value = ship.notes || '';
+      $('ship-cancel-btn').classList.remove('hidden');
+      $('ship-form-error').classList.add('hidden');
+    }
+
+    function renderShips() {
+      const list = $('ships-list');
+      const empty = $('ships-empty');
+      list.innerHTML = '';
+
+      if (!state.ships.length) {
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      empty.classList.add('hidden');
+
+      for (const ship of state.ships) {
+        const card = document.createElement('article');
+        card.className = 'bg-gray-800 border border-gray-700 rounded-lg p-4 flex flex-col gap-3';
+        const visibleBadge = ship.visible === true
+          ? '<span class="text-emerald-300 text-sm">👁️ Visible</span>'
+          : ship.visible === false
+            ? '<span class="text-amber-300 text-sm">🔒 Caché</span>'
+            : '';
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-base font-semibold text-gray-100">${escapeHtml(ship.name)}</h3>
+              <p class="text-sm text-gray-400">${escapeHtml(ship.model_name || 'Création libre')}</p>
+            </div>
+            ${visibleBadge}
+          </div>
+          <div class="grid grid-cols-3 gap-3 text-sm">
+            <div class="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2"><span class="block text-xs text-gray-500 mb-1">Coque</span><span>${ship.hull}</span></div>
+            <div class="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2"><span class="block text-xs text-gray-500 mb-1">Équipage</span><span>${ship.crew}</span></div>
+            <div class="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2"><span class="block text-xs text-gray-500 mb-1">Soute</span><span>${ship.cargo_capacity}</span></div>
+          </div>
+          <p class="text-sm text-gray-300 whitespace-pre-wrap">${escapeHtml(ship.notes || 'Aucune note')}</p>
+        `;
+
+        if (canEditAsMj()) {
+          const actions = document.createElement('div');
+          actions.className = 'flex flex-wrap gap-2';
+
+          const editBtn = document.createElement('button');
+          editBtn.className = 'min-h-[44px] px-4 py-2 rounded-lg border border-gray-600 hover:border-blue-500 transition-colors text-sm';
+          editBtn.textContent = 'Éditer';
+          editBtn.addEventListener('click', () => fillShipForm(ship));
+
+          const visibilityBtn = document.createElement('button');
+          visibilityBtn.className = 'min-h-[44px] px-4 py-2 rounded-lg border border-gray-600 hover:border-amber-500 transition-colors text-sm';
+          visibilityBtn.textContent = ship.visible ? 'Masquer pour joueurs' : 'Révéler aux joueurs';
+          visibilityBtn.addEventListener('click', () => scheduleVisibilityToggle(ship));
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'min-h-[44px] px-4 py-2 rounded-lg border border-red-700 text-red-300 hover:bg-red-900/30 transition-colors text-sm';
+          delBtn.textContent = 'Supprimer';
+          delBtn.addEventListener('click', async () => {
+            if (!window.confirm(`Supprimer le vaisseau ${ship.name} ?`)) return;
+            await fetchJson(`/api/ships/${ship.id}`, { method: 'DELETE' });
+            await loadShips();
+            if (state.editingShipId === ship.id) resetShipForm();
+          });
+
+          actions.append(editBtn, visibilityBtn, delBtn);
+          card.appendChild(actions);
+        }
+
+        list.appendChild(card);
+      }
+    }
+
+    function resetRouteForm() {
+      state.editingRouteId = null;
+      state.routeDraftIds = [];
+      $('route-form-title').textContent = '🧭 Nouvel itinéraire';
+      $('route-name').value = '';
+      $('route-active').checked = false;
+      $('route-cancel-btn').classList.add('hidden');
+      $('route-form-error').classList.add('hidden');
+      renderRouteDraft();
+      renderSystemPicker();
+    }
+
+    function fillRouteForm(route) {
+      state.editingRouteId = route.id;
+      state.routeDraftIds = [...route.waypoint_ids];
+      $('route-form-title').textContent = `✏️ Modifier ${route.name}`;
+      $('route-name').value = route.name;
+      $('route-active').checked = !!route.active;
+      $('route-cancel-btn').classList.remove('hidden');
+      $('route-form-error').classList.add('hidden');
+      renderRouteDraft();
+      renderSystemPicker();
+    }
+
+    function renderRouteDraft() {
+      const list = $('route-waypoints-list');
+      const empty = $('route-waypoints-empty');
+      list.innerHTML = '';
+      empty.classList.toggle('hidden', state.routeDraftIds.length > 0);
+
+      state.routeDraftIds.forEach((systemId, index) => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between gap-3 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2';
+        row.innerHTML = `
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-blue-200 text-sm font-semibold">${index + 1}</span>
+            <span class="truncate text-sm text-gray-200">${escapeHtml(getSystemName(systemId))}</span>
+          </div>
+        `;
+
+        const canDeferRemove = canEditAsMj() && !!state.editingRouteId;
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'min-h-[44px] px-3 py-2 rounded-lg border border-red-700 text-red-300 hover:bg-red-900/30 transition-colors text-sm';
+        removeBtn.textContent = '✕';
+        removeBtn.title = 'Supprimer ce waypoint';
+        removeBtn.addEventListener('click', () => {
+          if (canDeferRemove) {
+            scheduleWaypointRemoval(index);
+            return;
+          }
+          state.routeDraftIds.splice(index, 1);
+          renderRouteDraft();
+        });
+
+        if (canEditAsMj()) {
+          row.appendChild(removeBtn);
+        }
+        list.appendChild(row);
+      });
+    }
+
+    function renderSystemPicker() {
+      const picker = $('route-system-picker');
+      picker.innerHTML = '';
+
+      if (!state.systems.length) {
+        picker.innerHTML = '<p class="col-span-full rounded-lg border border-dashed border-gray-700 px-4 py-4 text-sm text-gray-400">Aucun système disponible.</p>';
+        return;
+      }
+
+      for (const system of state.systems) {
+        const button = document.createElement('button');
+        button.className = 'min-h-[44px] rounded-lg border border-gray-700 hover:border-blue-500 hover:bg-gray-800 transition-colors px-3 py-3 text-left';
+        button.innerHTML = `
+          <span class="block text-sm font-medium text-gray-200">${escapeHtml(system.nom)}</span>
+          <span class="block text-xs text-gray-500">${escapeHtml(system.quadrant || 'Quadrant inconnu')}</span>
+        `;
+        button.addEventListener('click', () => {
+          state.routeDraftIds.push(Number(system.id));
+          renderRouteDraft();
+        });
+        picker.appendChild(button);
+      }
+    }
+
+    function renderRoutes() {
+      const list = $('routes-list');
+      const empty = $('routes-empty');
+      list.innerHTML = '';
+
+      if (!state.travelRoutes.length) {
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      empty.classList.add('hidden');
+
+      for (const route of state.travelRoutes) {
+        const card = document.createElement('article');
+        card.className = `bg-gray-800 border rounded-lg p-4 flex flex-col gap-3 ${route.active ? 'border-blue-500' : 'border-gray-700'}`;
+
+        const waypointLabels = route.waypoint_ids.map((systemId, index) => `
+          <li class="flex items-center gap-3 rounded-lg bg-gray-900 border border-gray-700 px-3 py-2 text-sm">
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-blue-200 font-semibold">${index + 1}</span>
+            <span>${escapeHtml(getSystemName(systemId))}</span>
+          </li>
+        `).join('');
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h3 class="text-base font-semibold text-gray-100">${escapeHtml(route.name)}</h3>
+              <p class="text-sm ${route.active ? 'text-blue-300' : 'text-gray-400'}">${route.active ? 'Itinéraire actif' : 'Itinéraire enregistré'}</p>
+            </div>
+            <span class="text-xs text-gray-500">${route.waypoint_ids.length} waypoint${route.waypoint_ids.length > 1 ? 's' : ''}</span>
+          </div>
+          <ol class="space-y-2">${waypointLabels}</ol>
+        `;
+
+        if (canEditAsMj()) {
+          const actions = document.createElement('div');
+          actions.className = 'flex flex-wrap gap-2';
+
+          const editBtn = document.createElement('button');
+          editBtn.className = 'min-h-[44px] px-4 py-2 rounded-lg border border-gray-600 hover:border-blue-500 transition-colors text-sm';
+          editBtn.textContent = 'Éditer';
+          editBtn.addEventListener('click', () => fillRouteForm(route));
+
+          const activeBtn = document.createElement('button');
+          activeBtn.className = 'min-h-[44px] px-4 py-2 rounded-lg border border-blue-700 text-blue-300 hover:bg-blue-900/30 transition-colors text-sm';
+          activeBtn.textContent = route.active ? 'Désactiver' : 'Activer';
+          activeBtn.addEventListener('click', async () => {
+            await fetchJson(`/api/travel-routes/${route.id}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ active: !route.active, waypoint_ids: route.waypoint_ids, name: route.name }),
+              headers: { 'Content-Type': 'application/json' }
+            });
+            await loadRoutes();
+            if (state.editingRouteId === route.id) {
+              const latest = state.travelRoutes.find(entry => entry.id === route.id);
+              if (latest) fillRouteForm(latest);
+            }
+          });
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'min-h-[44px] px-4 py-2 rounded-lg border border-red-700 text-red-300 hover:bg-red-900/30 transition-colors text-sm';
+          delBtn.textContent = 'Supprimer';
+          delBtn.addEventListener('click', async () => {
+            if (!window.confirm(`Supprimer l’itinéraire ${route.name} ?`)) return;
+            await fetchJson(`/api/travel-routes/${route.id}`, { method: 'DELETE' });
+            await loadRoutes();
+            if (state.editingRouteId === route.id) resetRouteForm();
+          });
+
+          actions.append(editBtn, activeBtn, delBtn);
+          card.appendChild(actions);
+        }
+
+        list.appendChild(card);
+      }
+    }
+
+    function resolvePerilsTargetRoute() {
+      if (!state.travelRoutes.length) return null;
+      if (state.selectedPerilsRouteId) {
+        const same = state.travelRoutes.find(route => route.id === state.selectedPerilsRouteId);
+        if (same) return same;
+      }
+      return state.travelRoutes.find(route => route.active) || state.travelRoutes[0];
+    }
+
+    function renderRoutePerils() {
+      const targetRoute = resolvePerilsTargetRoute();
+      const empty = $('perils-empty');
+      const list = $('perils-list');
+      list.innerHTML = '';
+
+      if (!targetRoute) {
+        state.selectedPerilsRouteId = null;
+        $('route-perils-subtitle').textContent = 'Sélectionnez un itinéraire pour afficher ses périls.';
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      state.selectedPerilsRouteId = targetRoute.id;
+      $('route-perils-subtitle').textContent = `Itinéraire: ${targetRoute.name}`;
+
+      if (!state.routePerils.length) {
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      empty.classList.add('hidden');
+
+      for (const peril of state.routePerils) {
+        const card = document.createElement('article');
+        card.className = 'rounded-lg border border-gray-700 bg-gray-900 p-3 space-y-3';
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-xs text-gray-500">Segment ${peril.segment_index}</p>
+              <h4 class="text-sm font-semibold text-gray-100">${escapeHtml(peril.type)}</h4>
+              <p class="text-xs text-gray-400">Difficulté: ${escapeHtml(peril.difficulty || 'N/A')}</p>
+            </div>
+            <span class="text-xs ${peril.is_manual ? 'text-emerald-300' : 'text-amber-300'}">${peril.is_manual ? 'Manuel' : 'Généré'}</span>
+          </div>
+        `;
+
+        if (canEditAsMj()) {
+          const editor = document.createElement('textarea');
+          editor.className = 'w-full min-h-[88px] bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm';
+          editor.value = peril.custom_text || peril.description || '';
+
+          const actions = document.createElement('div');
+          actions.className = 'flex flex-wrap gap-2';
+
+          const saveBtn = document.createElement('button');
+          saveBtn.className = 'min-h-[44px] px-3 py-2 rounded-lg border border-blue-600 text-blue-300 hover:bg-blue-900/20 text-sm';
+          saveBtn.textContent = 'Enregistrer';
+          saveBtn.addEventListener('click', async () => {
+            await fetchJson(`/api/travel-routes/${state.selectedPerilsRouteId}/perils/${peril.id}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ custom_text: editor.value.trim() }),
+              headers: { 'Content-Type': 'application/json' }
+            });
+            await loadRoutePerils();
+          });
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'min-h-[44px] px-3 py-2 rounded-lg border border-red-700 text-red-300 hover:bg-red-900/20 text-sm';
+          delBtn.textContent = 'Supprimer';
+          delBtn.addEventListener('click', async () => {
+            await fetchJson(`/api/travel-routes/${state.selectedPerilsRouteId}/perils/${peril.id}`, { method: 'DELETE' });
+            await loadRoutePerils();
+          });
+
+          actions.append(saveBtn, delBtn);
+          card.append(editor, actions);
+        } else {
+          const text = document.createElement('p');
+          text.className = 'text-sm text-gray-200 whitespace-pre-wrap';
+          text.textContent = peril.custom_text || peril.description || 'Sans description';
+          card.appendChild(text);
+        }
+
+        list.appendChild(card);
+      }
+    }
+
+    function perilIcon(peril) {
+      if (peril?.is_manual) return '✍️';
+      if (String(peril?.type || '').toLowerCase().includes('pirat')) return '🏴‍☠️';
+      if (String(peril?.type || '').toLowerCase().includes('panne')) return '🛠️';
+      if (String(peril?.type || '').toLowerCase().includes('astro')) return '☄️';
+      return '⚠️';
+    }
+
+    function renderPlayerJournal() {
+      if (!isPlayerView()) return;
+
+      const itinerary = state.sharedItinerary || { active_route: null, ships: [], perils: [] };
+      const activeRoute = itinerary.active_route;
+      const ships = Array.isArray(itinerary.ships) ? itinerary.ships : [];
+      const perils = Array.isArray(itinerary.perils) ? itinerary.perils : [];
+
+      const empty = $('journal-empty');
+      const subtitle = $('journal-subtitle');
+      const shipBox = $('journal-ships');
+      const timeline = $('journal-timeline');
+
+      shipBox.innerHTML = '';
+      timeline.innerHTML = '';
+
+      if (!activeRoute) {
+        subtitle.textContent = 'Aucun itinéraire en cours';
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      empty.classList.add('hidden');
+      subtitle.textContent = `Itinéraire actif: ${activeRoute.name}`;
+
+      const shipsCard = document.createElement('div');
+      shipsCard.className = 'rounded-lg border border-slate-700 bg-slate-950/60 p-3';
+      shipsCard.innerHTML = `
+        <p class="text-xs text-slate-400 mb-2">Vaisseaux visibles</p>
+        <ul class="space-y-1 text-sm text-slate-200">
+          ${ships.length
+            ? ships.map(ship => `<li>🚀 ${escapeHtml(ship.name)}</li>`).join('')
+            : '<li class="text-slate-500">Aucun vaisseau visible</li>'}
+        </ul>
+      `;
+      shipBox.appendChild(shipsCard);
+
+      const waypointNames = (activeRoute.waypoint_ids || []).map(getSystemName);
+      waypointNames.forEach((name, index) => {
+        const segmentPerils = perils.filter(p => Number(p.segment_index) === index);
+        const block = document.createElement('article');
+        block.className = 'rounded-lg border border-slate-700 bg-slate-950/60 p-3 space-y-2';
+        const from = index === 0 ? 'Départ' : waypointNames[index - 1];
+        const to = name;
+
+        block.innerHTML = `
+          <p class="text-xs text-slate-500">Étape ${index + 1}</p>
+          <p class="text-sm text-slate-200">${escapeHtml(from)} → ${escapeHtml(to)}</p>
+        `;
+
+        const perilList = document.createElement('ul');
+        perilList.className = 'space-y-1 text-sm';
+        if (!segmentPerils.length) {
+          perilList.innerHTML = '<li class="text-slate-500">Aucun péril révélé pour cette étape.</li>';
+        } else {
+          perilList.innerHTML = segmentPerils.map(peril => `
+            <li class="text-slate-200">${perilIcon(peril)} ${escapeHtml(peril.custom_text || peril.description || peril.type)}</li>
+          `).join('');
+        }
+
+        block.appendChild(perilList);
+        timeline.appendChild(block);
+      });
+    }
+
+    async function handleSyncData(syncData) {
+      if (!syncData) return;
+      state.sharedItinerary = syncData.itinerary || null;
+      renderPlayerJournal();
+    }
+
+    function restartSyncPoller() {
+      if (state.poller && typeof state.poller.stop === 'function') {
+        state.poller.stop();
+      }
+
+      state.poller = createPoller({
+        url: state.previewMode ? '/api/preview/sync' : '/api/sync',
+        intervalMs: 4000,
+        backgroundIntervalMs: 30000,
+        enableErrorBackoff: true,
+        retryBaseMs: 1000,
+        retryMaxMs: 30000,
+        onPollStart: () => {
+          state.networkSyncing = true;
+          refreshConnectionIndicator();
+        },
+        onData: async (syncData) => {
+          state.networkSyncing = false;
+          state.networkPollFailureCount = 0;
+          state.networkLastPollTime = Date.now();
+          await handleSyncData(syncData);
+          if (syncData?.itinerary?.active_route?.id) {
+            const activeId = syncData.itinerary.active_route.id;
+            const current = state.travelRoutes.find(route => route.id === activeId);
+            if (current) {
+              state.selectedPerilsRouteId = activeId;
+            }
+          }
+          refreshConnectionIndicator();
+        },
+        onError: () => {
+          state.networkSyncing = false;
+          state.networkPollFailureCount += 1;
+          refreshConnectionIndicator();
+        },
+        onReconnect: async () => {
+          state.networkSyncing = false;
+          state.networkPollFailureCount = 0;
+          state.networkLastPollTime = Date.now();
+          if (state.previewMode) {
+            refreshConnectionIndicator();
+            return;
+          }
+          const replaySummary = deferredQueue.pendingCount() > 0
+            ? await deferredQueue.drainNow({ stopOnError: true, reason: 'reconnect' })
+            : { flushed: 0, failed: 0, stoppedOnError: false };
+          await loadShips();
+          await loadRoutes();
+          await handleSyncData(await fetchJson(state.previewMode ? '/api/preview/sync' : '/api/sync'));
+          refreshConnectionIndicator();
+          if (replaySummary.flushed > 0) {
+            window.alert(`${replaySummary.flushed} action${replaySummary.flushed > 1 ? 's' : ''} hors ligne synchronisée${replaySummary.flushed > 1 ? 's' : ''}.`);
+          }
+          if (replaySummary.failed > 0) {
+            window.alert('Une action différée n’a pas pu être rejouée. Les données serveur ont été rechargées.');
+          }
+          if (replaySummary.retained > 0) {
+            window.alert(`${replaySummary.retained} action${replaySummary.retained > 1 ? 's' : ''} reste${replaySummary.retained > 1 ? 'nt' : ''} en attente réseau.`);
+          }
+          if (state.networkWasOffline) {
+            state.networkWasOffline = false;
+            showNetworkToast();
+          }
+        }
+      });
+
+      state.poller.start();
+    }
+
+    async function setPreviewMode(active) {
+      if (!state.isMj) return;
+      if (state.previewMode === active) return;
+      state.previewMode = active;
+      setPreviewChrome(active);
+      renderTableState();
+      renderShips();
+      renderRoutes();
+      renderRoutePerils();
+      renderPlayerJournal();
+      restartSyncPoller();
+      await handleSyncData(await fetchJson(active ? '/api/preview/sync' : '/api/sync'));
+    }
+
+    async function loadShips() {
+      state.ships = await fetchJson('/api/ships');
+      renderShips();
+    }
+
+    async function loadShipModels() {
+      state.shipModels = await fetchJson('/api/ship-models');
+      populateShipModels();
+    }
+
+    async function loadSystems() {
+      state.systems = await fetchJson('/api/systems');
+      renderSystemPicker();
+      renderRouteDraft();
+      renderRoutes();
+    }
+
+    async function loadRoutes() {
+      state.travelRoutes = await fetchJson('/api/travel-routes');
+      renderRoutes();
+      const targetRoute = resolvePerilsTargetRoute();
+      state.selectedPerilsRouteId = targetRoute?.id || null;
+      await loadRoutePerils();
+    }
+
+    async function loadRoutePerils() {
+      const targetRoute = resolvePerilsTargetRoute();
+      if (!targetRoute) {
+        state.routePerils = [];
+        renderRoutePerils();
+        return;
+      }
+      state.selectedPerilsRouteId = targetRoute.id;
+      state.routePerils = await fetchJson(`/api/travel-routes/${targetRoute.id}/perils`);
+      renderRoutePerils();
+    }
+
+    async function generatePerilsForSelectedRoute() {
+      assertWritableMj();
+      const targetRoute = resolvePerilsTargetRoute();
+      if (!targetRoute) throw new Error('Aucun itinéraire disponible.');
+      await fetchJson(`/api/travel-routes/${targetRoute.id}/perils/generate`, { method: 'POST' });
+      await loadRoutePerils();
+    }
+
+    async function addManualPerilToSelectedRoute() {
+      assertWritableMj();
+      const targetRoute = resolvePerilsTargetRoute();
+      if (!targetRoute) throw new Error('Aucun itinéraire disponible.');
+
+      const segmentIndex = Number($('perils-manual-segment').value || 0);
+      const customText = $('perils-manual-text').value.trim();
+      if (!Number.isInteger(segmentIndex) || segmentIndex < 1) throw new Error('Segment invalide.');
+      if (!customText) throw new Error('Description manuelle requise.');
+
+      await fetchJson(`/api/travel-routes/${targetRoute.id}/perils`, {
+        method: 'POST',
+        body: JSON.stringify({ segment_index: segmentIndex, custom_text: customText }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      $('perils-manual-text').value = '';
+      await loadRoutePerils();
+    }
+
+    async function setPerilsVisibilityForSelectedRoute(visible) {
+      assertWritableMj();
+      const targetRoute = resolvePerilsTargetRoute();
+      if (!targetRoute) throw new Error('Aucun itinéraire disponible.');
+      await fetchJson(`/api/visibility/route_perils/${targetRoute.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ visible }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      await loadRoutePerils();
+      await handleSyncData(await fetchJson(state.previewMode ? '/api/preview/sync' : '/api/sync'));
+    }
+
+    function collectShipPayload() {
+      return {
+        name: $('ship-name').value.trim(),
+        model_id: $('ship-model').value || null,
+        hull: Number($('ship-hull').value || 0),
+        crew: Number($('ship-crew').value || 0),
+        cargo_capacity: Number($('ship-cargo').value || 0),
+        notes: $('ship-notes').value.trim()
+      };
+    }
+
+    function getItineraryQueueStorageKey() {
+      const tableId = getActiveTableId();
+      return tableId ? `mj-offline-queue:itineraire:${tableId}` : '';
+    }
+
+    function buildDeferredItineraryEntry(config) {
+      return {
+        label: config.label,
+        payload: config.payload,
+        createdAt: config.createdAt,
+        retainCount: config.retainCount || 0,
+        onOptimisticApply: config.onOptimisticApply,
+        onOptimisticRollback: config.onOptimisticRollback,
+        onCommitError: config.onCommitError
+      };
+    }
+
+    function hydrateDeferredItineraryEntry(record) {
+      const now = Date.now();
+      const createdAt = Number(record?.createdAt || 0);
+
+      if (record?.payload?.kind === 'ship-visibility') {
+        if (!record.payload.shipId) return null;
+        if (typeof record.payload.visible !== 'boolean') return null;
+        return buildDeferredItineraryEntry({
+          label: record.label,
+          payload: record.payload,
+          createdAt: record.createdAt,
+          retainCount: record.retainCount,
+          onCommitError: async () => {
+            await loadShips();
+          }
+        });
+      }
+
+      if (record?.payload?.kind === 'route-waypoint-remove') {
+        if (!record.payload.routeId) return null;
+        if (!Array.isArray(record.payload.nextWaypointIds)) return null;
+        // Destructive actions are not replayed if they are stale after a long disconnect.
+        if (createdAt > 0 && now - createdAt > 2 * 60 * 60 * 1000) return null;
+        return buildDeferredItineraryEntry({
+          label: record.label,
+          payload: record.payload,
+          createdAt: record.createdAt,
+          retainCount: record.retainCount,
+          onCommitError: async () => {
+            await loadRoutes();
+            const latest = state.travelRoutes.find(entry => entry.id === record.payload.routeId);
+            if (latest && state.editingRouteId === record.payload.routeId) {
+              fillRouteForm(latest);
+            }
+          }
+        });
+      }
+
+      return null;
+    }
+
+    const deferredQueue = createDeferredCommitQueue({
+      delayMs: 8000,
+      maxPending: 3,
+      persistenceKey: getItineraryQueueStorageKey(),
+      hydrateEntry: hydrateDeferredItineraryEntry,
+      canAttemptCommit: () => getNetworkStatus() !== 'offline' && getNetworkStatus() !== 'offline-long',
+      retainOnCommitError: (_entry, err) => {
+        const offline = getNetworkStatus() === 'offline' || getNetworkStatus() === 'offline-long';
+        return offline || isTransientCommitError(err);
+      },
+      onStateChange: (snapshot) => {
+        $('visibility-toast').classList.toggle('hidden', snapshot.pendingCount === 0);
+        if (snapshot.latest) {
+          $('visibility-toast-title').textContent = snapshot.latest.label;
+          $('visibility-toast-sub').textContent = snapshot.collapsedCount > 0
+            ? `${snapshot.collapsedCount} autre${snapshot.collapsedCount > 1 ? 's' : ''} action${snapshot.collapsedCount > 1 ? 's' : ''} annulable${snapshot.collapsedCount > 1 ? 's' : ''}`
+            : 'Annulable pendant 8 secondes';
+        }
+      },
+      commitFn: async (entry) => {
+        if (entry.payload.kind === 'ship-visibility') {
+          await fetchJson(`/api/visibility/ships/${entry.payload.shipId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ visible: entry.payload.visible }),
+            headers: { 'Content-Type': 'application/json' }
+          });
+          await loadShips();
+          return;
+        }
+
+        if (entry.payload.kind === 'route-waypoint-remove') {
+          await fetchJson(`/api/travel-routes/${entry.payload.routeId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              name: entry.payload.routeName,
+              active: entry.payload.routeActive,
+              waypoint_ids: entry.payload.nextWaypointIds
+            }),
+            headers: { 'Content-Type': 'application/json' }
+          });
+          await loadRoutes();
+          if (state.editingRouteId === entry.payload.routeId) {
+            const latest = state.travelRoutes.find(route => route.id === entry.payload.routeId);
+            if (latest) fillRouteForm(latest);
+          }
+        }
+      }
+    });
+
+    const restoredDeferred = deferredQueue.restorePersisted();
+    if (restoredDeferred.discarded > 0) {
+      window.alert('Une action différée invalide a été ignorée après rechargement.');
+    }
+
+    function scheduleVisibilityToggle(ship) {
+      const targetVisible = !ship.visible;
+      const previousVisible = ship.visible;
+
+      deferredQueue.enqueue(buildDeferredItineraryEntry({
+        label: `${targetVisible ? 'Révéler' : 'Masquer'} ${ship.name}`,
+        payload: { kind: 'ship-visibility', shipId: ship.id, visible: targetVisible },
+        onOptimisticApply: () => {
+          ship.visible = targetVisible;
+          renderShips();
+        },
+        onOptimisticRollback: () => {
+          ship.visible = previousVisible;
+          renderShips();
+        },
+        onCommitError: async () => {
+          await loadShips();
+        }
+      }));
+    }
+
+    function scheduleWaypointRemoval(index) {
+      const route = state.travelRoutes.find(entry => entry.id === state.editingRouteId);
+      if (!route) return;
+
+      const previousWaypointIds = [...state.routeDraftIds];
+      const nextWaypointIds = state.routeDraftIds.filter((_, itemIndex) => itemIndex !== index);
+
+      deferredQueue.enqueue(buildDeferredItineraryEntry({
+        label: `Retirer ${getSystemName(previousWaypointIds[index])}`,
+        payload: {
+          kind: 'route-waypoint-remove',
+          routeId: route.id,
+          routeName: $('route-name').value.trim() || route.name,
+          routeActive: $('route-active').checked,
+          nextWaypointIds
+        },
+        onOptimisticApply: () => {
+          state.routeDraftIds = [...nextWaypointIds];
+          const match = state.travelRoutes.find(entry => entry.id === route.id);
+          if (match) match.waypoint_ids = [...nextWaypointIds];
+          renderRouteDraft();
+          renderRoutes();
+        },
+        onOptimisticRollback: () => {
+          state.routeDraftIds = [...previousWaypointIds];
+          const match = state.travelRoutes.find(entry => entry.id === route.id);
+          if (match) match.waypoint_ids = [...previousWaypointIds];
+          renderRouteDraft();
+          renderRoutes();
+        },
+        onCommitError: async () => {
+          await loadRoutes();
+          const latest = state.travelRoutes.find(entry => entry.id === route.id);
+          if (latest) fillRouteForm(latest);
+        }
+      }));
+    }
+
+    async function saveShip() {
+      assertWritableMj();
+      $('ship-form-error').classList.add('hidden');
+      try {
+        const payload = collectShipPayload();
+        if (!payload.name) throw new Error('Le nom du vaisseau est requis.');
+
+        if (state.editingShipId) {
+          await fetchJson(`/api/ships/${state.editingShipId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } else {
+          await fetchJson('/api/ships', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        resetShipForm();
+        await loadShips();
+      } catch (err) {
+        $('ship-form-error').textContent = err.message || 'Impossible d’enregistrer le vaisseau.';
+        $('ship-form-error').classList.remove('hidden');
+      }
+    }
+
+    async function saveRoute() {
+      assertWritableMj();
+      $('route-form-error').classList.add('hidden');
+      try {
+        const payload = {
+          name: $('route-name').value.trim(),
+          active: $('route-active').checked,
+          waypoint_ids: [...state.routeDraftIds]
+        };
+
+        if (!payload.name) throw new Error('Le nom de l’itinéraire est requis.');
+        if (payload.waypoint_ids.length < 2) throw new Error('Ajoutez au moins 2 systèmes à l’itinéraire.');
+
+        if (state.editingRouteId) {
+          await fetchJson(`/api/travel-routes/${state.editingRouteId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } else {
+          await fetchJson('/api/travel-routes', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        await loadRoutes();
+        resetRouteForm();
+      } catch (err) {
+        $('route-form-error').textContent = err.message || 'Impossible d’enregistrer l’itinéraire.';
+        $('route-form-error').classList.remove('hidden');
+      }
+    }
+
+    async function bootstrap() {
+      state.currentUser = await initAuthUI();
+      if (!state.currentUser) {
+        window.location.href = '/login.html';
+        return;
+      }
+
+      $('change-table-btn').addEventListener('click', () => {
+        clearActiveTable();
+        state.currentTable = null;
+        renderTableState();
+        renderTableSelector('table-selector-root', () => window.location.reload());
+      });
+
+      $('ship-save-btn').addEventListener('click', () => void saveShip());
+      $('ship-cancel-btn').addEventListener('click', resetShipForm);
+      $('route-save-btn').addEventListener('click', () => void saveRoute());
+      $('route-cancel-btn').addEventListener('click', resetRouteForm);
+      $('route-clear-btn').addEventListener('click', () => {
+        state.routeDraftIds = [];
+        renderRouteDraft();
+      });
+      $('perils-reveal-btn').addEventListener('click', async () => {
+        try {
+          await setPerilsVisibilityForSelectedRoute(true);
+        } catch (err) {
+          window.alert(err.message || 'Impossible de révéler les périls.');
+        }
+      });
+      $('perils-hide-btn').addEventListener('click', async () => {
+        try {
+          await setPerilsVisibilityForSelectedRoute(false);
+        } catch (err) {
+          window.alert(err.message || 'Impossible de masquer les périls.');
+        }
+      });
+      $('perils-generate-btn').addEventListener('click', async () => {
+        try {
+          await generatePerilsForSelectedRoute();
+        } catch (err) {
+          window.alert(err.message || 'Impossible de générer les périls.');
+        }
+      });
+      $('perils-manual-add-btn').addEventListener('click', async () => {
+        try {
+          await addManualPerilToSelectedRoute();
+        } catch (err) {
+          window.alert(err.message || 'Impossible d’ajouter le péril manuel.');
+        }
+      });
+      $('routes-create-cta').addEventListener('click', resetRouteForm);
+      $('routes-empty-cta').addEventListener('click', resetRouteForm);
+      $('visibility-undo-btn').addEventListener('click', () => deferredQueue.undoLatest());
+
+      if (state.isMj) {
+        $('preview-toggle-btn').classList.remove('hidden');
+        $('preview-toggle-btn').addEventListener('click', async () => {
+          await setPreviewMode(!state.previewMode);
+        });
+        $('preview-exit-btn').addEventListener('click', async () => {
+          await setPreviewMode(false);
+        });
+      }
+
+      $('ship-model').addEventListener('change', () => {
+        const option = $('ship-model').selectedOptions[0];
+        if (!option || !option.value) return;
+        $('ship-hull').value = Number(option.dataset.hull || 0);
+        $('ship-crew').value = Number(option.dataset.crew || 0);
+        $('ship-cargo').value = Number(option.dataset.cargo || 0);
+      });
+
+      await loadTableContext();
+      renderTableState();
+
+      if (!state.currentTable) {
+        await renderTableSelector('table-selector-root', () => window.location.reload());
+        return;
+      }
+
+      await Promise.all([
+        loadShips(),
+        loadShipModels(),
+        loadSystems(),
+        loadRoutes()
+      ]);
+
+      if (restoredDeferred.restored > 0) {
+        $('visibility-toast').classList.remove('hidden');
+        $('visibility-toast-title').textContent = `${restoredDeferred.restored} action${restoredDeferred.restored > 1 ? 's' : ''} restaurée${restoredDeferred.restored > 1 ? 's' : ''}`;
+        $('visibility-toast-sub').textContent = 'En attente de reconnexion pour replay automatique';
+      }
+
+      restartSyncPoller();
+      await handleSyncData(await fetchJson('/api/sync'));
+      state.networkLastPollTime = Date.now();
+      refreshConnectionIndicator();
+      setInterval(refreshConnectionIndicator, 1000);
+
+      resetShipForm();
+      resetRouteForm();
+      renderPlayerJournal();
+    }
+
+    await bootstrap();
+  </script>
+</body>
+</html>
