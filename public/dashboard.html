@@ -207,7 +207,7 @@
     import { initAuthUI } from '/js/shared/auth-ui.js';
     import { createPoller } from '/js/shared/poller.js';
     import { createDeferredCommitQueue } from '/js/shared/deferred-commit.js';
-    import { getActiveTableId } from '/js/shared/table-selector.js';
+    import { getActiveTableId, fetchWithTable } from '/js/shared/table-selector.js';
 
     const $ = id => document.getElementById(id);
     let sessionActive = false;
@@ -299,7 +299,7 @@
     // Vérifier le rôle via l'API dashboard — si 403, c'est un joueur
     async function loadDashboardData() {
       try {
-        const res = await fetch('/api/dashboard', { credentials: 'include' });
+        const res = await fetchWithTable('/api/dashboard', { credentials: 'include' });
 
         if (res.status === 403) {
           window.location.href = '/index.html';
@@ -398,7 +398,7 @@
       $('session-toggle-error').classList.add('hidden');
       try {
         const target = !sessionActive;
-        const res = await fetch('/api/dashboard/session-active', {
+        const res = await fetchWithTable('/api/dashboard/session-active', {
           method: 'PATCH',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
@@ -474,7 +474,7 @@
       $('search-clear').classList.remove('hidden');
 
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { credentials: 'include' });
+        const res = await fetchWithTable(`/api/search?q=${encodeURIComponent(query)}`, { credentials: 'include' });
         if (!res.ok) return;
         const { data } = await res.json();
         renderSearchResults(Array.isArray(data) ? data : [], query);
@@ -534,7 +534,7 @@
     }
 
     async function sendBulkRequest(payload, { keepalive = false } = {}) {
-      const res = await fetch('/api/visibility/bulk', {
+      const res = await fetchWithTable('/api/visibility/bulk', {
         method: 'POST',
         credentials: 'include',
         keepalive,
