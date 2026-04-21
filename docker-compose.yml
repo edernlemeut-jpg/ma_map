@@ -1,0 +1,13 @@
+services:
+  metal-adventures:
+    build: .
+    ports:
+      - "3200:3000"
+    volumes:
+      - ./db:/app/db
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET}
+      - DB_PATH=./db/ma.db
+      - PORT=3000
+    restart: unless-stopped
