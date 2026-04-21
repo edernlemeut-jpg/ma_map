@@ -1,0 +1,110 @@
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import db from '../src/database.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const root = resolve(__dirname, '..');
+
+function loadJSON(relPath) {
+  return JSON.parse(readFileSync(resolve(root, relPath), 'utf-8'));
+}
+
+function seed() {
+  console.log('🌱 Seeding database...');
+
+  seedSystems();
+  seedPerils();
+  seedGalacticEvents();
+
+  console.log('✅ Seed complete');
+}
+
+function seedSystems() {
+  const existing = db.prepare('SELECT COUNT(*) AS c FROM systems').get().c;
+  if (existing > 0) {
+    console.log(`  ⏭️  systems: ${existing} rows already exist — skipping`);
+    return;
+  }
+
+  const data = loadJSON('quadrants_MA.json');
+  const factions = new Set();
+
+  const insertSystem = db.prepare(`
+    INSERT INTO systems (quadrant, nom, faction, is_frontiere, route, gouvernement, description, soleil_json, corps_celestes_json, patrouilles_json)
+    VALUES (@quadrant, @nom, @faction, @is_frontiere, @route, @gouvernement, @description, @soleil_json, @corps_celestes_json, @patrouilles_json)
+  `);
+
+  const insertMany = db.transaction(() => {
+    let count = 0;
+    for (const [quadrant, systems] of Object.entries(data)) {
+      for (const sys of systems) {
+        if (sys.faction) factions.add(sys.faction);
+        insertSystem.run({
+          quadrant,
+          nom: sys.nom || '',
+          faction: sys.faction || '',
+          is_frontiere: sys.isFrontiere ? 1 : 0,
+          route: sys.route || '',
+          gouvernement: sys.gouvernement || '',
+          description: sys.description || '',
+          soleil_json: JSON.stringify(sys.soleil || {}),
+          corps_celestes_json: JSON.stringify(sys.corpsCelestes || []),
+          patrouilles_json: JSON.stringify(sys.patrouilles || [])
+        });
+        count++;
+      }
+    }
+    console.log(`  ✅ systems: ${count} rows inserted`);
+  });
+
+  insertMany();
+
+  // Seed factions extracted from systems
+  const existingFactions = db.prepare('SELECT COUNT(*) AS c FROM factions').get().c;
+  if (existingFactions === 0 && factions.size > 0) {
+    const insertFaction = db.prepare('INSERT INTO factions (name) VALUES (?)');
+    const insertFactions = db.transaction(() => {
+      for (const name of factions) {
+        insertFaction.run(name);
+      }
+      console.log(`  ✅ factions: ${factions.size} rows inserted`);
+    });
+    insertFactions();
+  }
+}
+
+function seedPerils() {
+  const existing = db.prepare('SELECT COUNT(*) AS c FROM peril_data').get().c;
+  if (existing > 0) {
+    console.log(`  ⏭️  peril_data: ${existing} rows already exist — skipping`);
+    return;
+  }
+
+  const data = loadJSON('perils_data.json');
+
+  const insert = db.prepare('INSERT INTO peril_data (type, data_json) VALUES (?, ?)');
+  const insertMany = db.transaction(() => {
+    let count = 0;
+    for (const [type, value] of Object.entries(data)) {
+      insert.run(type, JSON.stringify(value));
+      count++;
+    }
+    console.log(`  ✅ peril_data: ${count} rows inserted`);
+  });
+
+  insertMany();
+}
+
+function seedGalacticEvents() {
+  // galactic_events stored as notes for now (global reference data)
+  // Will be properly integrated when calendar feature is built
+  try {
+    const data = loadJSON('donnee_base/galactic_events.json');
+    console.log(`  ℹ️  galactic_events: ${data.length} events found (will be used by calendar feature)`);
+  } catch {
+    console.log('  ⏭️  donnee_base/galactic_events.json not found — skipping');
+  }
+}
+
+seed();

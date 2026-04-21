@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Metal Adventures — Import Admin</title>
+  <link rel="stylesheet" href="/css/tailwind.css">
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+  <!-- Header -->
+  <header class="border-b border-gray-700 bg-gray-800">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="text-xl font-bold">
+        <a href="/" class="hover:text-blue-400 transition-colors">⚙️ Metal Adventures</a>
+      </h1>
+      <nav class="flex items-center gap-4 text-sm">
+        <span id="auth-user-info" class="hidden flex items-center gap-3">
+          <span id="auth-user-name" class="text-gray-300"></span>
+          <a href="#" id="auth-logout-btn"
+             class="text-red-400 hover:text-red-300 hover:underline">Déconnexion</a>
+        </span>
+        <a href="/login.html" id="auth-login-link" class="text-blue-400 hover:underline">Connexion</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-2xl mx-auto px-4 py-8 w-full">
+    <h2 class="text-2xl font-bold mb-6">📦 Import de données</h2>
+
+    <div id="auth-gate" class="hidden">
+      <p class="text-red-400 mb-4">Accès réservé aux administrateurs. <a href="/login.html" class="text-blue-400 underline">Connexion</a></p>
+    </div>
+
+    <div id="import-panel" class="hidden space-y-6">
+      <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
+        <p class="text-sm text-gray-400 mb-4">
+          Formats supportés : <code class="text-blue-300">quadrants_MA.json</code>,
+          <code class="text-blue-300">perils_data.json</code>,
+          <code class="text-blue-300">galactic_events.json</code>.
+          Un backup automatique de la base de données est créé avant chaque import.
+        </p>
+
+        <label for="import-file" class="block text-sm font-medium text-gray-300 mb-2">Fichier JSON</label>
+        <input type="file" id="import-file" accept=".json"
+               class="block w-full text-sm text-gray-300 file:mr-4 file:py-3 file:px-4 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:font-medium file:cursor-pointer file:min-h-[44px] hover:file:bg-blue-500 transition-colors">
+
+        <button id="import-btn" disabled
+                class="mt-4 w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg min-h-[44px] transition-colors">
+          Importer
+        </button>
+      </div>
+
+      <!-- Loading -->
+      <div id="import-loading" class="hidden text-center py-6">
+        <p class="text-gray-400 animate-pulse">Import en cours…</p>
+      </div>
+
+      <!-- Report -->
+      <div id="import-report" class="hidden bg-gray-800 border border-gray-700 rounded-lg p-6">
+        <h3 class="text-lg font-semibold mb-4">Rapport d'import</h3>
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div class="text-center">
+            <p class="text-3xl font-bold text-green-400" id="report-imported">0</p>
+            <p class="text-xs text-gray-400">Importés</p>
+          </div>
+          <div class="text-center">
+            <p class="text-3xl font-bold text-yellow-400" id="report-skipped">0</p>
+            <p class="text-xs text-gray-400">Ignorés</p>
+          </div>
+          <div class="text-center">
+            <p class="text-3xl font-bold text-red-400" id="report-errors">0</p>
+            <p class="text-xs text-gray-400">Erreurs</p>
+          </div>
+        </div>
+        <p class="text-sm text-gray-400 mb-2" id="report-format"></p>
+        <div id="report-error-list" class="hidden mt-4">
+          <h4 class="text-sm font-semibold text-red-400 mb-2">Détails des erreurs</h4>
+          <ul id="error-list" class="space-y-1 text-sm text-gray-300 max-h-60 overflow-y-auto"></ul>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    const $ = id => document.getElementById(id);
+
+    function esc(str) {
+      if (str == null) return '';
+      const d = document.createElement('div');
+      d.textContent = String(str);
+      return d.innerHTML;
+    }
+
+    // Auth check
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        const user = json.data;
+        if (!user.is_admin) {
+          $('auth-gate').classList.remove('hidden');
+          $('auth-gate').innerHTML = '<p class="text-red-400">Accès réservé aux administrateurs.</p>';
+          return;
+        }
+        $('auth-user-info').classList.remove('hidden');
+        $('auth-user-name').textContent = user.display_name || user.username;
+        $('auth-login-link').classList.add('hidden');
+        $('import-panel').classList.remove('hidden');
+
+        $('auth-logout-btn').addEventListener('click', async (e) => {
+          e.preventDefault();
+          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+          location.href = '/login.html';
+        });
+      } catch {
+        $('auth-gate').classList.remove('hidden');
+      }
+    }
+
+    let fileData = null;
+
+    $('import-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) {
+        fileData = null;
+        $('import-btn').disabled = true;
+        return;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        alert('Fichier trop volumineux (max 10 Mo)');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          fileData = JSON.parse(reader.result);
+          $('import-btn').disabled = false;
+          $('import-report').classList.add('hidden');
+        } catch {
+          fileData = null;
+          $('import-btn').disabled = true;
+          alert('Fichier JSON invalide');
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    $('import-btn').addEventListener('click', async () => {
+      if (!fileData) return;
+
+      $('import-btn').disabled = true;
+      $('import-loading').classList.remove('hidden');
+      $('import-report').classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/admin/import', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fileData)
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          alert(err?.error?.message || 'Erreur lors de l\'import');
+          return;
+        }
+
+        const json = await res.json();
+        const report = json.data;
+
+        $('report-imported').textContent = report.imported;
+        $('report-skipped').textContent = report.skipped;
+        $('report-errors').textContent = report.errors.length;
+        $('report-format').textContent = `Format détecté : ${esc(report.format || 'inconnu')}`;
+
+        if (report.errors.length > 0) {
+          $('report-error-list').classList.remove('hidden');
+          $('error-list').innerHTML = report.errors.map(e =>
+            `<li class="bg-gray-900 rounded px-3 py-2"><span class="text-red-300 font-medium">${esc(e.entity)}</span> — ${esc(e.reason)}</li>`
+          ).join('');
+        } else {
+          $('report-error-list').classList.add('hidden');
+        }
+
+        $('import-report').classList.remove('hidden');
+      } catch {
+        alert('Erreur réseau');
+      } finally {
+        $('import-loading').classList.add('hidden');
+        $('import-btn').disabled = false;
+      }
+    });
+
+    checkAuth();
+  </script>
+</body>
+</html>

@@ -1,0 +1,932 @@
+{
+  "Π′-37": [],
+  "Ι′-34": [],
+  "Α′-29": [],
+  "Β′-21": [],
+  "Λ′-37": [],
+  "Λ′-35": [],
+  "Λ′-33": [],
+  "Λ′-31": [],
+  "Λ′-29": [],
+  "Λ′-27": [],
+  "Κ′-26": [],
+  "Κ′-25": [],
+  "Μ′-26": [],
+  "Ψ-27": [],
+  "Ω-40": [],
+  "Α′-40": [],
+  "Γ′-40": [],
+  "Π′-40": [],
+  "Κ-8": [
+    {
+      "nom": "Bazaar",
+      "faction": "Barrens",
+      "corpsCelestes": [
+        {
+          "nom": "Calden",
+          "classe": "M",
+          "description": "",
+          "lunes": [
+            {
+              "nom": "Dalnar",
+              "description": "",
+              "lunes": [],
+              "classe": "Satellite"
+            }
+          ]
+        },
+        {
+          "nom": "Bazaar",
+          "classe": "M",
+          "description": "",
+          "lunes": [
+            {
+              "nom": "Torda",
+              "description": "",
+              "lunes": [],
+              "classe": "Satellite"
+            },
+            {
+              "nom": "Malva",
+              "description": "",
+              "lunes": [],
+              "classe": "Satellite"
+            }
+          ]
+        },
+        {
+          "nom": "Katar",
+          "classe": "M",
+          "description": "",
+          "lunes": []
+        },
+        {
+          "nom": "Deenar",
+          "classe": "M",
+          "description": "",
+          "lunes": [
+            {
+              "nom": "Volto",
+              "description": "",
+              "lunes": [],
+              "classe": "Satellite"
+            },
+            {
+              "nom": "Deenar-01",
+              "description": "",
+              "lunes": []
+            }
+          ]
+        },
+        {
+          "nom": "Cloaque",
+          "classe": "Planétoïde",
+          "description": "",
+          "lunes": []
+        },
+        {
+          "nom": "Barossa",
+          "classe": "M",
+          "description": "",
+          "lunes": [
+            {
+              "nom": "Kovar",
+              "description": "",
+              "lunes": [],
+              "classe": "Satellite"
+            }
+          ]
+        }
+      ],
+      "soleil": {
+        "nom": "Losserim",
+        "classe": "Naine jaune",
+        "description": "Face à vous, une gigantesque boule de feu d'un jaune passé envoie quelques décharges solaires maladives. A sa surface, des éruptions solaires se succèdent à un rythme lent. Quelques taches d'un jaune tirant sur  l'orange évoluent sur la sphère jaunâtre, signes probables d'une irréversible déchéance.\n--------------\nLosserim n'est guère dangereux comme soleil. Cependant, aucun vaisseau ne croise dans ses environs, car les habitants du système ne portent aucun intérêt aux phénomènes astrophysiques propres aux étoiles."
+      },
+      "isFrontiere": true,
+      "gouvernement": "Corporatiste",
+      "route": "Route Galactique (+1d)",
+      "patrouilles": [
+        {
+          "cout": "20",
+          "vaisseaux": "Galactic Scout"
+        },
+        {
+          "cout": "30",
+          "vaisseaux": "Galactic Scout + 2 Galactic Escort"
+        }
+      ],
+      "description": "Le système Exxalia est constamment parcouru par des millions de vaisseaux spatiaux, presque tous des vaisseaux de commerce. l[ est rare de passer une journée sans apercevoir un écho radar, même lointain, et un SOS ne reste jamais longtemps sans réponse. Le système est également patrouille par quelques vaisseaux de [a compagnie Galactic ainsi que, selon les rumeurs, par des patrouilles du syndicat. Ces patrouilles suffisent à décourager les pirates et les pillards. Si jamais le système devait être attaqué par une force plus conséquente, les directeurs du système devraient faire appel aux forces de l'OCG des systèmes voisins pour résister. Mais qui aurait intérêt à attaquer l'une des plus grandes planètes marchandes de la Galaxie ?"
+    }
+  ],
+  "Δ′-36": [],
+  "Λ′-24": [
+    {
+      "nom": "Coralia",
+      "faction": "Ligue des Planètes Libres",
+      "corpsCelestes": [],
+      "soleil": {
+        "nom": "Noméa",
+        "classe": "Soleil",
+        "description": ""
+      }
+    }
+  ],
+  "Ψ-1": [],
+  "Ω-1": [],
+  "Ω-3": [
+    {
+      "nom": "Darek",
+      "faction": "Empire Galactique",
+      "corpsCelestes": [],
+      "soleil": {
+        "nom": "Kordat",
+        "description": ""
+      }
+    }
+  ],
+  "Υ-3": [],
+  "Χ-3": [],
+  "Ψ-3": [],
+  "Α′-3": [],
+  "Ζ-3": [],
+  "Ζ-9": [],
+  "Η-9": [],
+  "Δ′-9": [
+    {
+      "nom": "Δ′-9",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ε′-9": [],
+  "Ζ′-9": [
+    {
+      "nom": "Dès",
+      "faction": "Empire Galactique",
+      "corpsCelestes": [],
+      "soleil": {
+        "nom": "Raltyr",
+        "description": ""
+      }
+    }
+  ],
+  "Τ-14": [],
+  "Τ-23": [
+    {
+      "nom": "Destria",
+      "faction": "Empire de Sol",
+      "corpsCelestes": [
+        {
+          "nom": "Nova Supremis",
+          "description": "",
+          "lunes": []
+        }
+      ],
+      "soleil": {}
+    }
+  ],
+  "Ε-21": [
+    {
+      "nom": "Exxalia",
+      "faction": "OCG",
+      "corpsCelestes": [
+        {
+          "nom": "Temesys",
+          "description": "Temesys est une planète inhospitalière, soumise à la chaleur de Losserim et aux caprices de sa tectonique volcanique. Les éruptions y sont fréquentes, et surtout, les conditions climatiques et la composition de la lave font que celle-ci reste chaude et liquide pendant très longtemps. Seuls quelques pionniers osent braver la fournaise de Temesys. Aucun plan d'eau ne permet de s'y poser, hormis le lac protégé de l'astroport.\nAu temps des seigneurs d'Exxalia, Temesys était déjà occupée dans le but d'exploiter ses ressources minières. Cependant, le niveau technologique et les infrastructures de l'époque ne permirent jamais de profiter pleinement du sous-sol de la planète. Ce n'est que lorsque le système rejoignit l'OCG que l'exploitation pu prendre une ampleur industrielle. Plutôt que de gérer directement la chose, Galactic mit en vente des concessions minières, et les pionniers affluèrent sur Temesys pour y faire fortune en vidant son sous-sol.\nTemesys est constituée de plusieurs plaques continentales qui se jouxtent les unes les autres. Il en résulte de grandes chaînes montagneuses qui strient sa surface, des tremblements de terre et des éruptions volcaniques. La géologie de la planète est très bouleversée, et les filons peuvent être détruits par les mouvements des plaques. A l'inverse, il arrive que des gisements affleurent à la surface de la planète suite à un tremblement de terre. Les pionniers sont toujours sur le qui-vive et prêts à se ruer dans les zones encore dépourvues d'occupants légitimes.\nCar Temesys accueille une importante communauté de colons. Celle-ci est concentrée autour de l'astroport, et des lignes de trains blindés partent de celui-ci pour desservir les stations disséminées à la surface de la planète. Ici, tout le monde a un fusil laser à portée de main et les vaisseaux spatiaux sont tous prêts à faire feu. Quand un marchand est ruiné à Exxalia, il vient souvent sur Temesys en espérant se refaire grâce à un gisement affleurant miraculeusement. La planète abrite également quelques centres de recherches scientifiques qui étudient Losserim ou la géologie de la planète. Ils échangent leur savoir-faire technologique contre la protection des pionniers alentour et l'assurance de ne pas être inquiétés.",
+          "lunes": [],
+          "orbite": "0.5",
+          "classe": "M",
+          "diametre": "5",
+          "atmosphere": "Irrespirable",
+          "environnement": "Montagne, Roche (Fournaise)",
+          "gravite": "Normale",
+          "astroport": "Rudimentaire",
+          "securite": "2",
+          "population": "1500000",
+          "techno": "B",
+          "gouvernement": "Corporatiste",
+          "commerce": "Planète pauvre (D+1)",
+          "marchandiseA": "1.5",
+          "marchandiseB": "1.5",
+          "marchandiseC": "1",
+          "illegal": "armes lourdes, armes embarquées, drogues, esclaves",
+          "lieux": [
+            {
+              "nom": "La ligne rouge",
+              "description": "Immatérielle, la ligne rouge est la limite sur la la carte de Temesys au-delà de laquelle les lignes de train et les concessions s'arrêtent. Elle forme un cercle dont Station centrale est le centre. Au-delà, c'est une terre sauvage où les pionniers tuent pour le minerai et où personne ne vous entend crier."
+            },
+            {
+              "nom": "Mont magma",
+              "description": "Il s'agit du plus haut volcan de la planète, culminant à 37 000 mètres d'altitude. Situé dans une zone désormais \"relativement stable\", il entre tout de même régulièrement en éruption. Aucun pionnier ne s'en approche, mais des cadres en mal de sensations fortes vont parfois assister à une éruption \"de près\"."
+            },
+            {
+              "nom": "Station centrale",
+              "description": "C'est le nom de l'astroport local, une bulle de métal dont une partie s'ouvre pour laisser entrer les vaisseaux spatiaux afin qu'ils amerrissent sur le lac artificiel. C'est ici que les mineurs viennent vendre le produit de leur labeur aux marchands spatiaux et acheter l'équipement dont ils ont besoin pour continuer à travailler. Les installations sont rudimentaires et même si on peut s'y déplacer sans combinaison, la chaleur est écrasante."
+            }
+          ],
+          "astroports": [
+            {
+              "type": "Rudimentaire D+1",
+              "nom": "Temesys"
+            }
+          ],
+          "patrouilles": [
+            {
+              "cout": "11",
+              "vaisseaux": "5 mercenaires"
+            },
+            {
+              "cout": "21",
+              "vaisseaux": "10 mercenaires d'élites"
+            }
+          ]
+        },
+        {
+          "nom": "Exxalia",
+          "description": "Exxalia est une planète marchande ultra urbanisée qui vit sous une pluie permanente. Par bien des aspects, c'est une planète idéale de l'OCG : carrefour des routes galactiques, rentable au-delà des espoirs les plus fous, elle est recouverte d'urba-blocs bien optimisés, d'entrepôts toujours pleins et d'astroports toujours en effervescence.\nAu cours de l'âge de métal, Exxalia fut le théâtre de terribles guerres navales. Personne n'en ressortit jamais vainqueur, mais quelques seigneurs décidèrent de s'allier contre tous les autres. Ils se firent appeler \"les seigneurs d'Exxalia\". Grâce à cette alliance, ils redécouvrirent la technologie spatiale et se lancèrent à la conquête du système. Amassant ainsi encore plus de ressources, ils redécouvrirent l'hyperpropulsion (P&P 47). Lorsque le système est intégré à l'OCG, Galactic déménage son siège social ici et réaménage toute la planète en suivant un plan général ultra optimisé.\nLes terres émergées couvrent environ 15 % du globe. Un de ces continents constitue le coeur de la planète : le continent-entrepôt. Dans les masses continentales alentour, Galactic a installé les centres urbains et les installations technologiques : de grandes villes aux bâtiments gris et mornes, aux avenues droites et monotones, et au nuage de pollution omniprésent. Le reste de la planète est un gigantesque réservoir de ressources naturelles. Celles-ci sont presque totalement épuissées, et ces archipels se transforment peu à peu en gigantesques décharges, aussi nocives que radioactives (100 rads). On n'y trouve plus que de vieilles usines abandonnées et des bandes de pillards, héritiers des seigneurs de guerre qui n'ont pas accepté la venue de l'OCG.\nToute l monde sait qu'Exxalia est une planète de complaisance, mais les bénéfices faramineux, et les taxes versées au cartel, lui permettent de conserver ce statut particulier. Ici, on peut y vendre et y acheter presque n'importe quoi, et une bonne bouteille de rhum suffit pour s'acquitter des droits de douane. Il est possible d'y trouver presque toutes les marchandises de la Galaxie, et également la plupart des services : chasseurs de primes, cartes spatiales, explorateurs, hommes de main, etc...",
+          "lunes": [],
+          "lieux": [
+            {
+              "nom": "Exxa-00",
+              "description": "Grosse comme une petite lune, cette gigantesque station orbitale est le principal astroport d'Exxalia. Réservé aux vaisseaux de 10 000 t et plus, c'est elle qui assure l'essentiel des échanges commerciaux. Elle est approvisionné par un flot incessant de navettes."
+            },
+            {
+              "nom": "Exxa-01",
+              "description": "Ici, on peut déclarer des marchandises sans avoir de justificatif, il suffit de payer 1 % supplémentaire. En outre, la détention ou la vente de marchandises illégales n'est punie que d'une amende (5 %), quelle que soit la situation. L'astroport abrite également un comptoir de la Bourse galactique (P&P 41)."
+            },
+            {
+              "nom": "Exxa-02",
+              "description": "L'astroport tout neuf d'Exxalia abrite des installations \"grand luxe\". Le coût du ponton y est doublé, mais il est possible, dans cette halle marchande, d'acheter tous les vaisseaux du Manuel des joueurs, quelle que soit leur nation d'origine."
+            },
+            {
+              "nom": "Siège de Galactic",
+              "description": "Situé au coeur du continent-entrepot, ce gigantesque gratte-ciel abrite également le gouvernement du système. Il est équipé d'une piste d'atterrissage pour navettes et de puissantes défenses aériennes."
+            },
+            {
+              "nom": "Telya (A)",
+              "description": "Cette petite bille de roche déserte abrite le QG des compagnies mercenaires qui surveillent la planète. Son accès est interdit et les mercenaires tirent à vue !"
+            },
+            {
+              "nom": "Le Triple Twister",
+              "description": "Ce bar louche est connu de tous les criminels et vauriens faisant halte à Exxa-01. Le bar est connu pour ses strip-teases de mutantes, dont le nombre de seins a donné son nom à l'établissement"
+            }
+          ],
+          "orbite": "1",
+          "classe": "M",
+          "diametre": "10",
+          "atmosphere": "Respirable",
+          "environnement": "Mer",
+          "gravite": "Normale",
+          "astroport": "Exxa-00 : Standard, Exxa-02 : Première classe (+1d)",
+          "securite": "4",
+          "population": "5000000000",
+          "techno": "B",
+          "gouvernement": "Corporatiste",
+          "commerce": "Carrefour galactique (TF)",
+          "patrouilles": [
+            {
+              "cout": "11",
+              "vaisseaux": "5 mercenaires"
+            },
+            {
+              "cout": "21",
+              "vaisseaux": "10 mercenaires d'élites"
+            }
+          ],
+          "astroports": [
+            {
+              "nom": "Exxa-00",
+              "type": "Standard"
+            },
+            {
+              "nom": "Exxa-02",
+              "type": "Première classe +1d"
+            }
+          ],
+          "marchandiseA": "1",
+          "marchandiseB": "1",
+          "marchandiseC": "1",
+          "illegal": "armes lourdes, armes embarquées, drogues, esclaves"
+        },
+        {
+          "nom": "Aldéna",
+          "description": "Aldéna est une planète inhospitalière, mais au sous-sol riche en ressources minières. Elle motive donc Galactic à envoyer des employés pour exploiter ces trésors, quitte à leur faire vivre un véritable enfer gelé.\nAvant l'intégration à l'OCG, personne ne vivait de façon permanente sur Aldéna. Les troupes des signeurs d'Exxalia venaient en vaisseau, exploitaient les gisements jusqu'à remplir les soutes, puis repartaient avant de mourir de froid. Galactic mit un terme à ce gaspillage d'énergie et ordonna l'installation d'une exploitation minière. Cela se fit en plusieurs étapes, et la première consista à construire des stations orbitales à partir desquelles les colons construisirent l'astroport, puis les exploitations minières de surface. Cette longue phase de colonisation donna naissance à la ceinture de débris qui existe toujours aujourd'hui. Depuis, toutes les installations de l'OCG sont à la surface.\nAldéna est une gigantesque bille blanche dépourvue d'océans : il y fait si froid que la banquise se confond avec les terres émergées, sans jamais risquer de fondre. Toutes les installations humaines sont à moitié enterrées dans de véritables bunkers et on y vit emmitouflé en permanence. L'astroport a été spécialement construit pour abriter sous un dôme un étang chauffé afin d'accueillir les vaisseaux. Il n'existe aucune route sur Aldéna : tout le monde y voyage en navettes spécialement équipées pour lutter contre le froid. De terribles animaux, si forts qu'ils supportent les conditions de vie locales, chassent sur la neige et la banquise.\nLa vie sur Aldéna est une lute perpétuelle et les habitants de cette planète consacrent tout leur temps à leur travail ou à leur survie. La structure corporatiste et le monde du travail sont encore plus présents ici que dans le reste de l'OCG : il n'y a pas de moment pour se détendre. Les habitants d'Aldéna qui ont la vie la plus normale sont ceux qui vivent en orbite : pour \"compléter\" les ravitaillements officiels de Galactic, de nombreux réseaux de contrebande se sont développés et chaque jour, d'innombrables navettes adaptées à la planète partent de stations orbitales clandestines pour apporter leur chargement à la surface.",
+          "lunes": [],
+          "lieux": [
+            {
+              "nom": "Atdérion (A)",
+              "description": "Quelques pionniers ont obtenu des concessions de Galactic et exploitent la surface de ce satellite dépourvu d'atmosphère... et de richesse. Les habitants arrondissent leurs fins de mois en agressant les vaisseaux qui s'y perdent."
+            },
+            {
+              "nom": "Ceinture de débris",
+              "description": "A l'abri dans la nuée de débris qui encercle la planète, des contrebandiers et des criminels ont installé de petites stations orbitales qui servent de relais au marché noir du système. Il existe même des patrouilles qui slaloment entre les débris. C'est un lieu de refuge pour tous les criminels du système. Dans la ceinture, aucune marchandise n'est illégale, mais il faut tout de même utiliser la compétence \"Illégalités\"."
+            },
+            {
+              "nom": "Danya (A)",
+              "description": "Ce satellite est encore utilisé par Galactic comme station d'observation météorologique. En théorie, c'est également d'ici que partent les patrouilles officielles, mais les vaisseaux restent au hangar la plupart du temps."
+            },
+            {
+              "nom": "Dela",
+              "description": "Ce satellite est tellement désert et dépourvu d'intérêt que personne ne s'y est installé."
+            }
+          ],
+          "patrouilles": [
+            {
+              "cout": "13",
+              "vaisseaux": "5 mercenaires"
+            },
+            {
+              "cout": "23",
+              "vaisseaux": "10 mercenaires d'élite"
+            }
+          ],
+          "astroports": [
+            {
+              "nom": "Aldena",
+              "type": "Rudimentaire D+1"
+            }
+          ],
+          "techno": "B",
+          "gouvernement": "Corporatiste",
+          "commerce": "Planète pauvre (D+1)",
+          "marchandiseA": "0",
+          "marchandiseB": "1.5",
+          "marchandiseC": "1",
+          "illegal": "armes lourdes, armes embarquées, drogues, esclaves",
+          "orbite": "23",
+          "classe": "M",
+          "diametre": "25",
+          "population": "1000000000",
+          "gravite": "Normale",
+          "securite": "2"
+        },
+        {
+          "nom": "Meldory",
+          "description": "",
+          "lunes": [
+            {
+              "nom": "Delory (A)",
+              "description": "",
+              "lunes": [],
+              "lieux": [],
+              "patrouilles": [],
+              "astroports": [],
+              "orbite": "25",
+              "diametre": "30",
+              "population": "1000000",
+              "atmosphere": "Irrespirable",
+              "gravite": "Faible (Athlétisme, Acrobatie, Pilotage +1d)",
+              "classe": "Géante gazuse",
+              "techno": "B",
+              "gouvernement": "Corporatiste",
+              "commerce": "Planète primitive (TD)"
+            }
+          ],
+          "lieux": [],
+          "patrouilles": [
+            {
+              "cout": "13",
+              "vaisseaux": "5 mercenaires"
+            },
+            {
+              "cout": "23",
+              "vaisseaux": "10 mercenaires d'élites"
+            }
+          ],
+          "astroports": [
+            {
+              "nom": "Meldory",
+              "type": "Rudimentaire D+1"
+            }
+          ],
+          "atmosphere": "Irrespirable",
+          "gravite": "Faible (Athlétisme, Acrobatie, Pilotage +1d)",
+          "techno": "B",
+          "gouvernement": "Corporatiste",
+          "commerce": "Planète primitive (TD)",
+          "orbite": "42",
+          "classe": "Géante gazeuse",
+          "diametre": "30",
+          "population": "1000000",
+          "securite": "2",
+          "marchandiseA": "1.5",
+          "marchandiseB": "1.5",
+          "marchandiseC": "0",
+          "illegal": "armes lourdes, armes embarquées, drogues, esclaves"
+        }
+      ],
+      "soleil": {
+        "nom": "Losserim",
+        "description": "Face à vous, une gigantesque boule de feu d'un jaune passé envoie quelques décharges solaires maladives. A sa surface, des éruptions solaires se succèdent à un rythme lent. Quelques taches d'un jaune tirant sur  l'orange évoluent sur la sphère jaunâtre, signes probables d'une irréversible déchéance.\n--------------\nLosserim n'est guère dangereux comme soleil. Cependant, aucun vaisseau ne croise dans ses environs, car les habitants du système ne portent aucun intérêt aux phénomènes astrophysiques propres aux étoiles.",
+        "classe": "Naine jaune",
+        "activiteSolaire": [
+          {
+            "distance": "Passer à proximité",
+            "consequence": "8d MF"
+          },
+          {
+            "distance": "2,5 US ou moins",
+            "consequence": "8d MF au début de chaque heure"
+          },
+          {
+            "distance": "500k ou moins",
+            "consequence": "8d MF au début de chaque scène"
+          },
+          {
+            "distance": "125k ou moins",
+            "consequence": "8d MF au début de chaque tour"
+          }
+        ],
+        "diametre": "1200",
+        "distanceSaut": "48"
+      },
+      "patrouilles": [
+        {
+          "cout": "20",
+          "vaisseaux": "Galactic Scout"
+        },
+        {
+          "cout": "30",
+          "vaisseaux": "Galactic Scout + 2 Galactic Escort"
+        }
+      ],
+      "description": "Le système Exxalia est constamment parcouru par des millions de vaisseaux spatiaux, presque tous des vaisseaux de commerce. l[ est rare de passer une journée sans apercevoir un écho radar, même lointain, et un SOS ne reste jamais longtemps sans réponse. Le système est également patrouille par quelques vaisseaux de [a compagnie Galactic ainsi que, selon les rumeurs, par des patrouilles du syndicat. Ces patrouilles suffisent à décourager les pirates et les pillards. Si jamais le système devait être attaqué par une force plus conséquente, les directeurs du système devraient faire appel aux forces de l'OCG des systèmes voisins pour résister. Mais qui aurait intérêt à attaquer l'une des plus grandes planètes marchandes de la Galaxie ?"
+    }
+  ],
+  "Η-18": [
+    {
+      "nom": "Fortune",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Μ-15": [
+    {
+      "nom": "Palace",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ε-13": [
+    {
+      "nom": "E-13",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ξ-10": [
+    {
+      "nom": "Ξ-10",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ρ-14": [
+    {
+      "nom": "Ρ-14",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Τ-7": [
+    {
+      "nom": "Τ-7",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ω-7": [
+    {
+      "nom": "Khargall",
+      "faction": "Empire Galactique",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Λ′-17": [
+    {
+      "nom": "Λ′-17",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Μ′-21": [
+    {
+      "nom": "Π",
+      "faction": "Ligue des Planètes Libres",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ι′-22": [
+    {
+      "nom": "Ι′-22",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ε′-24": [
+    {
+      "nom": "Ε′-24",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Φ-23": [
+    {
+      "nom": "Sol",
+      "faction": "Empire de Sol",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Χ-28": [
+    {
+      "nom": "Χ-28",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Π-28": [
+    {
+      "nom": "Π-28",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Μ-23": [
+    {
+      "nom": "Μ-23",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Α′-20": [
+    {
+      "nom": "Vardessa",
+      "faction": "Empire de Sol",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ζ-28": [],
+  "Η-28": [
+    {
+      "nom": "Karokum",
+      "faction": "Barrens",
+      "corpsCelestes": [],
+      "soleil": {
+        "nom": "Torkana",
+        "description": ""
+      }
+    }
+  ],
+  "Ζ-25": [
+    {
+      "nom": "Sulpira",
+      "faction": "Barrens",
+      "corpsCelestes": [],
+      "soleil": {
+        "nom": "Daltéros",
+        "description": ""
+      }
+    }
+  ],
+  "Α′-18": [],
+  "Α′-19": [],
+  "Ν-33": [
+    {
+      "nom": "Havana",
+      "faction": "Pirates",
+      "corpsCelestes": [
+        {
+          "nom": "Cayo de la muerte",
+          "classe": "M",
+          "orbite": "7 US",
+          "diametre": "17 K",
+          "atmosphere": "Toxique",
+          "environnement": "Montagnes, Roche (Fournaise)",
+          "gravite": "Normale",
+          "astroport": "Aucun",
+          "securite": "0",
+          "population": "0",
+          "techno": "-",
+          "gouvernement": "Aucun",
+          "commerce": "Impossible",
+          "description": "",
+          "lunes": [],
+          "marchandiseA": "0",
+          "marchandiseB": "0",
+          "marchandiseC": "0",
+          "illegal": "Aucune"
+        },
+        {
+          "nom": "Nueva Havana",
+          "classe": "M",
+          "orbite": "10 US",
+          "diametre": "23 K",
+          "atmosphere": "Respirable",
+          "environnement": "Jungle, Mer",
+          "gravite": "Normale",
+          "astroport": "Aucun",
+          "securite": "0",
+          "population": "30 millions",
+          "techno": "C",
+          "gouvernement": "Anarchie",
+          "commerce": "Aucun",
+          "description": "",
+          "lunes": [],
+          "marchandiseA": "0",
+          "marchandiseB": "0",
+          "marchandiseC": "0",
+          "illegal": "Aucune"
+        },
+        {
+          "nom": "Havana",
+          "classe": "M",
+          "orbite": "36 US",
+          "diametre": "12 K",
+          "atmosphere": "Respirable",
+          "environnement": "Jungle, Mer",
+          "gravite": "Normale",
+          "astroport": "Rudimentaire (D+1)",
+          "securite": "0",
+          "population": "70 millions",
+          "techno": "B",
+          "gouvernement": "Anarchie",
+          "commerce": "Planète pauvre (D+1)",
+          "description": "",
+          "lunes": [],
+          "marchandiseA": "0/1",
+          "marchandiseB": "0/1",
+          "marchandiseC": "0/1",
+          "illegal": "Esclaves"
+        },
+        {
+          "nom": "Libertad",
+          "classe": "M",
+          "orbite": "43 US",
+          "diametre": "20 K",
+          "atmosphere": "Respirable",
+          "environnement": "Jungle, Mer, Montagnes",
+          "gravite": "Normale",
+          "astroport": "rudimentaire (D+1)",
+          "securite": "0",
+          "population": "25 millions",
+          "techno": "B",
+          "gouvernement": "Anarchie",
+          "commerce": "planète primitive (TD)",
+          "description": "",
+          "lunes": [],
+          "marchandiseA": "0/1.5",
+          "marchandiseB": "0/1",
+          "marchandiseC": "0/1",
+          "illegal": "Esclaves"
+        },
+        {
+          "nom": "Porto Stellare",
+          "classe": "M",
+          "orbite": "63 US",
+          "diametre": "50 K",
+          "atmosphere": "Respirable",
+          "environnement": "Désert",
+          "gravite": "Forte (D+1)",
+          "astroport": "Standard",
+          "securite": "0",
+          "population": "50000",
+          "techno": "B",
+          "gouvernement": "Anarchie",
+          "commerce": "planète pauvre (D+1)",
+          "description": "",
+          "lunes": [],
+          "marchandiseA": "0/1.5",
+          "marchandiseB": "0/1",
+          "marchandiseC": "0/1",
+          "illegal": "Esclaves"
+        }
+      ],
+      "soleil": {
+        "nom": "Ligero",
+        "description": ""
+      },
+      "limiteSaut": {
+        "distance": "69 US"
+      }
+    }
+  ],
+  "Λ-32": [],
+  "Μ-32": [],
+  "Ω-29": [],
+  "Π-27": [],
+  "Λ-36": [],
+  "Λ-31": [],
+  "Μ-31": [],
+  "Ν-31": [],
+  "Η-33": [],
+  "Μ-34": [],
+  "Φ-33": [],
+  "Ο-26": [],
+  "Ν-27": [],
+  "Λ-27": [],
+  "Ν-25": [],
+  "Μ-25": [],
+  "Ο-28": [],
+  "Ε-20": [],
+  "Ζ-24": [],
+  "Ζ-26": [],
+  "Θ-25": [],
+  "Θ-26": [],
+  "Ι-26": [],
+  "Ι-25": [],
+  "Λ-26": [],
+  "Κ-27": [],
+  "Ι-27": [],
+  "Η-29": [],
+  "Θ-27": [
+    {
+      "nom": "Tchagaan",
+      "faction": "Empire Galactique",
+      "isFrontiere": true,
+      "route": "Hors des routes(D+1)",
+      "gouvernement": "Dictature",
+      "description": "Le système Tchagaan est une anomalie historique et stratégique. Autrefois un monde isolé aux confins des Barrens, il est récemment tombé sous le joug de l'Empire Galactique suite à la découverte d'un gisement massif de Nuurium, un minerai rare et vital. La population locale, les Delkhiiens, une civilisation au seuil de son âge industriel et à la forte tradition guerrière, a été brutalement asservie. La planète est aujourd'hui une colonie d'exploitation militarisée, un point de tension majeur où la fierté d'un peuple brisé couve sous la botte de fer de l'Empire.   \n\nLes légendes locales peuvent révéler une ancienne civilisation de \"Précurseurs\", les Altan Gadas, qui auraient laissé des ruines sur plusieurs mondes du système. Ces vestiges sont désormais des zones d'intérêt prioritaires pour le département de xéno-archéologie de l'Empire.",
+      "patrouilles": [
+        {
+          "cout": "5",
+          "vaisseaux": "1 frégate et 6 chasseurs"
+        }
+      ],
+      "soleil": {
+        "nom": "Tchagaan",
+        "description": "Une naine orange mature et stable, source de toute vie sur Delkhii.",
+        "diametre": "1000",
+        "distanceSaut": "80",
+        "activiteSolaire": [
+          {
+            "distance": "",
+            "consequence": ""
+          },
+          {
+            "distance": "",
+            "consequence": ""
+          },
+          {
+            "distance": "",
+            "consequence": ""
+          }
+        ],
+        "classe": "Naine jaune"
+      },
+      "corpsCelestes": [
+        {
+          "nom": "Gal",
+          "description": "Votre vaisseau frôle un monde coupé en deux. D'un côté, un océan de magma en fusion lente sous le regard implacable de Tchagaan. De l'autre, une nuit de glace et de silence absolu. Entre les deux, dans une bande crépusculaire balayée par des vents de roche en fusion, des formes géométriques parfaites, à l'échelle de continents, sont visibles sous la lave solidifiée. C'est le cimetière d'une industrie titanesque.\n\n",
+          "lunes": [],
+          "lieux": [
+            {
+              "nom": "Tömör Zürkh",
+              "description": "Ruines antiques des précurseurs emprisonnés dans la lave"
+            }
+          ],
+          "patrouilles": [],
+          "astroports": [],
+          "atmosphere": "Dangereux",
+          "orbite": "0.3",
+          "techno": "C",
+          "gouvernement": "Aucun",
+          "commerce": "Planète primitive (TD)",
+          "classe": "M",
+          "population": "0",
+          "atmosphereDetail": "vapeur de silicates, Dégâts 2d/minute",
+          "securite": "",
+          "diametre": "11"
+        },
+        {
+          "nom": "Delkhii ",
+          "description": "Depuis l'orbite, la beauté de Delkhii est une tragédie. Des continents aux teintes ocre et vert sombre sont marbrés de nuages blancs. Mais la nuit, la surface n'est plus piquée des feux de camp des nomades. Elle est zébrée par les lumières criardes des complexes industriels et des cités occupées, tandis que d'immenses cicatrices minières brillent d'une lueur infernale. Au-dessus de vous, les silhouettes menaçantes des croiseurs impériaux remplacent les étoiles.\n\nEnvironnement : Steppe, Montagne, Forêt, Désert, Marais",
+          "lunes": [
+            {
+              "nom": "Sar",
+              "description": "",
+              "lunes": [],
+              "lieux": [],
+              "patrouilles": [],
+              "astroports": []
+            }
+          ],
+          "lieux": [
+            {
+              "nom": "",
+              "description": ""
+            },
+            {
+              "nom": "",
+              "description": ""
+            },
+            {
+              "nom": "",
+              "description": ""
+            },
+            {
+              "nom": "",
+              "description": ""
+            }
+          ],
+          "patrouilles": [
+            {
+              "cout": "3",
+              "vaisseaux": "Corps Auxiliaire"
+            },
+            {
+              "cout": "8",
+              "vaisseaux": "Soldats impériaux"
+            }
+          ],
+          "astroports": [
+            {
+              "nom": "Ordu-Balyk",
+              "type": "Standard"
+            },
+            {
+              "nom": "Zagas-Balgas",
+              "type": "Standard"
+            }
+          ],
+          "orbite": "0.7",
+          "classe": "M",
+          "gravite": "Forte (Survie/Technique D+1)",
+          "techno": "B",
+          "gouvernement": "Dictature",
+          "commerce": "Planète pauvre (D+1)",
+          "population": "3000000000",
+          "securite": "7",
+          "diametre": "13",
+          "illegal": "te arme non-impériale, tout artefact religieux du Shagai, toute technologie de communication non autorisée."
+        },
+        {
+          "nom": " Bat-Erdene",
+          "description": "La géante gazeuse domine le système extérieur. Ses bandes nuageuses aux couleurs crème et ocre tourbillonnent autour d'un anticyclone colossal, le \"Grand Rubis\". Mais votre attention est attirée par l'une de ses lunes, Ochir. Même à cette distance, les senseurs détectent des structures aux angles impossibles, des tours brisées hautes de plusieurs kilomètres et des spatioports fantômes. C'est la capitale d'un empire mort depuis quatre milliards d'années.\n\nSystème orbital : plus de 80 lunes.",
+          "lunes": [],
+          "lieux": [],
+          "patrouilles": [],
+          "astroports": [],
+          "classe": "G",
+          "population": "0",
+          "atmosphere": "Non respirable",
+          "orbite": "3",
+          "diametre": "150",
+          "gouvernement": "Aucun",
+          "techno": "C",
+          "commerce": "Planète primitive (TD)"
+        },
+        {
+          "nom": "Mönkh-Tenger",
+          "description": "La planète semble... blessée. D'une magnifique couleur cyan, cette géante de glace ne tourne pas comme les autres mondes. Elle roule sur son orbite, basculée sur le côté, comme si un coup d'une puissance inimaginable l'avait renversée il y a des éons. Son silence est celui d'un dieu déchu, un témoin muet d'une guerre cosmique oubliée.",
+          "lunes": [],
+          "lieux": [],
+          "patrouilles": [],
+          "astroports": [],
+          "classe": "G",
+          "diametre": "50",
+          "techno": "C",
+          "gouvernement": "Aucun",
+          "commerce": "Planète primitive (TD)",
+          "orbite": "8",
+          "population": "0"
+        },
+        {
+          "nom": "Nergüi ",
+          "description": "Aux confins du système, là où la lumière de Tchagaan n'est plus qu'une étoile brillante parmi d'autres, dérive le Sans-Nom. Ce planétoïde est une tache d'obscurité, un morceau de nuit qui ne reflète presque aucune lumière. Les senseurs à longue portée détectent une anomalie à sa surface : un sphéroïde d'un noir absolu, géométriquement parfait, qui absorbe toute énergie. C'est un secret endormi, et les légendes locales disent qu'il ne faut surtout pas le réveiller.",
+          "lunes": [],
+          "lieux": [],
+          "patrouilles": [],
+          "astroports": [],
+          "atmosphere": "Non respirable",
+          "gravite": "Aucune",
+          "techno": "C",
+          "gouvernement": "Aucun",
+          "commerce": "Planète primitive (TD)",
+          "orbite": "35",
+          "classe": "Planétoïde",
+          "diametre": "2",
+          "population": "-1"
+        }
+      ]
+    }
+  ],
+  "Η-24": []
+}

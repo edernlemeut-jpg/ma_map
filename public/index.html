@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Metal Adventures — Tableau de bord</title>
+  <link rel="stylesheet" href="/css/tailwind.css">
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+  <!-- Header -->
+  <header class="border-b border-gray-700 bg-gray-800">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="text-xl font-bold">⚙️ Metal Adventures</h1>
+      <nav class="flex items-center gap-4 text-sm">
+        <!-- Table context (hidden until loaded) -->
+        <span id="header-table-info" class="hidden flex items-center gap-2 text-gray-300 border-r border-gray-600 pr-4 mr-2">
+          <span id="header-table-name" class="font-medium"></span>
+          <span id="header-table-role" class="text-xs"></span>
+          <a href="#" id="header-change-table"
+             class="text-blue-400 hover:text-blue-300 text-xs ml-1" title="Changer de table">✕</a>
+        </span>
+        <span id="auth-user-info" class="hidden flex items-center gap-3">
+          <span id="auth-user-name" class="text-gray-300"></span>
+          <a href="#" id="auth-logout-btn"
+             class="text-red-400 hover:text-red-300 hover:underline">Déconnexion</a>
+        </span>
+        <a href="/login.html" id="auth-login-link" class="text-blue-400 hover:underline">Connexion</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="flex-1 max-w-4xl mx-auto w-full px-4 py-8">
+    <!-- Table selector (shown when no table selected) -->
+    <div id="table-selector-container" class="hidden"></div>
+
+    <!-- Onboarding (hidden by default, shown by onboarding.js if count === 0) -->
+    <div id="onboarding-container" class="hidden"></div>
+
+    <!-- Dashboard (shown when onboarding is not displayed) -->
+    <div id="dashboard-container" class="hidden">
+      <h2 class="text-2xl font-bold mb-4">Tableau de bord</h2>
+      <p class="text-gray-400">Bienvenue sur Metal Adventures. Vos tables de jeu apparaîtront ici.</p>
+    </div>
+  </main>
+
+  <script type="module" src="/js/dashboard.js"></script>
+</body>
+</html>

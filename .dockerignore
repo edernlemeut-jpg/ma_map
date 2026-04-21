@@ -1,0 +1,14 @@
+node_modules/
+.env
+db/
+.git/
+.gitignore
+*.md
+_bmad/
+_bmad-output/
+donnee_base/
+tests/
+coverage/
+*.xlsm
+*.xlsx
+src/database.js.bak
