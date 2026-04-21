@@ -15,6 +15,8 @@ import dashboardRoutes from './src/routes/dashboard.js';
 import previewRoutes from './src/routes/preview.js';
 import shipsRoutes from './src/routes/ships.js';
 import travelRoutes from './src/routes/travel-routes.js';
+import legacyRoutes from './src/routes/legacy.js';
+import perilsRoutes from './src/routes/perils.js';
 
 import { fileURLToPath } from 'url';
 import { resolve } from 'path';
@@ -45,6 +47,8 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/preview', previewRoutes);
 app.use('/api/ships', shipsRoutes);
 app.use('/api/travel-routes', travelRoutes);
+app.use('/api/perils-default', perilsRoutes);
+app.use(legacyRoutes);
 
 // Error handler (must be last)
 app.use(errorHandler);

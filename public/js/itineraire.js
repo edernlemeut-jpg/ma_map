@@ -35,7 +35,7 @@ async function loadData() {
 
   // Toujours charger les périls (fichier statique public)
   try {
-    const pr = await fetch('/perils_data.json');
+    const pr = await fetch('/api/perils-default');
     if (pr.ok) {
       PERILS_DEFAULT = await pr.json();
       // Essayer admin overrides locaux
