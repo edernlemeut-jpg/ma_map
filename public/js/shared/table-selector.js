@@ -6,17 +6,30 @@
  */
 
 const STORAGE_KEY = 'active_table_id';
+const ROLE_KEY = 'active_table_role';
 
 export function getActiveTableId() {
   return localStorage.getItem(STORAGE_KEY);
 }
 
-export function setActiveTable(tableId) {
+/** Returns 'mj', 'joueur', or null if no table is active. */
+export function getActiveTableRole() {
+  return localStorage.getItem(ROLE_KEY);
+}
+
+/** Returns true if the current user is MJ for the active table. */
+export function isMJ() {
+  return getActiveTableRole() === 'mj';
+}
+
+export function setActiveTable(tableId, role) {
   localStorage.setItem(STORAGE_KEY, String(tableId));
+  if (role) localStorage.setItem(ROLE_KEY, role);
 }
 
 export function clearActiveTable() {
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(ROLE_KEY);
 }
 
 /**
@@ -65,7 +78,7 @@ export async function renderTableSelector(containerId, onSelect) {
         <h3 class="text-lg font-semibold mb-4">Sélectionnez votre table de jeu</h3>
         <div class="space-y-2" id="table-list">
           ${tables.map(t => `
-            <button data-table-id="${t.id}"
+            <button data-table-id="${t.id}" data-table-role="${t.role || 'joueur'}"
                     class="table-select-btn w-full text-left px-4 py-3 rounded border border-gray-600 hover:border-blue-500 hover:bg-gray-700 transition-colors flex items-center justify-between">
               <span>
                 <span class="font-medium">${escapeHtml(t.name)}</span>
@@ -82,7 +95,8 @@ export async function renderTableSelector(containerId, onSelect) {
     container.querySelectorAll('.table-select-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const tableId = btn.dataset.tableId;
-        setActiveTable(tableId);
+        const role = btn.dataset.tableRole;
+        setActiveTable(tableId, role);
         if (onSelect) onSelect(tableId);
       });
     });

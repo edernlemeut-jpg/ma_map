@@ -3,7 +3,7 @@
  * ES module — remplace le script inline de itineraire_backup_20260419.html
  */
 import { initAuthUI } from '/js/shared/auth-ui.js';
-import { getActiveTableId, fetchWithTable } from '/js/shared/table-selector.js';
+import { getActiveTableId, fetchWithTable, isMJ } from '/js/shared/table-selector.js';
 
 // ── LETTRES (grille 40×40 lettres grecques) ──────────────────────────────
 const LETTRES = ["Α","Β","Γ","Δ","Ε","Ζ","Η","Θ","Ι","Κ","Λ","Μ","Ν","Ξ","Ο","Π","Ρ","Σ","Τ","Υ","Φ","Χ","Ψ","Ω","Α′","Β′","Γ′","Δ′","Ε′","Ζ′","Η′","Θ′","Ι′","Κ′","Λ′","Μ′","Ν′","Ξ′","Ο′","Π′"];
@@ -583,7 +583,11 @@ function showSystemDetail(coord, si) {
   let _ipBody = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:0.78rem;color:#aaa">Table :</span>${_perilTableSelect('interplanetaire', _ipKey, _ipTid)}</div>`;
   _ipBody += _perilTableSummary(_ipTid, 'interplanetaire');
   h += section('⚠️ Périls Interplanétaires', _ipBody, false);
-  h += `<div style="margin-top:12px;text-align:center"><button style="padding:8px 20px;background:var(--primary);color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85rem" onclick="closeModal('modal-detail');openEditSystem('${coord}',${si})">✏️ Éditer ce système</button></div>`;
+  if (isMJ()) {
+    h += `<div style="margin-top:12px;text-align:center"><button style="padding:8px 20px;background:var(--primary);color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85rem" onclick="closeModal('modal-detail');openEditSystem('${coord}',${si})">✏️ Éditer ce système</button></div>`;
+  } else {
+    h += `<div style="margin-top:12px;text-align:center;font-size:0.75rem;color:#888">🔒 Lecture seule — seul le MJ peut modifier les systèmes</div>`;
+  }
   document.getElementById('modal-detail-title').textContent = `${coord} — ${sys.nom}`;
   document.getElementById('detail-content').innerHTML = h;
   openModal('modal-detail');
@@ -1027,7 +1031,7 @@ function renderSystemsTab() {
     const cur = perilAssignments.systems[key] || '';
     h += `<div class="assign-row"><span class="ar-coord">${s.coord}</span><span class="ar-label">${escH(s.name)}</span><button style="background:none;border:1px solid var(--border);color:var(--primary);border-radius:3px;padding:2px 8px;cursor:pointer;font-size:0.72rem" onclick="closeModal('modal-admin');openEditSystem('${s.coord}',${donnees[s.coord].findIndex(x => x.nom === s.name)})">✏️</button><select onchange="ADMIN.assignSys('${escH(key)}',this.value)"><option value="">Défaut</option>${tables.map(t => `<option value="${t.id}"${cur === t.id ? ' selected' : ''}>${escH(t.name)}</option>`).join('')}</select></div>`;
   });
-  h += `<div style="margin-top:10px;text-align:center"><button style="padding:6px 16px;background:var(--primary);color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.82rem" onclick="ADMIN.newSystemPrompt()">+ Nouveau système</button></div>`;
+  h += `<div style="margin-top:10px;text-align:center">${isMJ() ? `<button style="padding:6px 16px;background:var(--primary);color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.82rem" onclick="ADMIN.newSystemPrompt()">+ Nouveau système</button>` : `<span style="font-size:0.75rem;color:#888">🔒 Seul le MJ peut ajouter des systèmes</span>`}</div>`;
   el.innerHTML = h;
 }
 
@@ -1228,6 +1232,7 @@ const ASTROPORT_TYPES = ['Rudimentaire D+1', 'Standard', 'Première classe +1d']
 const SUN_CLASSES = ['Naine rouge', 'Naine jaune', 'Géante rouge', 'Etoile variable', 'Etoile binaire', 'Autre'];
 
 function openEditSystem(coord, sIdx) {
+  if (!isMJ()) { showSystemDetail(coord, sIdx); return; }
   _editCoord = coord; _editSysIdx = sIdx;
   donnees[coord] = donnees[coord] || [];
   if (sIdx === -1) {
