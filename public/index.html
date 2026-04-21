@@ -39,8 +39,58 @@
 
     <!-- Dashboard (shown when onboarding is not displayed) -->
     <div id="dashboard-container" class="hidden">
-      <h2 class="text-2xl font-bold mb-4">Tableau de bord</h2>
-      <p class="text-gray-400">Bienvenue sur Metal Adventures. Vos tables de jeu apparaîtront ici.</p>
+      <div class="space-y-6">
+        <section class="bg-gray-800 border border-gray-700 rounded-lg p-6">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="text-sm text-gray-400 mb-2">Table active</p>
+              <h2 id="home-table-title" class="text-2xl font-bold">Chargement…</h2>
+              <p id="home-table-subtitle" class="text-gray-400 mt-2">Préparation de votre espace de jeu.</p>
+            </div>
+            <div id="home-role-badge" class="hidden rounded-full border border-blue-500/40 bg-blue-500/10 px-3 py-1 text-sm text-blue-200"></div>
+          </div>
+        </section>
+
+        <section>
+          <h3 class="text-lg font-semibold mb-3">Accès rapides</h3>
+          <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <a id="home-dashboard-link" href="/dashboard.html"
+               class="hidden bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
+              <span class="text-2xl">📊</span>
+              <span class="font-medium">Dashboard MJ</span>
+              <span class="text-sm text-gray-400">Pilotage de session, visibilité et activité récente.</span>
+            </a>
+
+            <a href="/itineraire.html"
+               class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
+              <span class="text-2xl">🛸</span>
+              <span class="font-medium">Itinéraire & vaisseaux</span>
+              <span class="text-sm text-gray-400">Routes de voyage, vaisseaux de table et navigation.</span>
+            </a>
+
+            <a href="/compendium.html"
+               class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
+              <span class="text-2xl">📚</span>
+              <span class="font-medium">Compendium</span>
+              <span class="text-sm text-gray-400">Consulter systèmes, factions et modèles de vaisseaux.</span>
+            </a>
+
+            <a id="home-import-link" href="/admin/import.html"
+               class="hidden bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
+              <span class="text-2xl">📦</span>
+              <span class="font-medium">Import de données</span>
+              <span class="text-sm text-gray-400">Importer ou compléter les données univers de l’instance.</span>
+            </a>
+          </div>
+        </section>
+
+        <section class="bg-gray-800 border border-gray-700 rounded-lg p-6">
+          <h3 class="text-lg font-semibold mb-2">Prochaine étape</h3>
+          <p id="home-next-step" class="text-gray-400">
+            Sélectionnez une action pour continuer la configuration de votre campagne.
+          </p>
+        </section>
+      </div>
     </div>
   </main>
 
