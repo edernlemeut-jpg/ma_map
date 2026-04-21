@@ -1,1418 +1,401 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Metal Adventures — Itinéraire & Vaisseaux</title>
-  <link rel="stylesheet" href="/css/tailwind.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Carte Galactique — Metal Adventures</title>
   <style>
-    body.mj-readonly #ship-form-panel,
-    body.mj-readonly #route-form-panel,
-    body.mj-readonly #routes-list,
-    body.mj-readonly #perils-panel {
-      opacity: 0.45;
-      pointer-events: none;
-      cursor: not-allowed;
-      filter: grayscale(0.35);
+    :root { --gold:#c8a464; --bg:#1a1a1a; --bg2:#2c2c2c; --bg3:#383838; --border:#444; --text:#e0e0e0; --text-light:#f1f1f1; --primary:#5bc0de; --danger:#d9534f; --success:#5cb85c; --warning:#f0ad4e; }
+    * { box-sizing:border-box; }
+    html,body { height:100%; margin:0; padding:0; background:var(--bg); color:var(--text); font-family:sans-serif; overflow:hidden; }
+    #app-header { height:48px; background:var(--bg2); border-bottom:2px solid var(--gold); display:flex; align-items:center; justify-content:space-between; padding:0 12px; position:fixed; top:0; left:0; right:0; z-index:50; gap:8px; }
+    #app-header h1 { color:var(--gold); font-size:1.1rem; margin:0; flex-shrink:0; }
+    #app-header .header-actions { display:flex; gap:6px; align-items:center; min-width:0; overflow:hidden; }
+    #app-header button, #app-header a.hbtn { background:var(--bg3); border:1px solid var(--border); color:var(--text-light); padding:6px 10px; border-radius:4px; cursor:pointer; font-size:0.9rem; text-decoration:none; display:inline-block; white-space:nowrap; }
+    #app-header button:hover, #app-header a.hbtn:hover { border-color:var(--gold); }
+    #ship-select { background:var(--bg3); border:1px solid var(--border); color:var(--text-light); padding:5px 6px; border-radius:4px; font-size:0.78rem; max-width:140px; cursor:pointer; }
+    #ship-select:hover { border-color:var(--gold); }
+    #auth-user-info { display:none; align-items:center; gap:6px; font-size:0.8rem; }
+    #auth-user-name { color:#bbb; }
+    #auth-logout-btn { color:var(--danger); cursor:pointer; font-size:0.8rem; background:none; border:none; white-space:nowrap; }
+    #auth-login-link { color:var(--primary); font-size:0.8rem; text-decoration:none; white-space:nowrap; }
+    .hidden { display:none!important; }
+    #main-layout { position:fixed; top:48px; left:0; right:0; bottom:0; display:flex; flex-direction:column; }
+    #carte-zone { flex:1; overflow:hidden; position:relative; touch-action:none; background:#111; cursor:grab; }
+    #carte-zone.grabbing { cursor:grabbing; }
+    #carte-zone.picking { cursor:crosshair; }
+    #carte-zone.picking .quad:hover { outline:2px solid var(--gold); z-index:1; }
+    #carte-zone.picking::after { content:'🎯 Cliquez sur un quadrant'; position:absolute; top:8px; left:50%; transform:translateX(-50%); background:var(--gold); color:#000; padding:4px 14px; border-radius:20px; font-size:0.78rem; font-weight:bold; z-index:100; pointer-events:none; white-space:nowrap; }
+    #carte-wrapper { position:absolute; transform-origin:0 0; display:inline-flex; flex-direction:column; }
+    #col-legende { display:grid; grid-template-columns:20px repeat(40,20px); height:20px; }
+    #ligne-wrapper { display:flex; }
+    #row-legende { display:grid; grid-template-rows:repeat(40,20px); width:20px; }
+    .col-header,.row-header { font-size:0.6rem; color:#666; text-align:center; display:flex; align-items:center; justify-content:center; }
+    .row-header { justify-content:flex-end; padding-right:2px; }
+    #carte { display:grid; grid-template-columns:repeat(40,20px); grid-template-rows:repeat(40,20px); background:url('/carte_MA.png') 0 0/800px 800px no-repeat; }
+    .quad { width:20px; height:20px; background:rgba(200,164,100,0.07); border:1px solid rgba(200,164,100,0.15); cursor:pointer; }
+    .quad:hover { background:rgba(200,164,100,0.4); }
+    .quad.has-system { background:rgba(91,192,222,0.25); border-color:rgba(91,192,222,0.5); }
+    .quad.selected-dep { background:rgba(217,83,79,0.7)!important; border-color:var(--danger)!important; }
+    .quad.selected-arr { background:rgba(92,184,92,0.7)!important; border-color:var(--success)!important; }
+    .quad.selected-eta { background:rgba(255,165,0,0.7)!important; border-color:var(--warning)!important; }
+    .quad.path { background:rgba(240,173,78,0.3); border-color:var(--warning); }
+    #bottom-sheet { position:absolute; bottom:0; left:0; right:0; background:var(--bg2); border-top:2px solid var(--gold); max-height:55vh; overflow-y:auto; transform:translateY(100%); transition:transform 0.3s ease; z-index:20; border-radius:12px 12px 0 0; }
+    #bottom-sheet.open { transform:translateY(0); }
+    #bottom-sheet-handle { width:40px; height:4px; background:var(--border); border-radius:2px; margin:8px auto; cursor:pointer; }
+    #bottom-sheet-title { display:flex; justify-content:space-between; align-items:center; color:var(--gold); font-weight:bold; padding:0 12px 4px; font-size:0.95rem; }
+    #bottom-sheet-content { padding:0 16px 16px; }
+    .btn-point { padding:6px 10px; border-radius:4px; border:2px solid; font-size:0.8rem; font-weight:bold; cursor:pointer; background:transparent; }
+    .btn-dep { border-color:var(--danger); color:var(--danger); }
+    .btn-dep:hover { background:var(--danger); color:white; }
+    .btn-eta { border-color:var(--warning); color:var(--warning); }
+    .btn-eta:hover { background:var(--warning); color:#111; }
+    .btn-arr { border-color:var(--success); color:var(--success); }
+    .btn-arr:hover { background:var(--success); color:white; }
+    #fab-calculer { position:absolute; bottom:12px; right:12px; z-index:30; background:var(--success); color:white; border:none; border-radius:28px; padding:14px 20px; font-size:1rem; font-weight:bold; box-shadow:0 4px 16px rgba(0,0,0,0.5); cursor:pointer; display:flex; align-items:center; gap:8px; transition:bottom 0.3s; }
+    #fab-calculer.sheet-open { bottom:calc(55vh + 12px); }
+    #result-panel { position:fixed; top:0; left:0; right:0; bottom:0; background:var(--bg); z-index:100; transform:translateY(100%); transition:transform 0.35s ease; display:flex; flex-direction:column; }
+    #result-panel.open { transform:translateY(0); }
+    #result-panel.minimized { transform:translateY(calc(100% - 52px)); cursor:pointer; }
+    #result-panel.minimized #result-body { pointer-events:none; }
+    #result-header { background:var(--bg2); border-bottom:2px solid var(--gold); padding:12px 16px; display:flex; align-items:center; gap:12px; flex-shrink:0; height:52px; }
+    #result-header h2 { color:var(--gold); margin:0; font-size:1.1rem; flex-grow:1; }
+    #btn-close-result { background:none; border:none; color:var(--text-light); font-size:1.8rem; cursor:pointer; padding:0; }
+    #btn-minimize-result { background:none; border:1px solid var(--border); color:var(--text-light); font-size:0.9rem; cursor:pointer; padding:2px 8px; border-radius:4px; transition:transform 0.3s; flex-shrink:0; }
+    #result-panel.minimized #btn-minimize-result { transform:rotate(180deg); }
+    #result-body { flex:1; overflow-y:auto; padding:12px 16px 24px; }
+    .result-summary { background:#111; border-radius:8px; padding:12px; margin-bottom:16px; text-align:center; font-size:0.9rem; border:1px solid var(--border); line-height:1.9; }
+    .result-leg { border-left:4px solid var(--primary); margin-bottom:16px; background:var(--bg2); border-radius:0 8px 8px 0; }
+    .result-leg-header { padding:10px 14px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; user-select:none; }
+    .result-leg-header h3 { color:var(--primary); margin:0; font-size:0.9rem; }
+    .leg-info { font-size:0.78rem; color:#aaa; margin-top:2px; }
+    .result-leg-body { padding:0 14px 14px; }
+    .result-leg.collapsed .result-leg-body { display:none; }
+    .result-leg.collapsed .caret { transform:rotate(-90deg); }
+    .caret { transition:transform 0.2s; display:inline-block; }
+    .trip-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+    .trip-table th,.trip-table td { border:1px solid var(--border); padding:4px 5px; text-align:center; }
+    .trip-table th { background:var(--bg3); color:#bbb; font-size:0.75rem; }
+    .trip-table input[type=number] { width:50px; padding:2px 4px; text-align:center; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:3px; }
+    .peril-link { color:var(--gold); cursor:pointer; text-decoration:underline; font-size:0.82rem; }
+    .status-ok { color:var(--success); }
+    .status-done { color:var(--primary); font-weight:bold; }
+    .btn-action { width:100%; padding:11px; border:none; border-radius:8px; font-size:0.95rem; font-weight:bold; cursor:pointer; margin-top:8px; }
+    .btn-primary { background:var(--primary); color:white; }
+    .btn-gold { background:var(--bg3); color:var(--gold); }
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; display:flex; align-items:flex-end; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.2s; }
+    .modal-backdrop.open { opacity:1; pointer-events:all; }
+    .modal-sheet { background:var(--bg2); width:100%; max-width:640px; max-height:90vh; overflow-y:auto; border-radius:16px 16px 0 0; padding:16px; transform:translateY(100%); transition:transform 0.3s ease; }
+    .modal-backdrop.open .modal-sheet { transform:translateY(0); }
+    .modal-title { color:var(--gold); font-weight:bold; font-size:1rem; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; }
+    .modal-close { background:none; border:none; color:var(--text-light); font-size:1.5rem; cursor:pointer; }
+    .params-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .param-field label { font-size:0.8rem; color:#bbb; display:block; margin-bottom:4px; }
+    .param-field input { width:100%; background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:8px; border-radius:4px; font-size:0.95rem; }
+    .peril-sheet h2 { color:var(--gold); margin:0 0 8px; }
+    .pstats { font-size:0.8rem; color:#bbb; margin-bottom:8px; }
+    .psection { background:var(--bg3); border-radius:6px; padding:8px 12px; margin-top:8px; }
+    .psection-title { font-size:0.78rem; font-weight:bold; color:#888; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px; }
+    .desc { font-style:italic; color:#ccc; font-size:0.85rem; line-height:1.5; margin:0; }
+    .detail-section { border:1px solid var(--border); border-radius:8px; margin-bottom:8px; overflow:hidden; }
+    .detail-section-hdr { background:var(--bg3); padding:9px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; user-select:none; }
+    .detail-section-hdr h3 { margin:0; font-size:0.88rem; color:var(--gold); }
+    .detail-section-body { padding:10px 12px; }
+    .detail-section.collapsed .detail-section-body { display:none; }
+    .detail-section.collapsed .d-caret { transform:rotate(-90deg); }
+    .d-caret { transition:transform 0.2s; display:inline-block; font-size:0.7rem; color:#aaa; }
+    .detail-stats { display:grid; grid-template-columns:1fr 1fr; gap:4px 10px; margin-bottom:6px; }
+    .detail-stat { font-size:0.8rem; line-height:1.4; }
+    .detail-stat strong { color:#bbb; font-weight:normal; }
+    .detail-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.72rem; font-weight:bold; margin:2px 2px 2px 0; }
+    .badge-atmos { background:#1e3a4a; color:#7dd3fc; }
+    .badge-grav { background:#2d2a1e; color:#fcd34d; }
+    .badge-sec { background:#1e2d1e; color:#86efac; }
+    .badge-com { background:#2d1e2d; color:#d8b4fe; }
+    .detail-desc { font-style:italic; color:#ccc; font-size:0.82rem; line-height:1.5; margin:6px 0 0; }
+    .detail-list { margin:4px 0 0 16px; padding:0; font-size:0.8rem; color:#ccc; }
+    .detail-list li { margin-bottom:2px; }
+    .detail-merch { font-size:0.8rem; color:#bbb; margin-top:6px; }
+    .historique-item { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border:1px solid var(--border); border-radius:6px; margin-bottom:6px; background:var(--bg3); }
+    .hinfo { flex:1; }
+    .hinfo strong { display:block; font-size:0.88rem; }
+    .hinfo small { color:#888; font-size:0.75rem; }
+    .hactions { display:flex; gap:6px; }
+    .btn-hist-load { background:var(--primary); color:white; border:none; border-radius:4px; padding:5px 10px; cursor:pointer; font-size:0.8rem; }
+    .btn-hist-del { background:var(--danger); color:white; border:none; border-radius:4px; padding:5px 10px; cursor:pointer; font-size:0.8rem; }
+    .admin-tabs { display:flex; gap:0; margin-bottom:12px; border-bottom:2px solid var(--border); }
+    .admin-tab { padding:8px 14px; background:none; border:none; color:#888; cursor:pointer; font-size:0.82rem; font-weight:bold; border-bottom:2px solid transparent; margin-bottom:-2px; }
+    .admin-tab.active { color:var(--gold); border-bottom-color:var(--gold); }
+    .admin-tab:hover { color:var(--text-light); }
+    .admin-tab-content { display:none; }
+    .admin-tab-content.active { display:block; }
+    .admin-table-item { display:flex; align-items:center; justify-content:space-between; background:var(--bg3); padding:8px 12px; border-radius:6px; margin-bottom:6px; gap:8px; }
+    .admin-table-item .atname { flex:1; font-size:0.88rem; }
+    .admin-table-item .attype { font-size:0.72rem; padding:2px 8px; border-radius:10px; flex-shrink:0; }
+    .admin-table-item .attype.ip { background:#1e3a4a; color:#7dd3fc; }
+    .admin-table-item .attype.hs { background:#2d1e2d; color:#d8b4fe; }
+    .admin-table-item .at-actions { display:flex; gap:4px; flex-shrink:0; }
+    .admin-table-item .at-actions button { padding:4px 8px; border:1px solid var(--border); background:var(--bg); color:var(--text); border-radius:3px; cursor:pointer; font-size:0.75rem; }
+    .admin-table-item .at-actions button:hover { border-color:var(--gold); }
+    .admin-table-item .at-actions .btn-del { color:var(--danger); }
+    .btn-add-table { display:flex; gap:6px; margin-bottom:10px; }
+    .btn-add-table button { flex:1; padding:6px; background:var(--bg3); border:1px dashed var(--border); color:var(--primary); border-radius:4px; cursor:pointer; font-size:0.8rem; }
+    .peril-edit-header { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+    .peril-edit-header button { padding:5px 10px; background:var(--bg3); border:1px solid var(--border); color:var(--text); border-radius:4px; cursor:pointer; font-size:0.8rem; }
+    .peril-edit-header input { flex:1; background:var(--bg2); border:1px solid var(--border); color:var(--text); padding:6px 10px; border-radius:3px; font-size:0.88rem; }
+    .peril-edit-cat { border:1px solid var(--border); border-radius:6px; margin-bottom:8px; overflow:hidden; }
+    .peril-edit-cat-hdr { background:var(--bg3); padding:8px 12px; cursor:pointer; display:flex; justify-content:space-between; font-size:0.82rem; font-weight:bold; color:var(--gold); user-select:none; }
+    .peril-edit-cat-body { display:none; padding:8px; }
+    .peril-edit-cat.open .peril-edit-cat-body { display:block; }
+    .peril-edit-item { border:1px solid var(--border); border-radius:4px; margin-bottom:6px; }
+    .peril-edit-item-hdr { background:var(--bg2); padding:6px 10px; cursor:pointer; display:flex; justify-content:space-between; font-size:0.8rem; user-select:none; }
+    .pe-nom { font-weight:bold; color:var(--text-light); }
+    .pe-range { color:#888; font-size:0.75rem; }
+    .peril-edit-fields { display:none; padding:8px; }
+    .peril-edit-item.open .peril-edit-fields { display:block; }
+    .pe-field { margin-bottom:6px; }
+    .pe-field label { font-size:0.72rem; color:#888; display:block; margin-bottom:2px; }
+    .pe-field input,.pe-field textarea { width:100%; background:var(--bg2); border:1px solid var(--border); color:var(--text); padding:5px 8px; border-radius:3px; font-size:0.82rem; font-family:inherit; resize:vertical; }
+    .pe-field textarea { min-height:60px; }
+    .pe-field-row { display:flex; gap:6px; margin-bottom:6px; }
+    .pe-field-row .pe-field { flex:1; margin-bottom:0; }
+    .pe-field-check { display:flex; align-items:center; }
+    .pe-field-check label { font-size:0.78rem; color:#bbb; display:flex; align-items:center; gap:4px; cursor:pointer; }
+    .assign-row { display:flex; align-items:center; gap:8px; padding:7px 10px; border:1px solid var(--border); border-radius:4px; margin-bottom:5px; background:var(--bg3); }
+    .ar-coord { font-size:0.78rem; font-weight:bold; color:var(--gold); white-space:nowrap; min-width:55px; }
+    .ar-label { flex:1; font-size:0.78rem; color:#aaa; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .assign-row select { background:var(--bg2); border:1px solid var(--border); color:var(--text); padding:3px 6px; border-radius:3px; font-size:0.78rem; }
+    .faction-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:4px; margin-bottom:6px; }
+    .faction-item img { width:32px; height:32px; border-radius:4px; object-fit:cover; flex-shrink:0; }
+    .faction-item .fi-info { flex:1; min-width:0; }
+    .faction-item .fi-name { font-weight:bold; color:var(--gold); font-size:0.85rem; }
+    .faction-item .fi-desc { font-size:0.72rem; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .faction-picker { display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+    .faction-chip { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border:1px solid var(--border); border-radius:12px; cursor:pointer; font-size:0.78rem; background:var(--bg2); color:var(--text); }
+    .faction-chip:hover { border-color:var(--gold); }
+    .faction-chip.active { border-color:var(--primary); background:var(--primary); color:white; }
+    .faction-chip img { width:18px; height:18px; border-radius:3px; object-fit:cover; }
+    .se-field { display:flex; flex-direction:column; }
+    .se-field label { font-size:0.75rem; color:#aaa; margin-bottom:3px; }
+    .se-field input,.se-field select,.se-field textarea { background:var(--bg2); border:1px solid var(--border); color:var(--text); padding:6px 8px; border-radius:3px; font-size:0.85rem; font-family:inherit; }
+    .se-field textarea { resize:vertical; min-height:60px; }
+    .se-field.full { grid-column:1/-1; }
+    .se-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .se-grid.g3 { grid-template-columns:1fr 1fr 1fr; }
+    .se-fieldset { grid-column:1/-1; border:1px solid var(--border); border-radius:4px; padding:8px; margin:0; }
+    .se-fieldset legend { font-size:0.75rem; color:#888; padding:0 4px; }
+    .se-list-row { display:flex; align-items:center; gap:6px; margin-bottom:5px; }
+    .se-list-row input,.se-list-row select { flex:1; background:var(--bg2); border:1px solid var(--border); color:var(--text); padding:4px 6px; border-radius:3px; font-size:0.8rem; }
+    .se-btn-add { display:block; width:100%; padding:5px; border:1px dashed var(--border); background:none; color:var(--primary); border-radius:4px; cursor:pointer; font-size:0.78rem; margin-top:4px; }
+    .se-btn-del { background:var(--danger); color:white; border:none; border-radius:3px; cursor:pointer; padding:3px 6px; font-size:0.72rem; flex-shrink:0; }
+    .se-btn-del:hover { opacity:0.8; }
+    .se-actions { display:flex; gap:6px; margin-top:6px; }
+    .se-actions button { flex:1; padding:6px; border-radius:4px; cursor:pointer; font-size:0.82rem; border:none; }
+    .sys-header-fields { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+    .sys-header-fields .se-field.full { grid-column:1/-1; }
+    .sys-edit-card { border:1px solid var(--border); border-radius:6px; margin-bottom:8px; overflow:hidden; }
+    .sys-card-hdr { background:var(--bg3); padding:8px 12px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; user-select:none; }
+    .sys-card-hdr h4 { margin:0; font-size:0.85rem; color:var(--gold); }
+    .sys-card-hdr input { background:var(--bg2); border:1px solid var(--border); color:var(--text); padding:3px 7px; border-radius:3px; font-size:0.85rem; flex:1; margin-right:8px; }
+    .se-caret { font-size:0.7rem; color:#aaa; transition:transform 0.2s; display:inline-block; }
+    .sys-edit-card.collapsed .se-caret { transform:rotate(-90deg); }
+    .sys-card-body { padding:10px; }
+    .sys-edit-card.collapsed .sys-card-body { display:none; }
+    .card-planet { border-left:3px solid var(--primary); }
+    .card-moon { border-left:3px solid #888; margin-left:16px; }
+    .card-sun { border-left:3px solid var(--gold); }
+    .card-patrol { border-left:3px solid var(--warning); }
+    .card-system { border-left:3px solid #666; }
+    .pt-row { display:flex; align-items:center; gap:4px; padding:4px 6px; border:1px solid var(--border); border-radius:4px; margin-bottom:4px; background:var(--bg3); }
+    .pt-role { font-size:0.7rem; font-weight:bold; min-width:28px; flex-shrink:0; }
+    .pt-label { flex:1; font-size:0.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pt-move { background:none; border:1px solid var(--border); color:#888; cursor:pointer; padding:1px 5px; font-size:0.7rem; border-radius:3px; }
+    .pt-move:disabled { opacity:0.3; }
+    .pt-del { background:none; border:none; color:var(--danger); cursor:pointer; font-size:0.85rem; padding:0 3px; }
+    .point-badge { padding:4px 10px; border-radius:12px; font-size:0.8rem; font-weight:bold; border:1px solid; }
+    .point-badge.dep { border-color:var(--danger); color:var(--danger); }
+    .point-badge.eta { border-color:var(--warning); color:var(--warning); }
+    .point-badge.arr { border-color:var(--success); color:var(--success); }
+    #points-summary { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+    @media (min-width:768px) {
+      #main-layout { flex-direction:row; }
+      #carte-zone { flex:7; }
+      #desktop-panel { flex:3; min-width:300px; max-width:400px; background:var(--bg2); border-left:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+      #desktop-panel-content { flex:1; overflow-y:auto; padding:12px; }
+      #bottom-sheet { display:none!important; }
+      #fab-calculer { display:none!important; }
+      #result-panel { display:none!important; }
+      .dp-section { margin-bottom:14px; }
+      .dp-section-title { font-size:0.72rem; font-weight:bold; color:#888; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+      .btn-action { font-size:0.88rem; padding:9px; }
     }
+    @media (max-width:767px) { #desktop-panel { display:none; } }
   </style>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
-  <header class="border-b border-gray-700 bg-gray-800">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-      <div>
-        <h1 class="text-xl font-bold"><a href="/" class="hover:text-blue-400 transition-colors">⚙️ Metal Adventures</a></h1>
-        <p class="text-sm text-gray-400">Itinéraire & Vaisseaux de table</p>
-      </div>
-      <nav class="flex items-center gap-4 text-sm">
-        <button id="preview-toggle-btn"
-                class="hidden min-h-[44px] px-3 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-medium transition-colors">
-          Mode Preview Joueur
-        </button>
-        <span id="auth-user-info" class="hidden flex items-center gap-3">
-          <span id="auth-user-name" class="text-gray-300"></span>
-          <a href="#" id="auth-logout-btn" class="text-red-400 hover:text-red-300 hover:underline">Déconnexion</a>
-        </span>
-        <a href="/login.html" id="auth-login-link" class="text-blue-400 hover:underline">Connexion</a>
-      </nav>
+<body>
+  <header id="app-header">
+    <h1>⚡ Metal Adventures</h1>
+    <div class="header-actions">
+      <a href="/index.html" class="hbtn">← Accueil</a>
+      <select id="ship-select" title="Vaisseau actif">
+        <option value="">🚀 Vaisseau...</option>
+      </select>
+      <span id="auth-user-info" class="hidden">
+        <span id="auth-user-name"></span>
+        <button id="auth-logout-btn">Déco</button>
+      </span>
+      <a href="/login.html" id="auth-login-link">Connexion</a>
+      <button id="btn-params" title="Paramètres">⚙</button>
+      <button id="btn-historique" title="Historique">📋</button>
+      <button id="btn-admin" title="Administration">≡</button>
     </div>
   </header>
 
-  <main class="flex-1 max-w-6xl mx-auto w-full px-4 py-6 space-y-6">
-    <section class="bg-gray-800 border border-gray-700 rounded-lg p-4 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <p class="text-xs text-gray-400 mb-1">Table active</p>
-        <p id="table-summary" class="text-sm font-medium text-gray-200">Aucune table sélectionnée</p>
+  <div id="main-layout">
+    <div id="carte-zone">
+      <div id="carte-wrapper">
+        <div id="col-legende"></div>
+        <div id="ligne-wrapper">
+          <div id="row-legende"></div>
+          <div id="carte"></div>
+        </div>
       </div>
-      <button id="change-table-btn" class="min-h-[44px] px-4 py-2 rounded-lg border border-gray-600 hover:border-blue-500 hover:bg-gray-700 transition-colors text-sm">
-        Changer de table
-      </button>
-    </section>
+    </div>
 
-    <section id="table-selector-section" class="hidden">
-      <div id="table-selector-root"></div>
-    </section>
+    <div id="bottom-sheet">
+      <div id="bottom-sheet-handle"></div>
+      <div id="bottom-sheet-title"><span id="bs-title-text">—</span><div id="bs-quad-btns" style="display:flex;gap:4px"></div></div>
+      <div id="bs-trip-state"></div>
+      <div id="bottom-sheet-content"></div>
+    </div>
 
-    <section id="ships-content" class="hidden grid lg:grid-cols-[24rem,1fr] gap-6">
-      <aside id="ship-form-panel" class="hidden bg-gray-800 border border-gray-700 rounded-lg p-5 space-y-4 self-start">
-        <div>
-          <h2 id="ship-form-title" class="text-lg font-semibold text-gray-100">➕ Nouveau vaisseau</h2>
-          <p class="text-sm text-gray-400">Créez un vaisseau libre ou instanciez un modèle existant.</p>
+    <button id="fab-calculer">🚀 Calculer</button>
+
+    <div id="desktop-panel">
+      <div id="desktop-panel-content">
+        <div class="dp-section">
+          <div class="dp-section-title">Quadrant sélectionné</div>
+          <div id="dp-quad-info" style="font-size:0.85rem;color:#aaa;padding:6px;background:var(--bg3);border-radius:4px;min-height:50px;">Tapez sur un quadrant.</div>
         </div>
-
-        <div class="space-y-3">
-          <label class="block">
-            <span class="block text-xs text-gray-400 mb-1">Nom</span>
-            <input id="ship-name" type="text" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] focus:outline-none focus:border-blue-500" placeholder="Ex: Atlas">
-          </label>
-
-          <label class="block">
-            <span class="block text-xs text-gray-400 mb-1">Modèle</span>
-            <select id="ship-model" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] focus:outline-none focus:border-blue-500">
-              <option value="">Création libre</option>
-            </select>
-          </label>
-
-          <div class="grid grid-cols-3 gap-3">
-            <label class="block">
-              <span class="block text-xs text-gray-400 mb-1">Coque</span>
-              <input id="ship-hull" type="number" min="0" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] focus:outline-none focus:border-blue-500">
-            </label>
-            <label class="block">
-              <span class="block text-xs text-gray-400 mb-1">Équipage</span>
-              <input id="ship-crew" type="number" min="0" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] focus:outline-none focus:border-blue-500">
-            </label>
-            <label class="block">
-              <span class="block text-xs text-gray-400 mb-1">Soute</span>
-              <input id="ship-cargo" type="number" min="0" step="0.1" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] focus:outline-none focus:border-blue-500">
-            </label>
-          </div>
-
-          <label class="block">
-            <span class="block text-xs text-gray-400 mb-1">Notes</span>
-            <textarea id="ship-notes" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 min-h-[120px] focus:outline-none focus:border-blue-500" placeholder="Rôle dans la campagne, état, équipage, cargaison..."></textarea>
-          </label>
+        <div class="dp-section">
+          <div class="dp-section-title">Itinéraire</div>
+          <div id="dp-points" style="font-size:0.82rem;margin-bottom:8px;min-height:30px;color:#aaa;line-height:1.8;">Aucun point.</div>
+          <button id="btn-calc-desktop" class="btn-action btn-primary" style="display:none">🚀 Calculer</button>
         </div>
-
-        <div class="flex gap-3">
-          <button id="ship-save-btn" class="flex-1 min-h-[44px] px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors font-medium">Enregistrer</button>
-          <button id="ship-cancel-btn" class="hidden min-h-[44px] px-4 py-2 rounded-lg border border-gray-600 hover:border-gray-400 transition-colors">Annuler</button>
+        <div class="dp-section" id="dp-result-section" style="display:none">
+          <div class="dp-section-title">Résultat</div>
+          <div id="dp-summary" class="result-summary" style="font-size:0.82rem;margin-bottom:10px;"></div>
+          <div id="dp-legs"></div>
+          <button class="btn-action btn-primary" id="btn-update-desktop">Actualiser</button>
+          <button class="btn-action btn-gold" style="border:1px solid var(--gold)" id="btn-save-hist-desktop">💾 Sauvegarder</button>
         </div>
-        <p id="ship-form-error" class="hidden text-sm text-red-400"></p>
-      </aside>
-
-      <section class="space-y-4">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-lg font-semibold text-gray-100">🚀 Vaisseaux de la table</h2>
-            <p id="ships-subtitle" class="text-sm text-gray-400">Chargement...</p>
-          </div>
-        </div>
-
-        <div id="ships-empty" class="hidden bg-gray-800 border border-dashed border-gray-700 rounded-lg px-6 py-10 text-center text-gray-400">
-          Aucun vaisseau disponible pour cette table.
-        </div>
-
-        <div id="ships-list" class="space-y-3"></div>
-      </section>
-    </section>
-
-    <section id="routes-content" class="hidden grid lg:grid-cols-[28rem,1fr] gap-6">
-      <aside id="route-form-panel" class="hidden bg-gray-800 border border-gray-700 rounded-lg p-5 space-y-4 self-start">
-        <div>
-          <h2 id="route-form-title" class="text-lg font-semibold text-gray-100">🧭 Nouvel itinéraire</h2>
-          <p class="text-sm text-gray-400">Ajoutez les systèmes dans l’ordre du parcours. Chaque tap les ajoute en fin de liste.</p>
-        </div>
-
-        <label class="block">
-          <span class="block text-xs text-gray-400 mb-1">Nom</span>
-          <input id="route-name" type="text" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] focus:outline-none focus:border-blue-500" placeholder="Ex: Route du Convoyage">
-        </label>
-
-        <label class="flex items-center gap-3 rounded-lg border border-gray-700 bg-gray-900 px-3 py-3">
-          <input id="route-active" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500">
-          <span class="text-sm text-gray-200">Définir comme itinéraire actif</span>
-        </label>
-
-        <div class="space-y-2">
-          <div class="flex items-center justify-between gap-3">
-            <h3 class="text-sm font-medium text-gray-200">Waypoints</h3>
-            <button id="route-clear-btn" class="min-h-[44px] px-3 py-2 rounded-lg border border-gray-600 hover:border-gray-400 transition-colors text-xs">Vider</button>
-          </div>
-          <div id="route-waypoints-empty" class="rounded-lg border border-dashed border-gray-700 px-4 py-4 text-sm text-gray-400">
-            Touchez des systèmes ci-dessous pour construire le parcours.
-          </div>
-          <div id="route-waypoints-list" class="space-y-2"></div>
-        </div>
-
-        <div class="space-y-2">
-          <div class="flex items-center justify-between gap-3">
-            <h3 class="text-sm font-medium text-gray-200">Ajouter un système</h3>
-            <span class="text-xs text-gray-500">Tap séquentiel</span>
-          </div>
-          <div id="route-system-picker" class="max-h-[20rem] overflow-y-auto rounded-lg border border-gray-700 bg-gray-900 p-2 grid sm:grid-cols-2 gap-2"></div>
-        </div>
-
-        <div class="flex gap-3">
-          <button id="route-save-btn" class="flex-1 min-h-[44px] px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors font-medium">Enregistrer</button>
-          <button id="route-cancel-btn" class="hidden min-h-[44px] px-4 py-2 rounded-lg border border-gray-600 hover:border-gray-400 transition-colors">Annuler</button>
-        </div>
-        <p id="route-form-error" class="hidden text-sm text-red-400"></p>
-      </aside>
-
-      <section class="space-y-4">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-lg font-semibold text-gray-100">🛰️ Itinéraires de voyage</h2>
-            <p id="routes-subtitle" class="text-sm text-gray-400">Chargement...</p>
-          </div>
-          <button id="routes-create-cta" class="hidden min-h-[44px] px-4 py-2 rounded-lg border border-blue-500 text-blue-300 hover:bg-blue-500/10 transition-colors text-sm">
-            Créer un itinéraire
-          </button>
-        </div>
-
-        <div id="routes-empty" class="hidden bg-gray-800 border border-dashed border-gray-700 rounded-lg px-6 py-10 text-center text-gray-400 space-y-3">
-          <p class="text-base text-gray-200">Aucun itinéraire pour cette table.</p>
-          <p class="text-sm">Créez un trajet préparatoire avant la génération des périls.</p>
-          <button id="routes-empty-cta" class="hidden min-h-[44px] px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors font-medium">
-            Créer un itinéraire
-          </button>
-        </div>
-
-        <div id="routes-list" class="space-y-3"></div>
-
-        <section id="perils-panel" class="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-4">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <h3 class="text-base font-semibold text-gray-100">⚠️ Périls d'itinéraire</h3>
-              <p id="route-perils-subtitle" class="text-sm text-gray-400">Sélectionnez un itinéraire pour afficher ses périls.</p>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <button id="perils-reveal-btn" class="hidden min-h-[44px] px-3 py-2 rounded-lg border border-emerald-600 text-emerald-300 hover:bg-emerald-900/20 transition-colors text-sm">
-                Révéler aux joueurs
-              </button>
-              <button id="perils-hide-btn" class="hidden min-h-[44px] px-3 py-2 rounded-lg border border-red-700 text-red-300 hover:bg-red-900/20 transition-colors text-sm">
-                Masquer aux joueurs
-              </button>
-              <button id="perils-generate-btn" class="hidden min-h-[44px] px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 transition-colors text-sm font-medium">
-                Générer périls
-              </button>
-            </div>
-          </div>
-
-          <div id="perils-empty" class="hidden rounded-lg border border-dashed border-gray-700 px-4 py-6 text-sm text-gray-400 text-center">
-            Aucun péril pour cet itinéraire.
-          </div>
-
-          <div id="perils-list" class="space-y-3"></div>
-
-          <div id="perils-manual-box" class="hidden rounded-lg border border-gray-700 bg-gray-900 p-3 space-y-3">
-            <p class="text-sm text-gray-200 font-medium">Ajouter un péril manuel</p>
-            <div class="grid sm:grid-cols-[8rem,1fr,auto] gap-2">
-              <input id="perils-manual-segment" type="number" min="1" class="min-h-[44px] bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" placeholder="Segment">
-              <input id="perils-manual-text" type="text" class="min-h-[44px] bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm" placeholder="Description du péril manuel">
-              <button id="perils-manual-add-btn" class="min-h-[44px] px-4 py-2 rounded-lg border border-emerald-600 text-emerald-300 hover:bg-emerald-900/20 text-sm">Ajouter</button>
-            </div>
-          </div>
-        </section>
-
-        <section id="itinerary-journal" class="hidden bg-slate-900/70 border border-slate-700 rounded-xl p-5 space-y-4">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <h3 class="text-lg font-semibold text-slate-100">📖 Journal de bord</h3>
-              <p id="journal-subtitle" class="text-sm text-slate-400">Aucun itinéraire en cours</p>
-            </div>
-          </div>
-          <div id="journal-empty" class="hidden rounded-lg border border-dashed border-slate-700 px-4 py-6 text-sm text-slate-400 text-center">
-            Aucun itinéraire en cours
-          </div>
-          <div id="journal-ships" class="space-y-2"></div>
-          <div id="journal-timeline" class="space-y-3"></div>
-        </section>
-      </section>
-    </section>
-  </main>
-
-  <div id="preview-frame" class="hidden fixed inset-0 border-4 border-cyan-400 pointer-events-none z-40"></div>
-  <button id="preview-exit-btn"
-          class="hidden fixed bottom-4 right-4 z-50 min-h-[48px] px-5 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold shadow-xl">
-    Quitter Preview
-  </button>
-
-  <section id="visibility-toast" class="hidden fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:w-[28rem] z-50">
-    <div class="min-h-[56px] bg-amber-100 text-amber-900 border-2 border-amber-500 rounded-xl shadow-2xl px-4 py-3 flex items-center justify-between gap-3">
-      <div>
-        <p id="visibility-toast-title" class="font-semibold text-sm">Visibilité en attente</p>
-        <p id="visibility-toast-sub" class="text-xs">Annulable pendant 8 secondes</p>
       </div>
-      <button id="visibility-undo-btn" class="bg-amber-600 hover:bg-amber-500 text-white rounded-lg px-4 py-2 text-sm font-medium min-h-[44px]">Annuler</button>
     </div>
-  </section>
+  </div>
 
-  <section id="network-toast" class="hidden fixed top-4 right-4 z-50">
-    <div class="bg-emerald-800 text-emerald-100 border border-emerald-500 rounded-lg px-4 py-3 shadow-xl text-sm">
-      Reconnecté — données synchronisées
+  <div id="result-panel">
+    <div id="result-header">
+      <button id="btn-close-result">←</button>
+      <h2>Rapport de Voyage</h2>
+      <button id="btn-minimize-result" title="Réduire">▼</button>
     </div>
-  </section>
+    <div id="result-body">
+      <div id="points-summary"></div>
+      <div id="mob-summary" class="result-summary"></div>
+      <div id="mob-legs"></div>
+      <button class="btn-action btn-primary" id="btn-update-mobile">Actualiser</button>
+      <button class="btn-action btn-gold" style="border:1px solid var(--gold)" id="btn-save-hist-mobile">💾 Sauvegarder</button>
+    </div>
+  </div>
 
-  <script type="module">
-    import { initAuthUI } from '/js/shared/auth-ui.js';
-    import { createDeferredCommitQueue } from '/js/shared/deferred-commit.js';
-    import { createPoller } from '/js/shared/poller.js';
-    import { fetchWithTable, getActiveTableId, clearActiveTable, renderTableSelector } from '/js/shared/table-selector.js';
+  <!-- Modal Paramètres -->
+  <div id="modal-params" class="modal-backdrop">
+    <div class="modal-sheet">
+      <div class="modal-title">⚙ Paramètres <button class="modal-close" data-modal="modal-params">✕</button></div>
+      <div id="params-ship-info" style="padding:8px;background:var(--bg3);border-radius:4px;font-size:0.8rem;color:#bbb;margin-bottom:10px;display:none"></div>
+      <div class="params-grid">
+        <div class="param-field"><label>Vitesse interplanétaire (US/j)</label><input type="number" id="p-ip-spd" value="100" min="1"></div>
+        <div class="param-field"><label>Vitesse hyperspace (PC/j)</label><input type="number" id="p-hs-spd" value="1000" min="1"></div>
+        <div class="param-field"><label>Autonomie (PC)</label><input type="number" id="p-hs-auto" value="10000" min="0"></div>
+      </div>
+      <button id="btn-save-params" class="btn-action btn-primary" style="margin-top:14px">Enregistrer</button>
+    </div>
+  </div>
 
-    const $ = id => document.getElementById(id);
+  <!-- Modal Péril -->
+  <div id="modal-peril" class="modal-backdrop">
+    <div class="modal-sheet">
+      <div class="modal-title">Péril <button class="modal-close" data-modal="modal-peril">✕</button></div>
+      <div id="peril-content" class="peril-sheet"></div>
+    </div>
+  </div>
 
-    const state = {
-      currentUser: null,
-      currentTable: null,
-      isMj: false,
-      ships: [],
-      shipModels: [],
-      systems: [],
-      travelRoutes: [],
-      routePerils: [],
-      editingShipId: null,
-      editingRouteId: null,
-      routeDraftIds: [],
-      selectedPerilsRouteId: null,
-      previewMode: false,
-      sharedItinerary: null,
-      poller: null,
-      networkLastPollTime: Date.now(),
-      networkPollFailureCount: 0,
-      networkSyncing: false,
-      networkOfflineSince: null,
-      networkWasOffline: false,
-      isReadOnlyOffline: false
-    };
+  <!-- Modal Historique -->
+  <div id="modal-historique" class="modal-backdrop">
+    <div class="modal-sheet">
+      <div class="modal-title">📋 Historique <button class="modal-close" data-modal="modal-historique">✕</button></div>
+      <div id="hist-list"></div>
+      <div id="hist-empty" style="text-align:center;color:#888;padding:20px;display:none">Aucun itinéraire sauvegardé.</div>
+    </div>
+  </div>
 
-    function canEditAsMj() {
-      return state.isMj && !state.previewMode && !state.isReadOnlyOffline;
-    }
+  <!-- Modal Admin -->
+  <div id="modal-admin" class="modal-backdrop">
+    <div class="modal-sheet">
+      <div class="modal-title">≡ Administration <button class="modal-close" data-modal="modal-admin">✕</button></div>
+      <div class="admin-tabs">
+        <button class="admin-tab active" data-tab="tab-perils">Périls</button>
+        <button class="admin-tab" data-tab="tab-factions">Factions</button>
+        <button class="admin-tab" data-tab="tab-systemes">Systèmes</button>
+        <button class="admin-tab" data-tab="tab-quadrants">Quadrants</button>
+      </div>
+      <div id="tab-perils" class="admin-tab-content active"></div>
+      <div id="tab-factions" class="admin-tab-content"></div>
+      <div id="tab-systemes" class="admin-tab-content"></div>
+      <div id="tab-quadrants" class="admin-tab-content"></div>
+    </div>
+  </div>
 
-    function isPlayerView() {
-      return !state.isMj || state.previewMode;
-    }
+  <!-- Modal Détail système -->
+  <div id="modal-detail" class="modal-backdrop">
+    <div class="modal-sheet">
+      <div class="modal-title"><span id="modal-detail-title">Système</span><button class="modal-close" data-modal="modal-detail">✕</button></div>
+      <div id="detail-content" class="peril-sheet"></div>
+    </div>
+  </div>
 
-    function setPreviewChrome(active) {
-      $('preview-frame').classList.toggle('hidden', !active);
-      $('preview-exit-btn').classList.toggle('hidden', !active);
-      $('preview-toggle-btn').textContent = active ? 'Quitter Preview Joueur' : 'Mode Preview Joueur';
-    }
+  <!-- Modal Édition système -->
+  <div id="modal-edit-system" class="modal-backdrop">
+    <div class="modal-sheet" style="max-width:720px">
+      <div class="modal-title"><span id="edit-sys-title">Éditer Système</span><button class="modal-close" data-modal="modal-edit-system">✕</button></div>
+      <div id="edit-sys-content"></div>
+    </div>
+  </div>
 
-    const header = $('auth-user-info')?.parentElement || document.querySelector('header');
-    const indicator = document.createElement('span');
-    indicator.id = 'connection-indicator';
-    indicator.className = 'ml-2 px-3 py-1 rounded text-sm bg-green-900 text-green-100';
-    indicator.title = 'État réseau';
-    indicator.textContent = '🟢 Connecté';
-    if (header) header.appendChild(indicator);
-
-    function showNetworkToast() {
-      const toast = $('network-toast');
-      toast.classList.remove('hidden');
-      setTimeout(() => toast.classList.add('hidden'), 3000);
-    }
-
-    function getNetworkStatus(now = Date.now()) {
-      const ageMs = now - state.networkLastPollTime;
-      const offline = state.networkPollFailureCount >= 2 || ageMs > 15000;
-      const offlineLong = offline && state.networkOfflineSince != null && (now - state.networkOfflineSince > 60000);
-      if (offlineLong) return 'offline-long';
-      if (offline) return 'offline';
-      if (state.networkSyncing || ageMs >= 5000) return 'syncing';
-      return 'connected';
-    }
-
-    function refreshConnectionIndicator() {
-      const now = Date.now();
-      const ageMs = now - state.networkLastPollTime;
-      const offline = state.networkPollFailureCount >= 2 || ageMs > 15000;
-      const status = getNetworkStatus(now);
-
-      if (offline) {
-        if (state.networkOfflineSince == null) state.networkOfflineSince = now;
-        state.networkWasOffline = true;
-      } else {
-        state.networkOfflineSince = null;
-      }
-
-      const ind = $('connection-indicator');
-      if (ind) {
-        if (status === 'offline-long') {
-          ind.className = 'ml-2 px-3 py-1 rounded text-sm bg-red-900 text-red-100';
-          ind.textContent = '🔴 Connexion perdue depuis plus d\'une minute. Vérifiez votre réseau.';
-        } else if (status === 'offline') {
-          ind.className = 'ml-2 px-3 py-1 rounded text-sm bg-red-900 text-red-100';
-          ind.textContent = '🔴 Hors ligne';
-        } else if (status === 'syncing') {
-          ind.className = 'ml-2 px-3 py-1 rounded text-sm bg-yellow-900 text-yellow-100';
-          ind.textContent = '🔄 Synchronisation';
-        } else {
-          ind.className = 'ml-2 px-3 py-1 rounded text-sm bg-green-900 text-green-100';
-          ind.textContent = '🟢 Connecté';
-        }
-      }
-
-      const readonlyNow = offline && state.isMj && !state.previewMode;
-      if (readonlyNow !== state.isReadOnlyOffline) {
-        state.isReadOnlyOffline = readonlyNow;
-        document.body.classList.toggle('mj-readonly', readonlyNow);
-        renderTableState();
-        renderShips();
-        renderRoutes();
-        renderRoutePerils();
-      }
-    }
-
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text == null ? '' : String(text);
-      return div.innerHTML;
-    }
-
-    async function fetchJson(url, options = {}) {
-      const res = await fetchWithTable(url, { credentials: 'include', ...options });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const error = new Error(json?.error?.message || `Erreur ${res.status}`);
-        error.status = res.status;
-        throw error;
-      }
-      return json.data;
-    }
-
-    function isTransientCommitError(err) {
-      const status = Number(err?.status || 0);
-      if (status >= 500 || status === 429) return true;
-      if (status >= 400 && status < 500) return false;
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
-      const msg = String(err?.message || '').toLowerCase();
-      return err?.name === 'TypeError' || msg.includes('network') || msg.includes('fetch') || msg.includes('connexion') || msg.includes('offline');
-    }
-
-    function assertWritableMj() {
-      if (state.isReadOnlyOffline && state.isMj && !state.previewMode) {
-        throw new Error('Mode lecture seule hors ligne: action MJ temporairement indisponible.');
-      }
-    }
-
-    async function loadTableContext() {
-      const activeTableId = getActiveTableId();
-      if (!activeTableId) {
-        state.currentTable = null;
-        state.isMj = false;
-        return;
-      }
-
-      const res = await fetch('/api/game_tables', { credentials: 'include' });
-      const json = await res.json().catch(() => ({}));
-      const tables = Array.isArray(json.data) ? json.data : [];
-      const match = tables.find(table => String(table.id) === String(activeTableId));
-
-      if (!match) {
-        clearActiveTable();
-        state.currentTable = null;
-        state.isMj = false;
-        return;
-      }
-
-      state.currentTable = match;
-      state.isMj = match.role === 'mj';
-    }
-
-    function renderTableState() {
-      const mjEdit = canEditAsMj();
-      if (!state.currentTable) {
-        $('table-summary').textContent = 'Aucune table sélectionnée';
-        $('table-selector-section').classList.remove('hidden');
-        $('ships-content').classList.add('hidden');
-        $('routes-content').classList.add('hidden');
-        $('itinerary-journal').classList.add('hidden');
-        return;
-      }
-
-      const roleLabel = mjEdit ? 'MJ' : 'Joueur';
-      $('table-summary').textContent = `${state.currentTable.name} • ${roleLabel}`;
-      $('table-selector-section').classList.add('hidden');
-      $('ships-content').classList.remove('hidden');
-      $('routes-content').classList.remove('hidden');
-      $('ship-form-panel').classList.toggle('hidden', !mjEdit);
-      $('route-form-panel').classList.toggle('hidden', !mjEdit);
-      $('routes-create-cta').classList.toggle('hidden', !mjEdit);
-      $('routes-empty-cta').classList.toggle('hidden', !mjEdit);
-      $('perils-generate-btn').classList.toggle('hidden', !mjEdit);
-      $('perils-reveal-btn').classList.toggle('hidden', !mjEdit);
-      $('perils-hide-btn').classList.toggle('hidden', !mjEdit);
-      $('perils-manual-box').classList.toggle('hidden', !mjEdit);
-      $('itinerary-journal').classList.toggle('hidden', !isPlayerView());
-      $('routes-list').classList.toggle('hidden', isPlayerView());
-      $('routes-empty').classList.toggle('hidden', isPlayerView());
-      $('perils-panel').classList.toggle('hidden', isPlayerView());
-      $('ships-subtitle').textContent = mjEdit
-        ? 'Créez, modifiez, supprimez et gérez la visibilité des vaisseaux de votre table.'
-        : 'Consultez les vaisseaux visibles de votre campagne.';
-      $('routes-subtitle').textContent = mjEdit
-        ? 'Créez, activez et ajustez vos itinéraires par tap séquentiel sur les systèmes.'
-        : 'Consultez l’itinéraire actif et les données partagées du MJ.';
-    }
-
-    function getSystemName(systemId) {
-      const match = state.systems.find(system => Number(system.id) === Number(systemId));
-      if (!match) return `Système #${systemId}`;
-      return `${match.nom} • ${match.quadrant}`;
-    }
-
-    function populateShipModels() {
-      const select = $('ship-model');
-      select.innerHTML = '<option value="">Création libre</option>';
-      for (const model of state.shipModels) {
-        const option = document.createElement('option');
-        option.value = model.id;
-        option.textContent = model.nom;
-        option.dataset.hull = Number(model.coque || 0);
-        option.dataset.crew = Number(model.equipage || 0);
-        option.dataset.cargo = Number(model.soute || 0);
-        select.appendChild(option);
-      }
-    }
-
-    function resetShipForm() {
-      state.editingShipId = null;
-      $('ship-form-title').textContent = '➕ Nouveau vaisseau';
-      $('ship-name').value = '';
-      $('ship-model').value = '';
-      $('ship-hull').value = 0;
-      $('ship-crew').value = 0;
-      $('ship-cargo').value = 0;
-      $('ship-notes').value = '';
-      $('ship-cancel-btn').classList.add('hidden');
-      $('ship-form-error').classList.add('hidden');
-    }
-
-    function fillShipForm(ship) {
-      state.editingShipId = ship.id;
-      $('ship-form-title').textContent = `✏️ Modifier ${ship.name}`;
-      $('ship-name').value = ship.name;
-      $('ship-model').value = ship.model_id || '';
-      $('ship-hull').value = ship.hull;
-      $('ship-crew').value = ship.crew;
-      $('ship-cargo').value = ship.cargo_capacity;
-      $('ship-notes').value = ship.notes || '';
-      $('ship-cancel-btn').classList.remove('hidden');
-      $('ship-form-error').classList.add('hidden');
-    }
-
-    function renderShips() {
-      const list = $('ships-list');
-      const empty = $('ships-empty');
-      list.innerHTML = '';
-
-      if (!state.ships.length) {
-        empty.classList.remove('hidden');
-        return;
-      }
-
-      empty.classList.add('hidden');
-
-      for (const ship of state.ships) {
-        const card = document.createElement('article');
-        card.className = 'bg-gray-800 border border-gray-700 rounded-lg p-4 flex flex-col gap-3';
-        const visibleBadge = ship.visible === true
-          ? '<span class="text-emerald-300 text-sm">👁️ Visible</span>'
-          : ship.visible === false
-            ? '<span class="text-amber-300 text-sm">🔒 Caché</span>'
-            : '';
-
-        card.innerHTML = `
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h3 class="text-base font-semibold text-gray-100">${escapeHtml(ship.name)}</h3>
-              <p class="text-sm text-gray-400">${escapeHtml(ship.model_name || 'Création libre')}</p>
-            </div>
-            ${visibleBadge}
+  <!-- Modal Faction -->
+  <div id="modal-faction" class="modal-backdrop">
+    <div class="modal-sheet" style="max-width:420px">
+      <div class="modal-title"><span id="faction-modal-title">Nouvelle Faction</span><button class="modal-close" data-modal="modal-faction">✕</button></div>
+      <div style="padding:10px">
+        <div class="se-field" style="margin-bottom:8px"><label>Nom</label><input type="text" id="faction-name" style="width:100%"></div>
+        <div class="se-field" style="margin-bottom:8px"><label>Diminutif</label><input type="text" id="faction-short" placeholder="ex: EG, LPL…" style="width:100%"></div>
+        <div class="se-field" style="margin-bottom:8px"><label>Description</label><textarea id="faction-desc" rows="3" style="width:100%;font-family:inherit"></textarea></div>
+        <div class="se-field" style="margin-bottom:8px"><label>Icône (image)</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <img id="faction-icon-preview" src="" style="width:40px;height:40px;border-radius:4px;object-fit:cover;border:1px solid var(--border);display:none">
+            <input type="file" id="faction-icon-input" accept="image/*" style="font-size:0.78rem;color:var(--text)">
           </div>
-          <div class="grid grid-cols-3 gap-3 text-sm">
-            <div class="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2"><span class="block text-xs text-gray-500 mb-1">Coque</span><span>${ship.hull}</span></div>
-            <div class="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2"><span class="block text-xs text-gray-500 mb-1">Équipage</span><span>${ship.crew}</span></div>
-            <div class="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2"><span class="block text-xs text-gray-500 mb-1">Soute</span><span>${ship.cargo_capacity}</span></div>
-          </div>
-          <p class="text-sm text-gray-300 whitespace-pre-wrap">${escapeHtml(ship.notes || 'Aucune note')}</p>
-        `;
-
-        if (canEditAsMj()) {
-          const actions = document.createElement('div');
-          actions.className = 'flex flex-wrap gap-2';
-
-          const editBtn = document.createElement('button');
-          editBtn.className = 'min-h-[44px] px-4 py-2 rounded-lg border border-gray-600 hover:border-blue-500 transition-colors text-sm';
-          editBtn.textContent = 'Éditer';
-          editBtn.addEventListener('click', () => fillShipForm(ship));
-
-          const visibilityBtn = document.createElement('button');
-          visibilityBtn.className = 'min-h-[44px] px-4 py-2 rounded-lg border border-gray-600 hover:border-amber-500 transition-colors text-sm';
-          visibilityBtn.textContent = ship.visible ? 'Masquer pour joueurs' : 'Révéler aux joueurs';
-          visibilityBtn.addEventListener('click', () => scheduleVisibilityToggle(ship));
-
-          const delBtn = document.createElement('button');
-          delBtn.className = 'min-h-[44px] px-4 py-2 rounded-lg border border-red-700 text-red-300 hover:bg-red-900/30 transition-colors text-sm';
-          delBtn.textContent = 'Supprimer';
-          delBtn.addEventListener('click', async () => {
-            if (!window.confirm(`Supprimer le vaisseau ${ship.name} ?`)) return;
-            await fetchJson(`/api/ships/${ship.id}`, { method: 'DELETE' });
-            await loadShips();
-            if (state.editingShipId === ship.id) resetShipForm();
-          });
-
-          actions.append(editBtn, visibilityBtn, delBtn);
-          card.appendChild(actions);
-        }
-
-        list.appendChild(card);
-      }
-    }
-
-    function resetRouteForm() {
-      state.editingRouteId = null;
-      state.routeDraftIds = [];
-      $('route-form-title').textContent = '🧭 Nouvel itinéraire';
-      $('route-name').value = '';
-      $('route-active').checked = false;
-      $('route-cancel-btn').classList.add('hidden');
-      $('route-form-error').classList.add('hidden');
-      renderRouteDraft();
-      renderSystemPicker();
-    }
-
-    function fillRouteForm(route) {
-      state.editingRouteId = route.id;
-      state.routeDraftIds = [...route.waypoint_ids];
-      $('route-form-title').textContent = `✏️ Modifier ${route.name}`;
-      $('route-name').value = route.name;
-      $('route-active').checked = !!route.active;
-      $('route-cancel-btn').classList.remove('hidden');
-      $('route-form-error').classList.add('hidden');
-      renderRouteDraft();
-      renderSystemPicker();
-    }
-
-    function renderRouteDraft() {
-      const list = $('route-waypoints-list');
-      const empty = $('route-waypoints-empty');
-      list.innerHTML = '';
-      empty.classList.toggle('hidden', state.routeDraftIds.length > 0);
-
-      state.routeDraftIds.forEach((systemId, index) => {
-        const row = document.createElement('div');
-        row.className = 'flex items-center justify-between gap-3 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2';
-        row.innerHTML = `
-          <div class="flex items-center gap-3 min-w-0">
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-blue-200 text-sm font-semibold">${index + 1}</span>
-            <span class="truncate text-sm text-gray-200">${escapeHtml(getSystemName(systemId))}</span>
-          </div>
-        `;
-
-        const canDeferRemove = canEditAsMj() && !!state.editingRouteId;
-        const removeBtn = document.createElement('button');
-        removeBtn.className = 'min-h-[44px] px-3 py-2 rounded-lg border border-red-700 text-red-300 hover:bg-red-900/30 transition-colors text-sm';
-        removeBtn.textContent = '✕';
-        removeBtn.title = 'Supprimer ce waypoint';
-        removeBtn.addEventListener('click', () => {
-          if (canDeferRemove) {
-            scheduleWaypointRemoval(index);
-            return;
-          }
-          state.routeDraftIds.splice(index, 1);
-          renderRouteDraft();
-        });
-
-        if (canEditAsMj()) {
-          row.appendChild(removeBtn);
-        }
-        list.appendChild(row);
-      });
-    }
-
-    function renderSystemPicker() {
-      const picker = $('route-system-picker');
-      picker.innerHTML = '';
-
-      if (!state.systems.length) {
-        picker.innerHTML = '<p class="col-span-full rounded-lg border border-dashed border-gray-700 px-4 py-4 text-sm text-gray-400">Aucun système disponible.</p>';
-        return;
-      }
-
-      for (const system of state.systems) {
-        const button = document.createElement('button');
-        button.className = 'min-h-[44px] rounded-lg border border-gray-700 hover:border-blue-500 hover:bg-gray-800 transition-colors px-3 py-3 text-left';
-        button.innerHTML = `
-          <span class="block text-sm font-medium text-gray-200">${escapeHtml(system.nom)}</span>
-          <span class="block text-xs text-gray-500">${escapeHtml(system.quadrant || 'Quadrant inconnu')}</span>
-        `;
-        button.addEventListener('click', () => {
-          state.routeDraftIds.push(Number(system.id));
-          renderRouteDraft();
-        });
-        picker.appendChild(button);
-      }
-    }
-
-    function renderRoutes() {
-      const list = $('routes-list');
-      const empty = $('routes-empty');
-      list.innerHTML = '';
-
-      if (!state.travelRoutes.length) {
-        empty.classList.remove('hidden');
-        return;
-      }
-
-      empty.classList.add('hidden');
-
-      for (const route of state.travelRoutes) {
-        const card = document.createElement('article');
-        card.className = `bg-gray-800 border rounded-lg p-4 flex flex-col gap-3 ${route.active ? 'border-blue-500' : 'border-gray-700'}`;
-
-        const waypointLabels = route.waypoint_ids.map((systemId, index) => `
-          <li class="flex items-center gap-3 rounded-lg bg-gray-900 border border-gray-700 px-3 py-2 text-sm">
-            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-blue-200 font-semibold">${index + 1}</span>
-            <span>${escapeHtml(getSystemName(systemId))}</span>
-          </li>
-        `).join('');
-
-        card.innerHTML = `
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h3 class="text-base font-semibold text-gray-100">${escapeHtml(route.name)}</h3>
-              <p class="text-sm ${route.active ? 'text-blue-300' : 'text-gray-400'}">${route.active ? 'Itinéraire actif' : 'Itinéraire enregistré'}</p>
-            </div>
-            <span class="text-xs text-gray-500">${route.waypoint_ids.length} waypoint${route.waypoint_ids.length > 1 ? 's' : ''}</span>
-          </div>
-          <ol class="space-y-2">${waypointLabels}</ol>
-        `;
-
-        if (canEditAsMj()) {
-          const actions = document.createElement('div');
-          actions.className = 'flex flex-wrap gap-2';
-
-          const editBtn = document.createElement('button');
-          editBtn.className = 'min-h-[44px] px-4 py-2 rounded-lg border border-gray-600 hover:border-blue-500 transition-colors text-sm';
-          editBtn.textContent = 'Éditer';
-          editBtn.addEventListener('click', () => fillRouteForm(route));
-
-          const activeBtn = document.createElement('button');
-          activeBtn.className = 'min-h-[44px] px-4 py-2 rounded-lg border border-blue-700 text-blue-300 hover:bg-blue-900/30 transition-colors text-sm';
-          activeBtn.textContent = route.active ? 'Désactiver' : 'Activer';
-          activeBtn.addEventListener('click', async () => {
-            await fetchJson(`/api/travel-routes/${route.id}`, {
-              method: 'PATCH',
-              body: JSON.stringify({ active: !route.active, waypoint_ids: route.waypoint_ids, name: route.name }),
-              headers: { 'Content-Type': 'application/json' }
-            });
-            await loadRoutes();
-            if (state.editingRouteId === route.id) {
-              const latest = state.travelRoutes.find(entry => entry.id === route.id);
-              if (latest) fillRouteForm(latest);
-            }
-          });
-
-          const delBtn = document.createElement('button');
-          delBtn.className = 'min-h-[44px] px-4 py-2 rounded-lg border border-red-700 text-red-300 hover:bg-red-900/30 transition-colors text-sm';
-          delBtn.textContent = 'Supprimer';
-          delBtn.addEventListener('click', async () => {
-            if (!window.confirm(`Supprimer l’itinéraire ${route.name} ?`)) return;
-            await fetchJson(`/api/travel-routes/${route.id}`, { method: 'DELETE' });
-            await loadRoutes();
-            if (state.editingRouteId === route.id) resetRouteForm();
-          });
-
-          actions.append(editBtn, activeBtn, delBtn);
-          card.appendChild(actions);
-        }
-
-        list.appendChild(card);
-      }
-    }
-
-    function resolvePerilsTargetRoute() {
-      if (!state.travelRoutes.length) return null;
-      if (state.selectedPerilsRouteId) {
-        const same = state.travelRoutes.find(route => route.id === state.selectedPerilsRouteId);
-        if (same) return same;
-      }
-      return state.travelRoutes.find(route => route.active) || state.travelRoutes[0];
-    }
-
-    function renderRoutePerils() {
-      const targetRoute = resolvePerilsTargetRoute();
-      const empty = $('perils-empty');
-      const list = $('perils-list');
-      list.innerHTML = '';
-
-      if (!targetRoute) {
-        state.selectedPerilsRouteId = null;
-        $('route-perils-subtitle').textContent = 'Sélectionnez un itinéraire pour afficher ses périls.';
-        empty.classList.remove('hidden');
-        return;
-      }
-
-      state.selectedPerilsRouteId = targetRoute.id;
-      $('route-perils-subtitle').textContent = `Itinéraire: ${targetRoute.name}`;
-
-      if (!state.routePerils.length) {
-        empty.classList.remove('hidden');
-        return;
-      }
-
-      empty.classList.add('hidden');
-
-      for (const peril of state.routePerils) {
-        const card = document.createElement('article');
-        card.className = 'rounded-lg border border-gray-700 bg-gray-900 p-3 space-y-3';
-        card.innerHTML = `
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="text-xs text-gray-500">Segment ${peril.segment_index}</p>
-              <h4 class="text-sm font-semibold text-gray-100">${escapeHtml(peril.type)}</h4>
-              <p class="text-xs text-gray-400">Difficulté: ${escapeHtml(peril.difficulty || 'N/A')}</p>
-            </div>
-            <span class="text-xs ${peril.is_manual ? 'text-emerald-300' : 'text-amber-300'}">${peril.is_manual ? 'Manuel' : 'Généré'}</span>
-          </div>
-        `;
-
-        if (canEditAsMj()) {
-          const editor = document.createElement('textarea');
-          editor.className = 'w-full min-h-[88px] bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm';
-          editor.value = peril.custom_text || peril.description || '';
-
-          const actions = document.createElement('div');
-          actions.className = 'flex flex-wrap gap-2';
-
-          const saveBtn = document.createElement('button');
-          saveBtn.className = 'min-h-[44px] px-3 py-2 rounded-lg border border-blue-600 text-blue-300 hover:bg-blue-900/20 text-sm';
-          saveBtn.textContent = 'Enregistrer';
-          saveBtn.addEventListener('click', async () => {
-            await fetchJson(`/api/travel-routes/${state.selectedPerilsRouteId}/perils/${peril.id}`, {
-              method: 'PATCH',
-              body: JSON.stringify({ custom_text: editor.value.trim() }),
-              headers: { 'Content-Type': 'application/json' }
-            });
-            await loadRoutePerils();
-          });
-
-          const delBtn = document.createElement('button');
-          delBtn.className = 'min-h-[44px] px-3 py-2 rounded-lg border border-red-700 text-red-300 hover:bg-red-900/20 text-sm';
-          delBtn.textContent = 'Supprimer';
-          delBtn.addEventListener('click', async () => {
-            await fetchJson(`/api/travel-routes/${state.selectedPerilsRouteId}/perils/${peril.id}`, { method: 'DELETE' });
-            await loadRoutePerils();
-          });
-
-          actions.append(saveBtn, delBtn);
-          card.append(editor, actions);
-        } else {
-          const text = document.createElement('p');
-          text.className = 'text-sm text-gray-200 whitespace-pre-wrap';
-          text.textContent = peril.custom_text || peril.description || 'Sans description';
-          card.appendChild(text);
-        }
-
-        list.appendChild(card);
-      }
-    }
-
-    function perilIcon(peril) {
-      if (peril?.is_manual) return '✍️';
-      if (String(peril?.type || '').toLowerCase().includes('pirat')) return '🏴‍☠️';
-      if (String(peril?.type || '').toLowerCase().includes('panne')) return '🛠️';
-      if (String(peril?.type || '').toLowerCase().includes('astro')) return '☄️';
-      return '⚠️';
-    }
-
-    function renderPlayerJournal() {
-      if (!isPlayerView()) return;
-
-      const itinerary = state.sharedItinerary || { active_route: null, ships: [], perils: [] };
-      const activeRoute = itinerary.active_route;
-      const ships = Array.isArray(itinerary.ships) ? itinerary.ships : [];
-      const perils = Array.isArray(itinerary.perils) ? itinerary.perils : [];
-
-      const empty = $('journal-empty');
-      const subtitle = $('journal-subtitle');
-      const shipBox = $('journal-ships');
-      const timeline = $('journal-timeline');
-
-      shipBox.innerHTML = '';
-      timeline.innerHTML = '';
-
-      if (!activeRoute) {
-        subtitle.textContent = 'Aucun itinéraire en cours';
-        empty.classList.remove('hidden');
-        return;
-      }
-
-      empty.classList.add('hidden');
-      subtitle.textContent = `Itinéraire actif: ${activeRoute.name}`;
-
-      const shipsCard = document.createElement('div');
-      shipsCard.className = 'rounded-lg border border-slate-700 bg-slate-950/60 p-3';
-      shipsCard.innerHTML = `
-        <p class="text-xs text-slate-400 mb-2">Vaisseaux visibles</p>
-        <ul class="space-y-1 text-sm text-slate-200">
-          ${ships.length
-            ? ships.map(ship => `<li>🚀 ${escapeHtml(ship.name)}</li>`).join('')
-            : '<li class="text-slate-500">Aucun vaisseau visible</li>'}
-        </ul>
-      `;
-      shipBox.appendChild(shipsCard);
-
-      const waypointNames = (activeRoute.waypoint_ids || []).map(getSystemName);
-      waypointNames.forEach((name, index) => {
-        const segmentPerils = perils.filter(p => Number(p.segment_index) === index);
-        const block = document.createElement('article');
-        block.className = 'rounded-lg border border-slate-700 bg-slate-950/60 p-3 space-y-2';
-        const from = index === 0 ? 'Départ' : waypointNames[index - 1];
-        const to = name;
-
-        block.innerHTML = `
-          <p class="text-xs text-slate-500">Étape ${index + 1}</p>
-          <p class="text-sm text-slate-200">${escapeHtml(from)} → ${escapeHtml(to)}</p>
-        `;
-
-        const perilList = document.createElement('ul');
-        perilList.className = 'space-y-1 text-sm';
-        if (!segmentPerils.length) {
-          perilList.innerHTML = '<li class="text-slate-500">Aucun péril révélé pour cette étape.</li>';
-        } else {
-          perilList.innerHTML = segmentPerils.map(peril => `
-            <li class="text-slate-200">${perilIcon(peril)} ${escapeHtml(peril.custom_text || peril.description || peril.type)}</li>
-          `).join('');
-        }
-
-        block.appendChild(perilList);
-        timeline.appendChild(block);
-      });
-    }
-
-    async function handleSyncData(syncData) {
-      if (!syncData) return;
-      state.sharedItinerary = syncData.itinerary || null;
-      renderPlayerJournal();
-    }
-
-    function restartSyncPoller() {
-      if (state.poller && typeof state.poller.stop === 'function') {
-        state.poller.stop();
-      }
-
-      state.poller = createPoller({
-        url: state.previewMode ? '/api/preview/sync' : '/api/sync',
-        intervalMs: 4000,
-        backgroundIntervalMs: 30000,
-        enableErrorBackoff: true,
-        retryBaseMs: 1000,
-        retryMaxMs: 30000,
-        onPollStart: () => {
-          state.networkSyncing = true;
-          refreshConnectionIndicator();
-        },
-        onData: async (syncData) => {
-          state.networkSyncing = false;
-          state.networkPollFailureCount = 0;
-          state.networkLastPollTime = Date.now();
-          await handleSyncData(syncData);
-          if (syncData?.itinerary?.active_route?.id) {
-            const activeId = syncData.itinerary.active_route.id;
-            const current = state.travelRoutes.find(route => route.id === activeId);
-            if (current) {
-              state.selectedPerilsRouteId = activeId;
-            }
-          }
-          refreshConnectionIndicator();
-        },
-        onError: () => {
-          state.networkSyncing = false;
-          state.networkPollFailureCount += 1;
-          refreshConnectionIndicator();
-        },
-        onReconnect: async () => {
-          state.networkSyncing = false;
-          state.networkPollFailureCount = 0;
-          state.networkLastPollTime = Date.now();
-          if (state.previewMode) {
-            refreshConnectionIndicator();
-            return;
-          }
-          const replaySummary = deferredQueue.pendingCount() > 0
-            ? await deferredQueue.drainNow({ stopOnError: true, reason: 'reconnect' })
-            : { flushed: 0, failed: 0, stoppedOnError: false };
-          await loadShips();
-          await loadRoutes();
-          await handleSyncData(await fetchJson(state.previewMode ? '/api/preview/sync' : '/api/sync'));
-          refreshConnectionIndicator();
-          if (replaySummary.flushed > 0) {
-            window.alert(`${replaySummary.flushed} action${replaySummary.flushed > 1 ? 's' : ''} hors ligne synchronisée${replaySummary.flushed > 1 ? 's' : ''}.`);
-          }
-          if (replaySummary.failed > 0) {
-            window.alert('Une action différée n’a pas pu être rejouée. Les données serveur ont été rechargées.');
-          }
-          if (replaySummary.retained > 0) {
-            window.alert(`${replaySummary.retained} action${replaySummary.retained > 1 ? 's' : ''} reste${replaySummary.retained > 1 ? 'nt' : ''} en attente réseau.`);
-          }
-          if (state.networkWasOffline) {
-            state.networkWasOffline = false;
-            showNetworkToast();
-          }
-        }
-      });
-
-      state.poller.start();
-    }
-
-    async function setPreviewMode(active) {
-      if (!state.isMj) return;
-      if (state.previewMode === active) return;
-      state.previewMode = active;
-      setPreviewChrome(active);
-      renderTableState();
-      renderShips();
-      renderRoutes();
-      renderRoutePerils();
-      renderPlayerJournal();
-      restartSyncPoller();
-      await handleSyncData(await fetchJson(active ? '/api/preview/sync' : '/api/sync'));
-    }
-
-    async function loadShips() {
-      state.ships = await fetchJson('/api/ships');
-      renderShips();
-    }
-
-    async function loadShipModels() {
-      state.shipModels = await fetchJson('/api/ship-models');
-      populateShipModels();
-    }
-
-    async function loadSystems() {
-      state.systems = await fetchJson('/api/systems');
-      renderSystemPicker();
-      renderRouteDraft();
-      renderRoutes();
-    }
-
-    async function loadRoutes() {
-      state.travelRoutes = await fetchJson('/api/travel-routes');
-      renderRoutes();
-      const targetRoute = resolvePerilsTargetRoute();
-      state.selectedPerilsRouteId = targetRoute?.id || null;
-      await loadRoutePerils();
-    }
-
-    async function loadRoutePerils() {
-      const targetRoute = resolvePerilsTargetRoute();
-      if (!targetRoute) {
-        state.routePerils = [];
-        renderRoutePerils();
-        return;
-      }
-      state.selectedPerilsRouteId = targetRoute.id;
-      state.routePerils = await fetchJson(`/api/travel-routes/${targetRoute.id}/perils`);
-      renderRoutePerils();
-    }
-
-    async function generatePerilsForSelectedRoute() {
-      assertWritableMj();
-      const targetRoute = resolvePerilsTargetRoute();
-      if (!targetRoute) throw new Error('Aucun itinéraire disponible.');
-      await fetchJson(`/api/travel-routes/${targetRoute.id}/perils/generate`, { method: 'POST' });
-      await loadRoutePerils();
-    }
-
-    async function addManualPerilToSelectedRoute() {
-      assertWritableMj();
-      const targetRoute = resolvePerilsTargetRoute();
-      if (!targetRoute) throw new Error('Aucun itinéraire disponible.');
-
-      const segmentIndex = Number($('perils-manual-segment').value || 0);
-      const customText = $('perils-manual-text').value.trim();
-      if (!Number.isInteger(segmentIndex) || segmentIndex < 1) throw new Error('Segment invalide.');
-      if (!customText) throw new Error('Description manuelle requise.');
-
-      await fetchJson(`/api/travel-routes/${targetRoute.id}/perils`, {
-        method: 'POST',
-        body: JSON.stringify({ segment_index: segmentIndex, custom_text: customText }),
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      $('perils-manual-text').value = '';
-      await loadRoutePerils();
-    }
-
-    async function setPerilsVisibilityForSelectedRoute(visible) {
-      assertWritableMj();
-      const targetRoute = resolvePerilsTargetRoute();
-      if (!targetRoute) throw new Error('Aucun itinéraire disponible.');
-      await fetchJson(`/api/visibility/route_perils/${targetRoute.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ visible }),
-        headers: { 'Content-Type': 'application/json' }
-      });
-      await loadRoutePerils();
-      await handleSyncData(await fetchJson(state.previewMode ? '/api/preview/sync' : '/api/sync'));
-    }
-
-    function collectShipPayload() {
-      return {
-        name: $('ship-name').value.trim(),
-        model_id: $('ship-model').value || null,
-        hull: Number($('ship-hull').value || 0),
-        crew: Number($('ship-crew').value || 0),
-        cargo_capacity: Number($('ship-cargo').value || 0),
-        notes: $('ship-notes').value.trim()
-      };
-    }
-
-    function getItineraryQueueStorageKey() {
-      const tableId = getActiveTableId();
-      return tableId ? `mj-offline-queue:itineraire:${tableId}` : '';
-    }
-
-    function buildDeferredItineraryEntry(config) {
-      return {
-        label: config.label,
-        payload: config.payload,
-        createdAt: config.createdAt,
-        retainCount: config.retainCount || 0,
-        onOptimisticApply: config.onOptimisticApply,
-        onOptimisticRollback: config.onOptimisticRollback,
-        onCommitError: config.onCommitError
-      };
-    }
-
-    function hydrateDeferredItineraryEntry(record) {
-      const now = Date.now();
-      const createdAt = Number(record?.createdAt || 0);
-
-      if (record?.payload?.kind === 'ship-visibility') {
-        if (!record.payload.shipId) return null;
-        if (typeof record.payload.visible !== 'boolean') return null;
-        return buildDeferredItineraryEntry({
-          label: record.label,
-          payload: record.payload,
-          createdAt: record.createdAt,
-          retainCount: record.retainCount,
-          onCommitError: async () => {
-            await loadShips();
-          }
-        });
-      }
-
-      if (record?.payload?.kind === 'route-waypoint-remove') {
-        if (!record.payload.routeId) return null;
-        if (!Array.isArray(record.payload.nextWaypointIds)) return null;
-        // Destructive actions are not replayed if they are stale after a long disconnect.
-        if (createdAt > 0 && now - createdAt > 2 * 60 * 60 * 1000) return null;
-        return buildDeferredItineraryEntry({
-          label: record.label,
-          payload: record.payload,
-          createdAt: record.createdAt,
-          retainCount: record.retainCount,
-          onCommitError: async () => {
-            await loadRoutes();
-            const latest = state.travelRoutes.find(entry => entry.id === record.payload.routeId);
-            if (latest && state.editingRouteId === record.payload.routeId) {
-              fillRouteForm(latest);
-            }
-          }
-        });
-      }
-
-      return null;
-    }
-
-    const deferredQueue = createDeferredCommitQueue({
-      delayMs: 8000,
-      maxPending: 3,
-      persistenceKey: getItineraryQueueStorageKey(),
-      hydrateEntry: hydrateDeferredItineraryEntry,
-      canAttemptCommit: () => getNetworkStatus() !== 'offline' && getNetworkStatus() !== 'offline-long',
-      retainOnCommitError: (_entry, err) => {
-        const offline = getNetworkStatus() === 'offline' || getNetworkStatus() === 'offline-long';
-        return offline || isTransientCommitError(err);
-      },
-      onStateChange: (snapshot) => {
-        $('visibility-toast').classList.toggle('hidden', snapshot.pendingCount === 0);
-        if (snapshot.latest) {
-          $('visibility-toast-title').textContent = snapshot.latest.label;
-          $('visibility-toast-sub').textContent = snapshot.collapsedCount > 0
-            ? `${snapshot.collapsedCount} autre${snapshot.collapsedCount > 1 ? 's' : ''} action${snapshot.collapsedCount > 1 ? 's' : ''} annulable${snapshot.collapsedCount > 1 ? 's' : ''}`
-            : 'Annulable pendant 8 secondes';
-        }
-      },
-      commitFn: async (entry) => {
-        if (entry.payload.kind === 'ship-visibility') {
-          await fetchJson(`/api/visibility/ships/${entry.payload.shipId}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ visible: entry.payload.visible }),
-            headers: { 'Content-Type': 'application/json' }
-          });
-          await loadShips();
-          return;
-        }
-
-        if (entry.payload.kind === 'route-waypoint-remove') {
-          await fetchJson(`/api/travel-routes/${entry.payload.routeId}`, {
-            method: 'PATCH',
-            body: JSON.stringify({
-              name: entry.payload.routeName,
-              active: entry.payload.routeActive,
-              waypoint_ids: entry.payload.nextWaypointIds
-            }),
-            headers: { 'Content-Type': 'application/json' }
-          });
-          await loadRoutes();
-          if (state.editingRouteId === entry.payload.routeId) {
-            const latest = state.travelRoutes.find(route => route.id === entry.payload.routeId);
-            if (latest) fillRouteForm(latest);
-          }
-        }
-      }
-    });
-
-    const restoredDeferred = deferredQueue.restorePersisted();
-    if (restoredDeferred.discarded > 0) {
-      window.alert('Une action différée invalide a été ignorée après rechargement.');
-    }
-
-    function scheduleVisibilityToggle(ship) {
-      const targetVisible = !ship.visible;
-      const previousVisible = ship.visible;
-
-      deferredQueue.enqueue(buildDeferredItineraryEntry({
-        label: `${targetVisible ? 'Révéler' : 'Masquer'} ${ship.name}`,
-        payload: { kind: 'ship-visibility', shipId: ship.id, visible: targetVisible },
-        onOptimisticApply: () => {
-          ship.visible = targetVisible;
-          renderShips();
-        },
-        onOptimisticRollback: () => {
-          ship.visible = previousVisible;
-          renderShips();
-        },
-        onCommitError: async () => {
-          await loadShips();
-        }
-      }));
-    }
-
-    function scheduleWaypointRemoval(index) {
-      const route = state.travelRoutes.find(entry => entry.id === state.editingRouteId);
-      if (!route) return;
-
-      const previousWaypointIds = [...state.routeDraftIds];
-      const nextWaypointIds = state.routeDraftIds.filter((_, itemIndex) => itemIndex !== index);
-
-      deferredQueue.enqueue(buildDeferredItineraryEntry({
-        label: `Retirer ${getSystemName(previousWaypointIds[index])}`,
-        payload: {
-          kind: 'route-waypoint-remove',
-          routeId: route.id,
-          routeName: $('route-name').value.trim() || route.name,
-          routeActive: $('route-active').checked,
-          nextWaypointIds
-        },
-        onOptimisticApply: () => {
-          state.routeDraftIds = [...nextWaypointIds];
-          const match = state.travelRoutes.find(entry => entry.id === route.id);
-          if (match) match.waypoint_ids = [...nextWaypointIds];
-          renderRouteDraft();
-          renderRoutes();
-        },
-        onOptimisticRollback: () => {
-          state.routeDraftIds = [...previousWaypointIds];
-          const match = state.travelRoutes.find(entry => entry.id === route.id);
-          if (match) match.waypoint_ids = [...previousWaypointIds];
-          renderRouteDraft();
-          renderRoutes();
-        },
-        onCommitError: async () => {
-          await loadRoutes();
-          const latest = state.travelRoutes.find(entry => entry.id === route.id);
-          if (latest) fillRouteForm(latest);
-        }
-      }));
-    }
-
-    async function saveShip() {
-      assertWritableMj();
-      $('ship-form-error').classList.add('hidden');
-      try {
-        const payload = collectShipPayload();
-        if (!payload.name) throw new Error('Le nom du vaisseau est requis.');
-
-        if (state.editingShipId) {
-          await fetchJson(`/api/ships/${state.editingShipId}`, {
-            method: 'PATCH',
-            body: JSON.stringify(payload),
-            headers: { 'Content-Type': 'application/json' }
-          });
-        } else {
-          await fetchJson('/api/ships', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-
-        resetShipForm();
-        await loadShips();
-      } catch (err) {
-        $('ship-form-error').textContent = err.message || 'Impossible d’enregistrer le vaisseau.';
-        $('ship-form-error').classList.remove('hidden');
-      }
-    }
-
-    async function saveRoute() {
-      assertWritableMj();
-      $('route-form-error').classList.add('hidden');
-      try {
-        const payload = {
-          name: $('route-name').value.trim(),
-          active: $('route-active').checked,
-          waypoint_ids: [...state.routeDraftIds]
-        };
-
-        if (!payload.name) throw new Error('Le nom de l’itinéraire est requis.');
-        if (payload.waypoint_ids.length < 2) throw new Error('Ajoutez au moins 2 systèmes à l’itinéraire.');
-
-        if (state.editingRouteId) {
-          await fetchJson(`/api/travel-routes/${state.editingRouteId}`, {
-            method: 'PATCH',
-            body: JSON.stringify(payload),
-            headers: { 'Content-Type': 'application/json' }
-          });
-        } else {
-          await fetchJson('/api/travel-routes', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-
-        await loadRoutes();
-        resetRouteForm();
-      } catch (err) {
-        $('route-form-error').textContent = err.message || 'Impossible d’enregistrer l’itinéraire.';
-        $('route-form-error').classList.remove('hidden');
-      }
-    }
-
-    async function bootstrap() {
-      state.currentUser = await initAuthUI();
-      if (!state.currentUser) {
-        window.location.href = '/login.html';
-        return;
-      }
-
-      $('change-table-btn').addEventListener('click', () => {
-        clearActiveTable();
-        state.currentTable = null;
-        renderTableState();
-        renderTableSelector('table-selector-root', () => window.location.reload());
-      });
-
-      $('ship-save-btn').addEventListener('click', () => void saveShip());
-      $('ship-cancel-btn').addEventListener('click', resetShipForm);
-      $('route-save-btn').addEventListener('click', () => void saveRoute());
-      $('route-cancel-btn').addEventListener('click', resetRouteForm);
-      $('route-clear-btn').addEventListener('click', () => {
-        state.routeDraftIds = [];
-        renderRouteDraft();
-      });
-      $('perils-reveal-btn').addEventListener('click', async () => {
-        try {
-          await setPerilsVisibilityForSelectedRoute(true);
-        } catch (err) {
-          window.alert(err.message || 'Impossible de révéler les périls.');
-        }
-      });
-      $('perils-hide-btn').addEventListener('click', async () => {
-        try {
-          await setPerilsVisibilityForSelectedRoute(false);
-        } catch (err) {
-          window.alert(err.message || 'Impossible de masquer les périls.');
-        }
-      });
-      $('perils-generate-btn').addEventListener('click', async () => {
-        try {
-          await generatePerilsForSelectedRoute();
-        } catch (err) {
-          window.alert(err.message || 'Impossible de générer les périls.');
-        }
-      });
-      $('perils-manual-add-btn').addEventListener('click', async () => {
-        try {
-          await addManualPerilToSelectedRoute();
-        } catch (err) {
-          window.alert(err.message || 'Impossible d’ajouter le péril manuel.');
-        }
-      });
-      $('routes-create-cta').addEventListener('click', resetRouteForm);
-      $('routes-empty-cta').addEventListener('click', resetRouteForm);
-      $('visibility-undo-btn').addEventListener('click', () => deferredQueue.undoLatest());
-
-      if (state.isMj) {
-        $('preview-toggle-btn').classList.remove('hidden');
-        $('preview-toggle-btn').addEventListener('click', async () => {
-          await setPreviewMode(!state.previewMode);
-        });
-        $('preview-exit-btn').addEventListener('click', async () => {
-          await setPreviewMode(false);
-        });
-      }
-
-      $('ship-model').addEventListener('change', () => {
-        const option = $('ship-model').selectedOptions[0];
-        if (!option || !option.value) return;
-        $('ship-hull').value = Number(option.dataset.hull || 0);
-        $('ship-crew').value = Number(option.dataset.crew || 0);
-        $('ship-cargo').value = Number(option.dataset.cargo || 0);
-      });
-
-      await loadTableContext();
-      renderTableState();
-
-      if (!state.currentTable) {
-        await renderTableSelector('table-selector-root', () => window.location.reload());
-        return;
-      }
-
-      await Promise.all([
-        loadShips(),
-        loadShipModels(),
-        loadSystems(),
-        loadRoutes()
-      ]);
-
-      if (restoredDeferred.restored > 0) {
-        $('visibility-toast').classList.remove('hidden');
-        $('visibility-toast-title').textContent = `${restoredDeferred.restored} action${restoredDeferred.restored > 1 ? 's' : ''} restaurée${restoredDeferred.restored > 1 ? 's' : ''}`;
-        $('visibility-toast-sub').textContent = 'En attente de reconnexion pour replay automatique';
-      }
-
-      restartSyncPoller();
-      await handleSyncData(await fetchJson('/api/sync'));
-      state.networkLastPollTime = Date.now();
-      refreshConnectionIndicator();
-      setInterval(refreshConnectionIndicator, 1000);
-
-      resetShipForm();
-      resetRouteForm();
-      renderPlayerJournal();
-    }
-
-    await bootstrap();
-  </script>
+        </div>
+        <input type="hidden" id="faction-icon-data">
+        <input type="hidden" id="faction-edit-id">
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button id="btn-save-faction" style="flex:1;padding:8px;background:var(--primary);color:white;border:none;border-radius:4px;cursor:pointer">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/shared/cold-start.js?v=2.0.0"></script>
+  <script type="module" src="/js/itineraire.js?v=2.0.0"></script>
 </body>
 </html>

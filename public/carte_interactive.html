@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Metal Adventures — Carte Interactive</title>
-  <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/tailwind.css?v=2.0.0">
   <style>
     #canvas-container {
       touch-action: none;
@@ -191,6 +191,7 @@
     </div>
   </section>
 
+  <script type="module" src="/js/shared/cold-start.js?v=2.0.0"></script>
   <script type="module">
     import { loadSystems, loadQuadrants, validateSystemUpdate, saveSystemUpdate, loadFactions, getConnectionState, handleVersionJump } from '/js/map/map-service.js';
     import { GalaxyMap } from '/js/map/galaxy-map.js';

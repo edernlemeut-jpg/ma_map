@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Metal Adventures — Dashboard MJ</title>
-  <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/tailwind.css?v=2.0.0">
   <style>
     body.mj-readonly [data-mj-action="true"] {
       opacity: 0.45;
@@ -202,6 +202,7 @@
     </div>
   </section>
 
+  <script type="module" src="/js/shared/cold-start.js?v=2.0.0"></script>
   <script type="module">
     import { initAuthUI } from '/js/shared/auth-ui.js';
     import { createPoller } from '/js/shared/poller.js';
