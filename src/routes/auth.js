@@ -20,7 +20,7 @@ router.post('/register', (req, res) => {
 
   // Auto-login after register: generate token directly (no double-hash)
   const token = authService.generateToken({ id: result.data.id, is_admin: result.data.is_admin });
-  setCookie(res, token);
+  setCookie(req, res, token);
 
   const { is_first_admin, ...userData } = result.data;
   success(res, { ...userData, message }, 201);
@@ -35,17 +35,19 @@ router.post('/login', (req, res) => {
     return errorResponse(res, result.error);
   }
 
-  setCookie(res, result.data.token);
+  setCookie(req, res, result.data.token);
 
   const { token, ...userData } = result.data;
   success(res, userData);
 });
 
 // POST /api/auth/logout
-router.post('/logout', (_req, res) => {
+router.post('/logout', (req, res) => {
+  const secure = isHttpsRequest(req);
   res.clearCookie('token', {
     httpOnly: true,
     sameSite: 'strict',
+    secure,
     path: '/'
   });
   success(res, { message: 'Déconnexion réussie' });
@@ -62,14 +64,33 @@ router.get('/me', (req, res) => {
   });
 });
 
-function setCookie(res, token) {
+function setCookie(req, res, token) {
+  const secure = isHttpsRequest(req);
+
   res.cookie('token', token, {
     httpOnly: true,
     sameSite: 'strict',
-    secure: NODE_ENV === 'production',
+    secure,
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000
   });
+}
+
+function isHttpsRequest(req) {
+  if (NODE_ENV !== 'production') {
+    return false;
+  }
+
+  if (req.secure) {
+    return true;
+  }
+
+  const forwardedProto = req.get('x-forwarded-proto');
+  if (!forwardedProto) {
+    return false;
+  }
+
+  return forwardedProto.split(',').map((v) => v.trim()).includes('https');
 }
 
 export default router;
