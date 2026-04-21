@@ -4,6 +4,8 @@
  */
 import { initAuthUI } from '/js/shared/auth-ui.js';
 import { getActiveTableId, fetchWithTable, isMJ } from '/js/shared/table-selector.js';
+import { createPoller } from '/js/shared/poller.js';
+import { createDeferredCommitQueue } from '/js/shared/deferred-commit.js';
 
 // ── LETTRES (grille 40×40 lettres grecques) ──────────────────────────────
 const LETTRES = ["Α","Β","Γ","Δ","Ε","Ζ","Η","Θ","Ι","Κ","Λ","Μ","Ν","Ξ","Ο","Π","Ρ","Σ","Τ","Υ","Φ","Χ","Ψ","Ω","Α′","Β′","Γ′","Δ′","Ε′","Ζ′","Η′","Θ′","Ι′","Κ′","Λ′","Μ′","Ν′","Ξ′","Ο′","Π′"];
@@ -1449,12 +1451,74 @@ function initEvents() {
   });
 }
 
+// ── FILE OFFLINE (ship-visibility) ───────────────────────────────────────
+let _itinerairePollError = false;
+
+function _itineraireQueueKey() {
+  const tableId = getActiveTableId();
+  return tableId ? `mj-offline-queue:itineraire:${tableId}` : '';
+}
+
+function _isTransientCommitError(err) {
+  const status = Number(err?.status || 0);
+  if (status >= 400 && status < 500) return false;
+  if (status >= 500 || status === 429) return true;
+  const msg = String(err?.message || '').toLowerCase();
+  return err?.name === 'TypeError' || msg.includes('network') || msg.includes('fetch');
+}
+
+const _itineraireQueue = createDeferredCommitQueue({
+  delayMs: 8000,
+  persistenceKey: _itineraireQueueKey(),
+  hydrateEntry: (record) => {
+    const p = record?.payload;
+    if (!p || p.kind !== 'ship-visibility' || !p.shipId || typeof p.visible !== 'boolean') return null;
+    return { label: record.label || 'Reveal ship', payload: p, createdAt: record.createdAt, retainCount: record.retainCount || 0 };
+  },
+  canAttemptCommit: () => !_itinerairePollError,
+  retainOnCommitError: (_entry, err) => _itinerairePollError || _isTransientCommitError(err),
+  commitFn: async (entry) => {
+    const { kind, shipId, visible } = entry.payload || {};
+    if (kind === 'ship-visibility') {
+      const res = await fetchWithTable(`/api/visibility/ships/${shipId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visible }),
+        credentials: 'include'
+      });
+      if (!res.ok) {
+        const e = new Error(`HTTP ${res.status}`);
+        e.status = res.status;
+        throw e;
+      }
+    }
+  }
+});
+
 // ── INIT ──────────────────────────────────────────────────────────────────
 async function init() {
   // Auth check (non-bloquant pour cette page publique)
   try { await initAuthUI(); } catch {}
 
   await loadData();
+
+  // Restaurer la file d'entrées différées persistées (ex : visibilité vaisseau hors-ligne)
+  _itineraireQueue.restorePersisted();
+
+  // Poller — reconnexion → rejouer la file
+  createPoller({
+    enableErrorBackoff: true,
+    retryBaseMs: 1000,
+    retryMaxMs: 30000,
+    onError: () => { _itinerairePollError = true; },
+    onReconnect: async () => {
+      _itinerairePollError = false;
+      if (_itineraireQueue.pendingCount() > 0) {
+        await _itineraireQueue.drainNow({ stopOnError: true, reason: 'reconnect' });
+      }
+    },
+    onData: () => { _itinerairePollError = false; }
+  }).start();
 
   populateShipSelect();
   initCarte();
@@ -1465,4 +1529,11 @@ async function init() {
   centerMap();
 }
 
-document.addEventListener('DOMContentLoaded', init);
+// Importing poller.js (top-level await) makes this module async, so DOMContentLoaded
+// may have already fired by the time the module body executes. Guard against this.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+
