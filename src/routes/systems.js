@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { success, validationError, forbidden, notFound } from '../utils/response.js';
-import { getSystems, updateSystem } from '../services/compendium.js';
+import { getSystems, createSystem, updateSystem } from '../services/compendium.js';
 
 const router = Router();
 
@@ -10,6 +10,29 @@ router.get('/', (req, res) => {
   }
   const data = getSystems(req.table.id, req.table.role);
   success(res, data);
+});
+
+router.post('/', (req, res) => {
+  if (!req.table) {
+    return validationError(res, 'Aucune table sélectionnée');
+  }
+
+  const fields = req.body;
+  if (!fields || typeof fields !== 'object') {
+    return validationError(res, 'Données invalides');
+  }
+
+  if (!fields.nom || !String(fields.nom).trim()) {
+    return validationError(res, 'Le nom du système est requis');
+  }
+
+  if (!fields.quadrant || !String(fields.quadrant).trim()) {
+    return validationError(res, 'Le quadrant est requis');
+  }
+
+  const result = createSystem(fields);
+  if (!result) return validationError(res, 'Erreur lors de la création');
+  success(res, result);
 });
 
 router.patch('/:id', (req, res) => {

@@ -6,7 +6,7 @@
 import db from '../database.js';
 import { isVisible } from './visibility.js';
 
-const SYSTEMS_COLS = 'id, quadrant, nom, faction, is_frontiere, route, gouvernement, description';
+const SYSTEMS_COLS = 'id, quadrant, nom, faction, is_frontiere, route, gouvernement, description, soleil_json, corps_celestes_json, patrouilles_json';
 const FACTIONS_COLS = 'id, name, short, description, icon, color';
 const SHIP_MODELS_COLS = 'id, nom, classe, vitesse_croisiere, vitesse_hyperspatiale, autonomie, manoeuvrabilite, vitesse_tactique, blindage, coque, senseurs, equipage, passagers, soute, prix, origine, image, armement_json, systemes_secondaires_json';
 
@@ -42,7 +42,7 @@ export function getShipModels(tableId, role) {
 
 // --- Edit functions (MJ only) ---
 
-const SYSTEM_EDITABLE = ['nom', 'quadrant', 'faction', 'is_frontiere', 'route', 'gouvernement', 'description'];
+const SYSTEM_EDITABLE = ['nom', 'quadrant', 'faction', 'is_frontiere', 'route', 'gouvernement', 'description', 'soleil_json', 'corps_celestes_json', 'patrouilles_json'];
 const FACTION_EDITABLE = ['name', 'short', 'description', 'icon', 'color'];
 const SHIP_MODEL_EDITABLE = ['nom', 'classe', 'origine', 'vitesse_croisiere', 'vitesse_hyperspatiale', 'autonomie', 'manoeuvrabilite', 'vitesse_tactique', 'blindage', 'coque', 'senseurs', 'equipage', 'passagers', 'soute', 'prix', 'image'];
 
@@ -76,6 +76,17 @@ export function getFaction(id) {
 
 export function getShipModel(id) {
   return db.prepare(`SELECT ${SHIP_MODELS_COLS} FROM ship_models WHERE id = ?`).get(id);
+}
+
+export function createSystem(fields) {
+  const allowed = SYSTEM_EDITABLE;
+  const entries = Object.entries(fields).filter(([k]) => allowed.includes(k));
+  if (!entries.length) return null;
+  const cols = entries.map(([k]) => k).join(', ');
+  const placeholders = entries.map(() => '?').join(', ');
+  const values = entries.map(([, v]) => v);
+  const result = db.prepare(`INSERT INTO systems (${cols}) VALUES (${placeholders})`).run(...values);
+  return db.prepare(`SELECT ${SYSTEMS_COLS} FROM systems WHERE id = ?`).get(result.lastInsertRowid);
 }
 
 export function updateSystem(id, fields) {
