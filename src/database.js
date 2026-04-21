@@ -17,6 +17,14 @@ db.pragma('foreign_keys = ON');
 
 // Lightweight runtime schema backfill for legacy DBs.
 function ensureGameTableSessionColumns() {
+	const gameTablesExists = db
+		.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'game_tables' LIMIT 1")
+		.get();
+
+	if (!gameTablesExists) {
+		return;
+	}
+
 	const cols = db.prepare("PRAGMA table_info('game_tables')").all();
 	const names = new Set(cols.map(c => c.name));
 
