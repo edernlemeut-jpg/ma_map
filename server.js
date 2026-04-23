@@ -21,6 +21,7 @@ import perilsApiRoutes from './src/routes/perils-api.js';
 import rulesRoutes from './src/routes/rules.js';
 import uploadRoutes from './src/routes/upload.js';
 import planetsRoutes from './src/routes/planets.js';
+import calendarRoutes from './src/routes/calendar.js';
 
 import { fileURLToPath } from 'url';
 import { resolve } from 'path';
@@ -56,6 +57,7 @@ app.use('/api/perils', perilsApiRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/rules', rulesRoutes);
 app.use('/api/planets', planetsRoutes);
+app.use('/api/calendar', calendarRoutes);
 app.use(legacyRoutes);
 
 // Clean URL support for pages without .html extension

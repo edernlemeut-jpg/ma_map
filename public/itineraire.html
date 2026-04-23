@@ -246,6 +246,7 @@
         <option value="">🚀 Vaisseau...</option>
       </select>
       <span id="auth-user-info" class="hidden">
+        <span id="header-campaign-date" class="hidden" style="font-size:0.72rem;font-family:monospace;color:#fde047;border:1px solid #4b5563;border-radius:4px;padding:2px 6px;margin-right:4px"></span>
         <span id="auth-user-name"></span>
         <button id="auth-logout-btn">Déco</button>
       </span>
@@ -291,6 +292,7 @@
           <div id="dp-legs"></div>
           <button class="btn-action btn-primary" id="btn-update-desktop">Actualiser</button>
           <button class="btn-action btn-gold" style="border:1px solid var(--gold)" id="btn-save-hist-desktop">💾 Sauvegarder</button>
+          <button class="btn-action" id="btn-save-trajet-desktop" style="display:none;background:#5b21b6;color:#fff;border:1px solid #7c3aed">📅 Enregistrer le trajet</button>
         </div>
       </div>
     </div>
@@ -308,6 +310,7 @@
       <div id="mob-legs"></div>
       <button class="btn-action btn-primary" id="btn-update-mobile">Actualiser</button>
       <button class="btn-action btn-gold" style="border:1px solid var(--gold)" id="btn-save-hist-mobile">💾 Sauvegarder</button>
+      <button class="btn-action" id="btn-save-trajet-mobile" style="display:none;background:#5b21b6;color:#fff;border:1px solid #7c3aed">📅 Enregistrer le trajet</button>
     </div>
   </div>
 
@@ -341,6 +344,14 @@
     <div class="modal-sheet" style="max-width:720px">
       <div class="modal-title"><span id="edit-sys-title">Éditer Système</span><button class="modal-close" data-modal="modal-edit-system">✕</button></div>
       <div id="edit-sys-content"></div>
+    </div>
+  </div>
+
+  <!-- Modal Enregistrer Trajet au calendrier -->
+  <div id="modal-save-trajet" class="modal-backdrop">
+    <div class="modal-sheet" style="max-width:480px">
+      <div class="modal-title">📅 Enregistrer le trajet <button class="modal-close" data-modal="modal-save-trajet">✕</button></div>
+      <div id="save-trajet-content" style="padding:12px 0 4px"></div>
     </div>
   </div>
 

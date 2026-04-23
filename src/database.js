@@ -189,4 +189,40 @@ function seedRulesEntries() {
 
 seedRulesEntries();
 
+// ── Calendar feature ──────────────────────────────────────────────────────────
+function ensureCalendarTables() {
+  // Add campaign_date / campaign_year to game_tables if missing
+  const gtCols = new Set(db.prepare("PRAGMA table_info('game_tables')").all().map(c => c.name));
+  if (!gtCols.has('campaign_date'))  db.exec("ALTER TABLE game_tables ADD COLUMN campaign_date TEXT");
+  if (!gtCols.has('campaign_year'))  db.exec("ALTER TABLE game_tables ADD COLUMN campaign_year INTEGER DEFAULT 50429");
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS calendar_categories (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_id  INTEGER NOT NULL REFERENCES game_tables(id) ON DELETE CASCADE,
+      name      TEXT NOT NULL,
+      color     TEXT NOT NULL DEFAULT '#8b5cf6',
+      is_system INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_cal_cat_table ON calendar_categories(table_id);
+
+    CREATE TABLE IF NOT EXISTS calendar_events (
+      id           TEXT PRIMARY KEY,
+      table_id     INTEGER NOT NULL REFERENCES game_tables(id) ON DELETE CASCADE,
+      title        TEXT NOT NULL,
+      description  TEXT,
+      category_id  INTEGER REFERENCES calendar_categories(id) ON DELETE SET NULL,
+      date_start   TEXT NOT NULL,
+      date_end     TEXT,
+      galactic_year INTEGER NOT NULL,
+      is_public    INTEGER NOT NULL DEFAULT 1,
+      created_by   INTEGER NOT NULL REFERENCES users(id),
+      created_at   TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_cal_evt_table ON calendar_events(table_id, galactic_year);
+  `);
+}
+
+ensureCalendarTables();
+
 export default db;

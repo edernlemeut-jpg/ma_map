@@ -23,6 +23,7 @@ let activeShip = null;     // ship object from API
 let ships = [];
 let shipModels = [];
 let isDragging = false;
+let campaignDateState = null; // { date: 'XXYY.ZZ', year: 50429 } loaded from API
 
 // Pan/zoom
 let zoom = 1, panX = 0, panY = 0;
@@ -927,6 +928,177 @@ async function saveShipPos(leg, btn) {
   }
 }
 
+}
+
+// ── ENREGISTRER TRAJET AU CALENDRIER ────────────────────────────────────────
+function galacticDateToIndex(s) {
+  const m = s?.match(/^(\d{2})(\d{2})\.(\d{2})$/);
+  if (!m) return 0;
+  return (+m[1] - 1) * 25 + (+m[2] - 1) * 5 + (+m[3] - 1);
+}
+function galacticIndexToDate(idx, year) {
+  const y = year + Math.floor(idx / 250);
+  const i = ((idx % 250) + 250) % 250;
+  const mm = Math.floor(i / 25) + 1;
+  const ww = Math.floor((i % 25) / 5) + 1;
+  const dd = (i % 5) + 1;
+  return {
+    date: `${String(mm).padStart(2,'0')}${String(ww).padStart(2,'0')}.${String(dd).padStart(2,'0')}`,
+    year: y,
+  };
+}
+
+async function openSaveTrajetModal(trip) {
+  // Try to get fresh campaign state
+  try {
+    const r = await fetchWithTable('/api/calendar/state');
+    if (r?.ok) {
+      const j = await r.json().catch(() => null);
+      campaignDateState = j?.data ?? j ?? campaignDateState;
+    }
+  } catch { /* use cached */ }
+
+  const pts = tripState.points;
+  const from = pts[0]?.systemNom || pts[0]?.astroNom || pts[0]?.quadrant || '?';
+  const to = pts[pts.length - 1]?.systemNom || pts[pts.length - 1]?.astroNom || pts[pts.length - 1]?.quadrant || '?';
+  const shipName = activeShip?.nom || activeShip?.name || '';
+
+  // Count total effective days from leg dailyData
+  let totalDays = 0;
+  trip.legs.forEach(leg => {
+    let arrived = false, cum = 0;
+    const surfMult = leg.type === 'hyperspatial' ? 100 : 1;
+    leg.dailyData.forEach(d => {
+      if (arrived) return;
+      cum += leg.spd + (d.surf || 0) * surfMult;
+      totalDays++;
+      if (cum >= leg.distance) arrived = true;
+    });
+  });
+
+  const startDate = campaignDateState?.date || '0101.01';
+  const startYear = campaignDateState?.year || 50429;
+  const endResult = totalDays > 1
+    ? galacticIndexToDate(galacticDateToIndex(startDate) + totalDays - 1, startYear)
+    : { date: startDate, year: startYear };
+
+  // Load categories to pre-select "Trajet"
+  let categories = [];
+  let trajetCatId = '';
+  try {
+    const r2 = await fetchWithTable('/api/calendar/categories');
+    if (r2?.ok) {
+      const j2 = await r2.json().catch(() => null);
+      categories = j2?.data ?? j2 ?? [];
+      const trajetCat = categories.find(c => c.is_system === 1 || c.name === 'Trajet');
+      if (trajetCat) trajetCatId = trajetCat.id;
+    }
+  } catch { /* pass */ }
+
+  const catOptions = categories
+    .map(c => `<option value="${c.id}" ${c.id === trajetCatId ? 'selected' : ''}>${c.name}</option>`)
+    .join('');
+
+  const defaultTitle = shipName
+    ? `${shipName} : ${from} → ${to}`
+    : `Trajet : ${from} → ${to}`;
+
+  const container = document.getElementById('save-trajet-content');
+  container.innerHTML = `
+    <div style="font-size:0.82rem;margin-bottom:10px;color:#aaa">
+      📍 ${from} → ${to} &nbsp;·&nbsp; ${totalDays} jour${totalDays > 1 ? 's' : ''}
+      &nbsp;·&nbsp; Date départ : <strong>${startDate} An ${startYear}</strong>
+      &nbsp;·&nbsp; Fin estimée : <strong>${endResult.date} An ${endResult.year}</strong>
+    </div>
+    <div style="margin-bottom:8px">
+      <label style="font-size:0.78rem;color:#888;display:block;margin-bottom:3px">Titre</label>
+      <input id="st-title" type="text" value="${defaultTitle.replace(/"/g,'&quot;')}" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:0.85rem">
+    </div>
+    <div style="margin-bottom:8px">
+      <label style="font-size:0.78rem;color:#888;display:block;margin-bottom:3px">Catégorie</label>
+      <select id="st-cat" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:0.85rem">
+        <option value="">— Aucune —</option>
+        ${catOptions}
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div>
+        <label style="font-size:0.78rem;color:#888;display:block;margin-bottom:3px">Date début</label>
+        <input id="st-date-start" type="text" value="${startDate}" maxlength="7" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:5px;font-size:0.82rem;font-family:monospace">
+      </div>
+      <div>
+        <label style="font-size:0.78rem;color:#888;display:block;margin-bottom:3px">Date fin</label>
+        <input id="st-date-end" type="text" value="${endResult.date}" maxlength="7" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:5px;font-size:0.82rem;font-family:monospace">
+      </div>
+    </div>
+    <div style="margin-bottom:8px">
+      <label style="font-size:0.78rem;color:#888;display:block;margin-bottom:3px">Année galactique</label>
+      <input id="st-year" type="number" value="${startYear}" min="1" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;font-size:0.85rem">
+    </div>
+    <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <input id="st-public" type="checkbox" style="width:16px;height:16px" checked>
+      <label for="st-public" style="font-size:0.85rem">Visible par les joueurs</label>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="st-cancel" class="btn-action" style="background:var(--bg);border:1px solid var(--border);color:#aaa">Annuler</button>
+      <button id="st-save" class="btn-action" style="background:#5b21b6;border:1px solid #7c3aed;color:#fff">📅 Enregistrer</button>
+    </div>`;
+
+  document.getElementById('st-cancel').onclick = () => closeModal('modal-save-trajet');
+  document.getElementById('st-save').onclick = () => submitSaveTrajet();
+  openModal('modal-save-trajet');
+}
+
+async function submitSaveTrajet() {
+  const title = document.getElementById('st-title').value.trim();
+  const catId = document.getElementById('st-cat').value;
+  const dateStart = document.getElementById('st-date-start').value.trim();
+  const dateEnd = document.getElementById('st-date-end').value.trim();
+  const year = parseInt(document.getElementById('st-year').value);
+  const isPublic = document.getElementById('st-public').checked;
+
+  if (!title) { alert('Titre requis.'); return; }
+  if (!/^\d{4}\.\d{2}$/.test(dateStart)) { alert('Date début invalide (XXYY.ZZ).'); return; }
+  if (dateEnd && !/^\d{4}\.\d{2}$/.test(dateEnd)) { alert('Date fin invalide (XXYY.ZZ).'); return; }
+  if (isNaN(year) || year < 1) { alert('Année invalide.'); return; }
+
+  const payload = {
+    title,
+    date_start: dateStart,
+    date_end: dateEnd || null,
+    galactic_year: year,
+    category_id: catId ? Number(catId) : null,
+    is_public: isPublic,
+  };
+
+  const btn = document.getElementById('st-save');
+  btn.disabled = true;
+  btn.textContent = '⏳…';
+
+  try {
+    const r = await fetchWithTable('/api/calendar/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j?.error?.message || `Erreur ${r.status}`);
+    }
+    closeModal('modal-save-trajet');
+    // Confirmation brief
+    const saved = document.createElement('div');
+    saved.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#5b21b6;color:#fff;padding:10px 18px;border-radius:8px;font-size:0.85rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.4)';
+    saved.textContent = '✅ Trajet enregistré dans le calendrier';
+    document.body.appendChild(saved);
+    setTimeout(() => saved.remove(), 3000);
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '📅 Enregistrer';
+    alert('Erreur : ' + e.message);
+  }
+}
+
 function readInputs(legs, pfx) {
   legs.forEach((leg, li) => {
     const ski = document.getElementById(`${pfx}-sk-${li}`);
@@ -977,6 +1149,16 @@ function renderTrip(trip, isMob) {
     dl.innerHTML = legsHTML(trip.legs, 'dsk');
     attachPerilEvents(dl, trip.legs);
   }
+
+  // Show "Enregistrer le trajet" buttons for MJ
+  const showSave = isMJ() && getActiveTableId();
+  ['btn-save-trajet-desktop', 'btn-save-trajet-mobile'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.style.display = showSave ? '' : 'none';
+      btn.onclick = () => openSaveTrajetModal(trip);
+    }
+  });
 }
 
 function doCalc(isMob) {
@@ -1438,6 +1620,21 @@ const _itineraireQueue = createDeferredCommitQueue({
 async function init() {
   // Auth check (non-bloquant pour cette page publique)
   try { await initAuthUI(); } catch {}
+
+  // Campaign date (non-bloquant — affichée en entête si table active)
+  try {
+    const calRes = await fetchWithTable('/api/calendar/state');
+    if (calRes?.ok) {
+      const calJson = await calRes.json().catch(() => null);
+      campaignDateState = calJson?.data ?? calJson ?? null;
+      const badge = document.getElementById('header-campaign-date');
+      if (badge && campaignDateState?.date) {
+        badge.textContent = `📅 ${campaignDateState.date} — An ${campaignDateState.year}`;
+        badge.classList.remove('hidden');
+        badge.style.display = '';
+      }
+    }
+  } catch { /* silent */ }
 
   await loadData();
 

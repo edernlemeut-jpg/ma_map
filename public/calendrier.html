@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calendrier Galactique — Metal Adventures</title>
+  <link rel="stylesheet" href="/css/tailwind.css?v=2.0.0">
+  <link rel="stylesheet" href="/css/ma-theme.css">
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="border-b border-gray-700 bg-gray-800">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="text-xl font-bold">
+        <a href="/" class="hover:text-blue-400 transition-colors">⚙️ Metal Adventures</a>
+      </h1>
+      <nav class="flex items-center gap-4 text-sm">
+        <span id="header-table-info" class="hidden flex items-center gap-2 text-gray-300 border-r border-gray-600 pr-4 mr-2">
+          <span id="header-table-name" class="font-medium"></span>
+          <span id="header-table-role" class="text-xs"></span>
+          <a href="#" id="header-change-table" class="text-blue-400 hover:text-blue-300 text-xs ml-1" title="Changer de table">✕</a>
+        </span>
+        <span id="header-campaign-date" class="hidden text-xs font-mono px-2 py-1 rounded border border-gray-600 text-yellow-300"></span>
+        <span id="auth-user-info" class="hidden flex items-center gap-3">
+          <span id="auth-user-name" class="text-gray-300"></span>
+          <a href="#" id="auth-logout-btn" class="text-red-400 hover:text-red-300 hover:underline">Déconnexion</a>
+        </span>
+        <a href="/login.html" id="auth-login-link" class="text-blue-400 hover:underline">Connexion</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="flex-1 max-w-6xl mx-auto w-full px-4 py-6">
+
+    <!-- Loading -->
+    <div id="loading" class="text-center py-12 text-gray-400">Chargement du calendrier…</div>
+
+    <!-- Content (hidden until loaded) -->
+    <div id="cal-content" class="hidden">
+
+      <!-- Top bar -->
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <h2 class="text-lg font-semibold" style="color:var(--gold)">📅 Calendrier Galactique</h2>
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- MJ: set current date -->
+          <div id="mj-date-form" class="hidden flex items-center gap-2 flex-wrap">
+            <span class="text-xs text-gray-400">Date actuelle :</span>
+            <input id="input-campaign-date" type="text" maxlength="7" placeholder="XXYY.ZZ"
+                   class="w-24 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 font-mono focus:outline-none focus:border-blue-500 text-center">
+            <input id="input-campaign-year" type="number" min="1" placeholder="Année"
+                   class="w-24 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500 text-center">
+            <button id="btn-set-date" class="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded transition-colors">Définir</button>
+            <button id="btn-manage-cats" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-3 py-1.5 rounded transition-colors">🏷️ Catégories</button>
+            <button id="btn-add-event" class="text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded transition-colors">＋ Événement</button>
+          </div>
+          <!-- Year navigation -->
+          <button id="btn-prev-year" class="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-3 py-1.5 rounded text-sm transition-colors">◀◀</button>
+          <button id="btn-prev-month" class="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-3 py-1.5 rounded text-sm transition-colors">◀</button>
+          <span id="cal-title" class="text-sm font-semibold text-gray-300 min-w-[160px] text-center"></span>
+          <button id="btn-next-month" class="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-3 py-1.5 rounded text-sm transition-colors">▶</button>
+          <button id="btn-next-year" class="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-3 py-1.5 rounded text-sm transition-colors">▶▶</button>
+        </div>
+      </div>
+
+      <!-- Week headers -->
+      <div class="grid grid-cols-5 gap-1 mb-1 text-center text-xs text-gray-500 font-medium px-0.5">
+        <div>Jour I</div><div>Jour II</div><div>Jour III</div><div>Jour IV</div><div>Jour V</div>
+      </div>
+
+      <!-- Calendar grid (5 weeks × 5 days = 25 cells per month) -->
+      <div id="cal-grid" class="grid grid-cols-5 gap-1 mb-6"></div>
+
+      <!-- Events legend / list for current month -->
+      <div id="events-list-wrap" class="hidden border-t border-gray-700 pt-4">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">Événements du mois</h3>
+        <div id="events-list" class="space-y-2"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal: day detail / event create-edit -->
+  <div id="modal-overlay" class="hidden fixed inset-0 bg-black/70 z-50 flex items-start justify-center p-4 pt-8 overflow-y-auto">
+    <div id="modal-box" class="relative w-full max-w-lg bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-2xl mb-8">
+      <button id="modal-close" class="absolute top-3 right-3 text-gray-400 hover:text-gray-200 text-2xl leading-none">&times;</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Modal: manage categories -->
+  <div id="cat-modal-overlay" class="hidden fixed inset-0 bg-black/70 z-50 flex items-start justify-center p-4 pt-8 overflow-y-auto">
+    <div class="relative w-full max-w-md bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-2xl mb-8">
+      <button id="cat-modal-close" class="absolute top-3 right-3 text-gray-400 hover:text-gray-200 text-2xl leading-none">&times;</button>
+      <div id="cat-modal-body"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/shared/cold-start.js?v=2.0.2"></script>
+  <script type="module" src="/js/calendrier/calendrier-app.js?v=1.0.0"></script>
+</body>
+</html>

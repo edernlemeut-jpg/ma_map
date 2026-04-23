@@ -93,6 +93,20 @@ export async function loadTableContext() {
       });
     }
 
+    // Campaign date badge
+    try {
+      const calRes = await fetchWithTable('/api/calendar/state');
+      if (calRes.ok) {
+        const calJson = await calRes.json();
+        const cal = calJson.data ?? calJson;
+        const badge = document.getElementById('header-campaign-date');
+        if (badge && cal?.date) {
+          badge.textContent = `📅 ${cal.date} — An ${cal.year}`;
+          badge.classList.remove('hidden');
+        }
+      }
+    } catch { /* silent — calendar may not be set yet */ }
+
     return table;
   } catch {
     if (tableInfo) tableInfo.classList.add('hidden');
