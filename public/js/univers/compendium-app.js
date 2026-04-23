@@ -928,7 +928,6 @@ function renderFactions(panel, factions) {
 
 function renderShipModels(panel, models) {
   const canEdit = state.isMJ || state.isAdmin;
-  const ms = state.modelsSort;
 
   let headerHtml = '';
   if (canEdit) {
@@ -946,51 +945,115 @@ function renderShipModels(panel, models) {
     return;
   }
 
-  // Compact table header + cards below
-  panel.innerHTML = headerHtml + `
-    <div class="overflow-x-auto mb-2">
-      <table class="w-full text-xs">
-        <thead>
-          <tr class="border-b border-gray-700">
-            ${sortHeaderHtml('nom', 'Modèle', ms)}
-            ${sortHeaderHtml('classe', 'Classe', ms)}
-            ${sortHeaderHtml('origine', 'Origine', ms)}
-            ${sortHeaderHtml('tonnage', 'Tonnage', ms)}
-            ${sortHeaderHtml('prix', 'Prix', ms)}
-            ${canEdit ? `<th class="pb-2 pr-3 text-gray-400">Vis.</th>` : ''}
-            ${canEdit ? `<th class="pb-2 text-gray-400">Actions</th>` : ''}
-          </tr>
-        </thead>
-        <tbody id="models-tbody"></tbody>
-      </table>
-    </div>`;
-
+  panel.innerHTML = headerHtml + `<div id="models-cards"></div>`;
   if (canEdit) panel.querySelector('#btn-new-model')?.addEventListener('click', () => openNewModelModal());
 
-  const tbody = panel.querySelector('#models-tbody');
-  const render = () => {
-    tbody.innerHTML = '';
-    sortedData(models, ms.col, ms.dir).forEach(m => {
-      const hidden = state.isMJ && !m.visible;
-      const row = document.createElement('tr');
-      row.className = `border-b border-gray-800 hover:bg-gray-800/50 cursor-pointer ${hidden ? 'opacity-50' : ''}`;
-      row.innerHTML = `
-        <td class="py-1.5 pr-3 font-medium">${m.image ? `<span style="display:inline-flex;width:100px;height:100px;align-items:center;justify-content:center;overflow:hidden;background:#111827;border-radius:4px;margin-right:6px;vertical-align:middle;flex-shrink:0"><img src="${esc(m.image)}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain"></span>` : '🚀 '}<span class="align-middle">${esc(m.nom)}</span></td>
-        <td class="py-1.5 pr-3 text-gray-400">${esc(m.classe || '—')}</td>
-        <td class="py-1.5 pr-3 text-gray-400">${esc(m.origine || '—')}</td>
-        <td class="py-1.5 pr-3 text-gray-400">${m.tonnage ? esc(m.tonnage) + ' t' : '—'}</td>
-        <td class="py-1.5 pr-3 text-gray-400">${m.prix ? esc(String(m.prix)) + ' ¢' : '—'}</td>
-        ${canEdit ? `<td class="py-1.5 pr-3">${renderVisibilityToggle('ship_models', m)}</td>` : ''}
-        ${canEdit ? `<td class="py-1.5">${renderEditButton('ship_models', m)}</td>` : ''}`;
-      row.addEventListener('click', e => {
-        if (e.target.closest('.vis-toggle,.edit-btn')) return;
-        openDetailSheet('ship_models', m);
-      });
-      tbody.appendChild(row);
+  const container = panel.querySelector('#models-cards');
+  models.forEach(m => {
+    let armement = [];
+    try { armement = JSON.parse(m.armement_json || '[]'); } catch {}
+
+    const statRow = (label, val) => val != null && val !== '' && val !== 0
+      ? `<tr><td class="text-right text-gray-400 pr-3 py-0.5 text-xs">${label} :</td><td class="text-gray-100 text-xs font-medium">${esc(String(val))}</td></tr>`
+      : '';
+
+    const coqueTotal = Number(m.coque) || 10;
+    const boxesPerSystem = Math.max(2, Math.ceil(coqueTotal / 4));
+    const systemLabels = ['I', 'L', 'G', 'D ?'];
+    const hullBoxes = systemLabels.map(lbl =>
+      `<tr><td class="text-gray-400 pr-2 text-xs font-mono">${lbl} :</td><td class="text-xs">${Array(boxesPerSystem).fill('<span class="inline-block w-3 h-3 border border-gray-500 rounded-sm mr-0.5"></span>').join('')}</td></tr>`
+    ).join('');
+
+    const cardBodyId = `model-camp-body-${esc(String(m.id))}`;
+    const isHidden = state.isMJ && !m.visible;
+
+    const card = document.createElement('div');
+    card.className = `bg-gray-800 border border-gray-700 rounded-xl overflow-hidden mb-3 hover:border-gray-500 transition-colors${isHidden ? ' opacity-50' : ''}`;
+    card.innerHTML = `
+      <div class="flex items-center bg-gray-900 border-b border-gray-700 px-4 py-2 gap-3 cursor-pointer model-camp-header" data-body="${cardBodyId}">
+        <span class="text-gray-500 text-xs model-camp-arrow">▶</span>
+        <span class="text-white font-bold tracking-widest uppercase text-sm flex-1">${esc(m.nom)}</span>
+        ${m.classe ? `<span class="text-gray-500 text-xs hidden sm:inline">${esc(m.classe)}</span>` : ''}
+        ${m.origine ? `<span class="text-gray-600 text-xs hidden sm:inline">· ${esc(m.origine)}</span>` : ''}
+        ${canEdit ? `<div class="flex gap-1.5 items-center">
+          ${renderVisibilityToggle('ship_models', m)}
+          ${renderEditButton('ship_models', m)}
+          <button class="btn-del-model text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900/30" title="Supprimer">🗑️</button>
+        </div>` : ''}
+      </div>
+      <div id="${cardBodyId}" class="flex hidden">
+        <div class="flex-shrink-0 bg-gray-900 flex items-center justify-center overflow-hidden" style="width:100px;height:100px">
+          ${m.image
+            ? `<img src="${esc(m.image)}" alt="${esc(m.nom)}" class="max-w-full max-h-full w-auto h-auto object-contain" loading="lazy">`
+            : `<span class="text-5xl select-none">🚀</span>`}
+        </div>
+        <div class="flex-1 p-4 overflow-auto">
+          <table class="w-full border-collapse text-sm mb-3">
+            <tbody>
+              ${statRow('Classe', m.classe ? `${m.classe}${m.tonnage ? ` (${m.tonnage} t` : ''}${m.longueur ? `/${m.longueur} m` : ''}${m.tonnage || m.longueur ? ')' : ''}` : '')}
+              ${statRow('Manœuvrabilité', m.manoeuvrabilite || '—')}
+              ${statRow('Vitesse tactique', m.vitesse_tactique ? `${m.vitesse_tactique} K/t` : null)}
+              ${statRow('Vitesse de croisière', m.vitesse_croisiere ? `${m.vitesse_croisiere} US/h (${m.vitesse_croisiere * 24} US/j)` : null)}
+              ${statRow('Vitesse hyperspatiale', m.vitesse_hyperspatiale ? `${m.vitesse_hyperspatiale} PC/j` : null)}
+              ${statRow('Autonomie', m.autonomie ? `${m.autonomie} PC` : null)}
+              ${statRow('Blindage', m.blindage)}
+              ${statRow('Coque', m.coque)}
+            </tbody>
+          </table>
+          <table class="w-full border-collapse text-sm mb-3 border-t border-gray-700 pt-2">
+            <tbody>${hullBoxes}</tbody>
+          </table>
+          ${m.senseurs_k || m.senseurs ? `
+          <table class="w-full border-collapse text-sm mb-3 border-t border-gray-700">
+            <tbody>${statRow('Senseurs', m.senseurs_k ? `${m.senseurs_k}${m.senseurs_us ? ` (${m.senseurs_us})` : ''}` : m.senseurs)}</tbody>
+          </table>` : ''}
+          ${armement.length ? `
+          <div class="border-t border-gray-700 pt-2 mb-3">
+            <p class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-1">Armement :</p>
+            ${armement.map(a => `<p class="text-xs text-gray-200 ml-2">» ${esc(a.position || '')} : ${esc(a.nom || '')}${a.tourelle ? ' (tourelle)' : ''} ${a.degats ? `(${a.degats}/${a.mode_tir || ''}/${a.portee || ''}/${a.canonnier || ''})` : ''}</p>`).join('')}
+          </div>` : ''}
+          <table class="w-full border-collapse text-sm border-t border-gray-700">
+            <tbody>
+              ${statRow('Équipage', m.equipage)}
+              ${statRow('Passagers', m.passagers)}
+              ${statRow('Soute', m.soute ? `${m.soute} t` : null)}
+              ${statRow('Prix', m.prix ? `${m.prix} ¢` : null)}
+              ${statRow('Origine', m.origine)}
+            </tbody>
+          </table>
+          ${m.description ? `<p class="mt-3 text-xs text-gray-400 border-t border-gray-700 pt-2">${esc(m.description)}</p>` : ''}
+        </div>
+      </div>`;
+
+    // Collapse toggle
+    card.querySelector('.model-camp-header').addEventListener('click', e => {
+      if (e.target.closest('.vis-toggle,.edit-btn,.btn-del-model')) return;
+      const bodyEl = document.getElementById(cardBodyId);
+      const arrow = card.querySelector('.model-camp-arrow');
+      if (!bodyEl) return;
+      const nowHidden = bodyEl.classList.toggle('hidden');
+      if (arrow) arrow.textContent = nowHidden ? '▶' : '▼';
     });
-    bindTableSort(panel, ms, render);
-  };
-  render();
+
+    // Delete button
+    if (canEdit) {
+      card.querySelector('.btn-del-model')?.addEventListener('click', async e => {
+        e.stopPropagation();
+        if (!confirm(`Supprimer le modèle « ${m.nom} » ? Cette action est irréversible.`)) return;
+        try {
+          const fetcher = state.tableId ? fetchWithTable : (u, o) => fetch(u, { ...o, credentials: 'include' });
+          const r = await fetcher(`/api/ship-models/${m.id}`, { method: 'DELETE' });
+          const json = await r.json();
+          if (!r.ok) throw new Error(json.error?.message || `Erreur ${r.status}`);
+          const idx = state.ship_models.findIndex(x => String(x.id) === String(m.id));
+          if (idx !== -1) state.ship_models.splice(idx, 1);
+          renderActiveTab();
+        } catch (ex) { alert(ex.message); }
+      });
+    }
+
+    container.appendChild(card);
+  });
 }
 
 // --- Visibility toggle (MJ only) ---

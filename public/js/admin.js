@@ -692,17 +692,50 @@ function renderFactions() {
   list.innerHTML = '';
   if (!factionsData.length) {
     list.innerHTML = '<p class="text-gray-400 text-sm py-4">Aucune faction définie.</p>';
-  } else {
-    factionsData.forEach(f => {
-      const row = document.createElement('div');
-      row.className = 'flex items-center gap-3 p-3 bg-gray-800 rounded-lg border border-gray-700';
-      const img = f.icon_url ? `<img src="${esc(f.icon_url)}" style="width:100px;height:100px" class="rounded object-cover shrink-0">` : `<div style="width:100px;height:100px" class="rounded bg-gray-700 flex items-center justify-center text-xs text-gray-400 shrink-0">${esc(f.short || '?')}</div>`;
-      row.innerHTML = `${img}<div class="flex-1"><div class="font-medium text-sm">${esc(f.name)}${f.short ? ` <span class="text-gray-400">(${esc(f.short)})</span>` : ''}</div>${f.description ? `<div class="text-xs text-gray-400">${esc(f.description)}</div>` : ''}</div><div class="flex gap-2"><button class="text-xs text-blue-400 hover:text-blue-300" title="Modifier">✏️</button><button class="text-xs text-red-400 hover:text-red-300" title="Supprimer">🗑️</button></div>`;
-      row.querySelector('[title="Modifier"]').addEventListener('click', () => openFactionModal(f));
-      row.querySelector('[title="Supprimer"]').addEventListener('click', () => deleteFaction(f.id, f.name));
-      list.appendChild(row);
-    });
+    document.getElementById('factions-loading').classList.add('hidden');
+    list.classList.remove('hidden');
+    return;
   }
+  list.innerHTML = `
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-700 text-xs">
+            <th class="pb-2 pr-3 text-left text-gray-400">Icône</th>
+            <th class="pb-2 pr-3 text-left text-gray-400">Nom</th>
+            <th class="pb-2 pr-3 text-left text-gray-400">Abréviation</th>
+            <th class="pb-2 pr-3 text-left text-gray-400">Couleur</th>
+            <th class="pb-2 text-left text-gray-400">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="factions-tbody"></tbody>
+      </table>
+    </div>`;
+  const tbody = list.querySelector('#factions-tbody');
+  factionsData.forEach(f => {
+    const row = document.createElement('tr');
+    row.className = 'border-b border-gray-800 hover:bg-gray-800/50';
+    row.innerHTML = `
+      <td class="py-2 pr-3">
+        ${f.icon_url
+          ? `<span style="display:inline-flex;width:100px;height:100px;align-items:center;justify-content:center;overflow:hidden;background:#111827;border-radius:8px;flex-shrink:0"><img src="${esc(f.icon_url)}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain"></span>`
+          : `<span style="display:inline-flex;width:100px;height:100px;align-items:center;justify-content:center;background:#374151;border-radius:8px;font-size:2rem">🏴</span>`}
+      </td>
+      <td class="py-2 pr-3 font-medium">${esc(f.name)}</td>
+      <td class="py-2 pr-3 text-gray-400 text-xs font-mono">${esc(f.short || '—')}</td>
+      <td class="py-2 pr-3">
+        <span class="inline-block w-5 h-5 rounded border border-gray-600" style="background:${esc(f.color || '#888')}"></span>
+      </td>
+      <td class="py-2">
+        <div class="flex gap-1">
+          <button class="btn-edit-faction text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded hover:bg-blue-900/30">✏️</button>
+          <button class="btn-del-faction text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900/30">🗑️</button>
+        </div>
+      </td>`;
+    row.querySelector('.btn-edit-faction').addEventListener('click', () => openFactionModal(f));
+    row.querySelector('.btn-del-faction').addEventListener('click', () => deleteFaction(f.id, f.name));
+    tbody.appendChild(row);
+  });
   document.getElementById('factions-loading').classList.add('hidden');
   list.classList.remove('hidden');
 }
@@ -1236,69 +1269,372 @@ async function loadAdminSystems() {
 function renderAdminSystems() {
   const list = document.getElementById('systems-list');
   list.innerHTML = '';
-  // Group by quadrant
-  const byQuadrant = {};
-  adminSystemsData.forEach(s => {
-    if (!byQuadrant[s.quadrant]) byQuadrant[s.quadrant] = [];
-    byQuadrant[s.quadrant].push(s);
-  });
-  const quadrants = Object.keys(byQuadrant).sort();
-  if (!quadrants.length) {
+  if (!adminSystemsData.length) {
     list.innerHTML = '<p class="text-gray-400 text-sm py-4">Aucun système défini.</p>';
-  } else {
-    quadrants.forEach(q => {
-      const section = document.createElement('div');
-      section.className = 'mb-4';
-      section.innerHTML = `<h4 class="text-sm font-bold text-yellow-400 mb-2">${esc(q)}</h4>`;
-      byQuadrant[q].forEach(s => {
-        const row = document.createElement('div');
-        row.className = 'flex items-center gap-3 p-2 bg-gray-800 rounded border border-gray-700 mb-1 ml-4';
-        row.innerHTML = `<div class="flex-1 text-sm">${esc(s.nom)}${s.faction ? ` <span class="text-gray-400 text-xs">${esc(s.faction)}</span>` : ''}</div><button class="text-xs text-blue-400 hover:text-blue-300" title="Modifier">✏️</button><button class="text-xs text-red-400 hover:text-red-300" title="Supprimer">🗑️</button>`;
-        row.querySelector('[title="Modifier"]').addEventListener('click', () => openAdminSystemModal(s));
-        row.querySelector('[title="Supprimer"]').addEventListener('click', () => deleteAdminSystem(s.id, s.nom));
-        section.appendChild(row);
-      });
-      list.appendChild(section);
-    });
+    document.getElementById('systems-loading').classList.add('hidden');
+    list.classList.remove('hidden');
+    return;
   }
+  list.innerHTML = `
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-700 text-xs">
+            <th class="pb-2 pr-3 text-left text-gray-400">Système solaire</th>
+            <th class="pb-2 pr-3 text-left text-gray-400">Quadrant</th>
+            <th class="pb-2 pr-3 text-left text-gray-400">Nation Stellaire</th>
+            <th class="pb-2 pr-3 text-center text-gray-400">Frontière ?</th>
+            <th class="pb-2 pr-3 text-left text-gray-400">Gouvernement</th>
+            <th class="pb-2 pr-3 text-left text-gray-400">Route</th>
+            <th class="pb-2 text-left text-gray-400">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="systems-tbody"></tbody>
+      </table>
+    </div>`;
+  const tbody = list.querySelector('#systems-tbody');
+  adminSystemsData.forEach(s => {
+    const row = document.createElement('tr');
+    row.className = 'border-b border-gray-800 hover:bg-gray-800/50 cursor-pointer';
+    const f = factionsData.find(x => x.name === s.faction);
+    const factionCell = s.faction
+      ? (f?.icon_url
+          ? `<span style="display:inline-flex;align-items:center;gap:4px"><img src="${esc(f.icon_url)}" style="width:20px;height:20px;border-radius:3px;object-fit:contain" alt="">&thinsp;${esc(f.short || f.name)}</span>`
+          : esc(s.faction))
+      : '—';
+    row.innerHTML = `
+      <td class="py-2 pr-3 font-medium whitespace-nowrap">${esc(s.nom)}</td>
+      <td class="py-2 pr-3 text-gray-400 text-xs">${esc(s.quadrant || '—')}</td>
+      <td class="py-2 pr-3 text-gray-400 text-xs">${factionCell}</td>
+      <td class="py-2 pr-3 text-center text-xs">${s.is_frontiere ? '<span class="text-amber-400">⚠️</span>' : '—'}</td>
+      <td class="py-2 pr-3 text-gray-400 text-xs">${esc(s.gouvernement || '—')}</td>
+      <td class="py-2 pr-3 text-gray-400 text-xs">${esc(s.route || '—')}</td>
+      <td class="py-2">
+        <div class="flex gap-1">
+          <button class="btn-edit-sys text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded hover:bg-blue-900/30">✏️</button>
+          <button class="btn-del-sys text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-900/30">🗑️</button>
+        </div>
+      </td>`;
+    row.addEventListener('click', e => { if (e.target.closest('.btn-edit-sys,.btn-del-sys')) return; openAdminSystemModal(s); });
+    row.querySelector('.btn-edit-sys').addEventListener('click', e => { e.stopPropagation(); openAdminSystemModal(s); });
+    row.querySelector('.btn-del-sys').addEventListener('click', e => { e.stopPropagation(); deleteAdminSystem(s.id, s.nom); });
+    tbody.appendChild(row);
+  });
   document.getElementById('systems-loading').classList.add('hidden');
   list.classList.remove('hidden');
 }
 
-function openAdminSystemModal(sys) {
-  const overlay = document.createElement('div');
-  overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4';
-  overlay.innerHTML = `
-    <div class="bg-gray-800 border border-gray-700 rounded-xl p-6 w-full max-w-md">
-      <h3 class="text-lg font-semibold mb-4">${sys ? 'Modifier' : 'Nouveau'} système</h3>
-      <div class="space-y-3">
-        <div><label class="block text-xs text-gray-400 mb-1">Quadrant *</label><input id="sm-quadrant" type="text" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm" value="${esc(sys?.quadrant || '')}"></div>
-        <div><label class="block text-xs text-gray-400 mb-1">Nom *</label><input id="sm-nom" type="text" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm" value="${esc(sys?.nom || '')}"></div>
-        <div><label class="block text-xs text-gray-400 mb-1">Faction</label><input id="sm-faction" type="text" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm" value="${esc(sys?.faction || '')}"></div>
-        <div><label class="block text-xs text-gray-400 mb-1">Description</label><textarea id="sm-desc" rows="2" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm">${esc(sys?.description || '')}</textarea></div>
+// ── Body (planet/moon) sub-modal ─────────────────────────────────────────────
+function openBodyModal(body, onSave) {
+  const subOverlay = document.createElement('div');
+  subOverlay.className = 'fixed inset-0 bg-black/80 flex items-start justify-center pt-8 px-4 overflow-y-auto';
+  subOverlay.style.zIndex = '300';
+
+  const sf = (id, label, type = 'text', val = '') =>
+    `<div><label class="block text-xs text-gray-400 mb-1">${esc(label)}</label>
+      <input type="${type}" id="${id}" value="${esc(String(val ?? ''))}"
+        class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"></div>`;
+  const sta = (id, label, val = '') =>
+    `<div><label class="block text-xs text-gray-400 mb-1">${esc(label)}</label>
+      <textarea id="${id}" rows="2"
+        class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 resize-y">${esc(String(val ?? ''))}</textarea></div>`;
+
+  subOverlay.innerHTML = `
+    <div class="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-xl p-5 shadow-2xl mb-8">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-lg">🪐 Corps céleste</h3>
+        <button id="bm-close" class="text-gray-400 hover:text-gray-200 text-xl px-2">✕</button>
       </div>
-      <p id="sm-err" class="text-red-400 text-sm mt-2 hidden"></p>
-      <div class="flex gap-2 mt-4">
-        <button id="sm-save" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex-1">Enregistrer</button>
-        <button id="sm-cancel" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm">Annuler</button>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="col-span-2">${sf('bm-nom', 'Nom *', 'text', body.nom)}</div>
+        ${sf('bm-orbite', 'Orbite (US)', 'number', body.orbite)}
+        ${sf('bm-diametre', 'Diamètre (K)', 'number', body.diametre)}
+        ${sf('bm-atmos', 'Atmosphère', 'text', body.atmosphere)}
+        ${sf('bm-atmos-det', 'Détail atmosphère', 'text', body.atmosphereDetail)}
+        ${sf('bm-gravite', 'Gravité', 'text', body.gravite)}
+        ${sf('bm-techno', 'Technologie', 'text', body.techno)}
+        ${sf('bm-securite', 'Sécurité (/20)', 'number', body.securite)}
+        ${sf('bm-pop', 'Population', 'text', body.population)}
+        ${sf('bm-gouv', 'Gouvernement', 'text', body.gouvernement)}
+        ${sf('bm-commerce', 'Commerce', 'text', body.commerce)}
+        ${sf('bm-mA', 'Marchandise A', 'text', body.marchandiseA)}
+        ${sf('bm-mB', 'Marchandise B', 'text', body.marchandiseB)}
+        ${sf('bm-mC', 'Marchandise C', 'text', body.marchandiseC)}
+        ${sf('bm-illegal', 'Illégal', 'text', body.illegal)}
+        <div class="col-span-2">${sta('bm-desc', 'Description', body.description)}</div>
+      </div>
+      <div class="flex gap-3 mt-4">
+        <button id="bm-save" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors">OK</button>
+        <button id="bm-cancel" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 rounded-lg transition-colors">Annuler</button>
       </div>
     </div>`;
+
+  document.body.appendChild(subOverlay);
+  subOverlay.querySelector('#bm-nom').focus();
+
+  const closeBody = () => subOverlay.remove();
+  subOverlay.querySelector('#bm-close').addEventListener('click', closeBody);
+  subOverlay.querySelector('#bm-cancel').addEventListener('click', closeBody);
+  subOverlay.addEventListener('click', e => { if (e.target === subOverlay) closeBody(); });
+
+  subOverlay.querySelector('#bm-save').addEventListener('click', () => {
+    const nom = subOverlay.querySelector('#bm-nom').value.trim();
+    if (!nom) { subOverlay.querySelector('#bm-nom').focus(); return; }
+    const str = id => subOverlay.querySelector(id)?.value?.trim() || undefined;
+    const num = id => { const v = subOverlay.querySelector(id)?.value?.trim(); return v ? Number(v) : undefined; };
+    const updated = {
+      ...body, nom,
+      orbite: num('#bm-orbite'), diametre: num('#bm-diametre'),
+      atmosphere: str('#bm-atmos'), atmosphereDetail: str('#bm-atmos-det'),
+      gravite: str('#bm-gravite'), techno: str('#bm-techno'),
+      securite: num('#bm-securite'), population: str('#bm-pop'),
+      gouvernement: str('#bm-gouv'), commerce: str('#bm-commerce'),
+      marchandiseA: str('#bm-mA'), marchandiseB: str('#bm-mB'), marchandiseC: str('#bm-mC'),
+      illegal: str('#bm-illegal'), description: str('#bm-desc'),
+    };
+    Object.keys(updated).forEach(k => updated[k] === undefined && delete updated[k]);
+    closeBody();
+    onSave(updated);
+  });
+}
+
+// ── Système solaire modal (admin) ─────────────────────────────────────────────
+function openAdminSystemModal(sys) {
+  const isNew = !sys;
+  let soleil = {}, corps = [];
+
+  if (!isNew) {
+    // Handle both new-format (soleil_json string) and old seed format (soleil object)
+    const rawSoleil = sys.soleil_json ?? sys.soleil;
+    if (typeof rawSoleil === 'string') { try { soleil = JSON.parse(rawSoleil) || {}; } catch { soleil = {}; } }
+    else if (rawSoleil && typeof rawSoleil === 'object') { soleil = rawSoleil; }
+
+    const rawCorps = sys.corps_celestes_json ?? sys.corpsCelestes;
+    if (typeof rawCorps === 'string') { try { corps = JSON.parse(rawCorps) || []; } catch { corps = []; } }
+    else if (Array.isArray(rawCorps)) { corps = rawCorps; }
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'fixed inset-0 bg-black/70 z-50 flex items-start justify-center pt-8 px-4 overflow-y-auto';
+
+  const field = (id, label, type = 'text', val = '', suffix = '') =>
+    `<div><label class="block text-xs text-gray-400 mb-1">${esc(label)}</label>
+      <div class="flex gap-1 items-center">
+        <input type="${type}" id="${id}" value="${esc(String(val ?? ''))}"
+          class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+        ${suffix ? `<span class="text-xs text-gray-500 whitespace-nowrap">${esc(suffix)}</span>` : ''}
+      </div></div>`;
+  const ta = (id, label, val = '') =>
+    `<div><label class="block text-xs text-gray-400 mb-1">${esc(label)}</label>
+      <textarea id="${id}" rows="2"
+        class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 resize-y">${esc(String(val ?? ''))}</textarea></div>`;
+  const chk = (id, label, val = false) =>
+    `<div class="flex items-center gap-2"><input type="checkbox" id="${id}" ${val ? 'checked' : ''}
+      class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-500">
+      <label for="${id}" class="text-sm text-gray-400">${esc(label)}</label></div>`;
+
+  const renderBodyRow = (body, idx) => `
+    <div class="flex items-center gap-2 py-1.5 body-row" data-idx="${idx}">
+      <span class="text-sm">🪐</span>
+      <span class="flex-1 text-sm text-gray-200">${esc(body.nom || '?')}</span>
+      <span class="text-xs text-gray-500">${body.orbite ? body.orbite + ' US' : ''}</span>
+      <button class="btn-edit-body text-xs text-blue-400 hover:text-blue-300 px-2 py-1" data-idx="${idx}">✏️</button>
+      <button class="btn-del-body text-xs text-red-500 hover:text-red-400 px-2 py-1" data-idx="${idx}">✕</button>
+    </div>`;
+  const renderBodyList = () =>
+    !corps.length ? '<p class="text-xs text-gray-500 italic py-2">Aucun corps céleste</p>' :
+    corps.map((b, i) => renderBodyRow(b, i)).join('');
+
+  overlay.innerHTML = `
+    <div class="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-2xl p-6 shadow-2xl mb-8">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-xl font-bold">${isNew ? '+ Nouveau système' : `✏️ ${esc(sys.nom)}`}</h2>
+        <button id="fms-close" class="text-gray-400 hover:text-gray-200 text-xl px-2">✕</button>
+      </div>
+      <p id="fms-error" class="hidden mb-3 text-sm text-red-400 bg-red-900/20 border border-red-800 rounded p-2"></p>
+
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="col-span-2">${field('fms-nom', 'Nom du système *', 'text', sys?.nom)}</div>
+        ${field('fms-quadrant', 'Quadrant', 'text', sys?.quadrant)}
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Faction</label>
+          <select id="fms-faction" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+            <option value="">— Aucune —</option>
+            ${factionsData.map(f => `<option value="${esc(f.name)}" ${sys?.faction === f.name ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}
+          </select>
+        </div>
+        ${field('fms-gouvernement', 'Gouvernement', 'text', sys?.gouvernement)}
+        ${field('fms-route', 'Route', 'text', sys?.route)}
+        <div class="flex items-end">${chk('fms-frontiere', 'Zone frontière', sys?.is_frontiere)}</div>
+        <div class="col-span-2">${ta('fms-description', 'Description', sys?.description)}</div>
+      </div>
+
+      <div class="border-t border-gray-700 pt-4 mb-4">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">☀️ Étoile</h3>
+        <div class="grid grid-cols-2 gap-3">
+          ${field('fms-sol-nom', 'Nom étoile', 'text', soleil.nom)}
+          ${field('fms-sol-classe', 'Classe spectrale', 'text', soleil.classe)}
+          ${field('fms-sol-diametre', 'Diamètre', 'number', soleil.diametre, 'K')}
+          ${field('fms-sol-saut', 'Limite de saut', 'number', soleil.distanceSaut, 'US')}
+          <div class="col-span-2">${ta('fms-sol-desc', 'Description étoile', soleil.description)}</div>
+        </div>
+      </div>
+
+      <div class="border-t border-gray-700 pt-4 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-gray-300">🪐 Corps célestes</h3>
+          <button id="btn-add-body" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1.5 rounded transition-colors">+ Ajouter</button>
+        </div>
+        <div id="fms-bodies-list" class="space-y-0.5 min-h-[24px]">${renderBodyList()}</div>
+      </div>
+
+      <div class="border-t border-gray-700 pt-4 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-gray-300">📐 Matrice des distances</h3>
+          <button id="btn-recalc-matrix" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1.5 rounded transition-colors">🎲 Recalculer</button>
+        </div>
+        <div id="fms-matrix-wrap" class="overflow-x-auto text-xs"></div>
+      </div>
+
+      <div class="flex gap-3 mt-2">
+        <button id="fms-save" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium transition-colors">Enregistrer</button>
+        <button id="fms-cancel" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-200 py-2.5 rounded-lg transition-colors">Annuler</button>
+      </div>
+    </div>`;
+
   document.body.appendChild(overlay);
-  const errEl = overlay.querySelector('#sm-err');
-  overlay.querySelector('#sm-cancel').addEventListener('click', () => overlay.remove());
-  overlay.querySelector('#sm-save').addEventListener('click', async () => {
-    const quadrant = overlay.querySelector('#sm-quadrant').value.trim();
-    const nom = overlay.querySelector('#sm-nom').value.trim();
-    if (!quadrant || !nom) { errEl.textContent = 'Quadrant et nom requis'; errEl.classList.remove('hidden'); return; }
-    const body = { quadrant, nom, faction: overlay.querySelector('#sm-faction').value.trim(), description: overlay.querySelector('#sm-desc').value.trim() };
+  overlay.querySelector('#fms-nom').focus();
+
+  const close = () => overlay.remove();
+  overlay.querySelector('#fms-close').addEventListener('click', close);
+  overlay.querySelector('#fms-cancel').addEventListener('click', close);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+  // Distance matrix
+  const d6 = () => Math.floor(Math.random() * 6) + 1;
+  const buildMatrixPoints = () => {
+    const pts = [];
+    const solNom = overlay.querySelector('#fms-sol-nom')?.value.trim();
+    const solSaut = parseFloat(overlay.querySelector('#fms-sol-saut')?.value);
+    if (solNom) pts.push({ nom: solNom, orbite: 0, type: 'Soleil' });
+    corps.forEach(c => {
+      const orb = parseFloat(c.orbite);
+      if (c.nom) pts.push({ nom: c.nom, orbite: isNaN(orb) ? 0 : orb, type: 'Planète' });
+    });
+    if (!isNaN(solSaut) && solSaut > 0) pts.push({ nom: 'Limite de saut', orbite: solSaut, type: 'Limite' });
+    return pts;
+  };
+  const distModifier = (closestOrbit) => {
+    let roll, val;
+    if (closestOrbit < 1)        { roll = d6(); val = 0.5 * roll; }
+    else if (closestOrbit >= 60) { roll = d6() + d6(); val = 10 * roll; }
+    else if (closestOrbit >= 30) { roll = d6(); val = 10 * roll; }
+    else if (closestOrbit >= 15) { roll = d6(); val = 5 * roll; }
+    else                          { roll = d6(); val = roll; }
+    return Math.round(val);
+  };
+  const buildMatrixHtml = () => {
+    const pts = buildMatrixPoints();
+    if (pts.length <= 1) return '<p class="text-gray-500 italic">Pas assez de corps pour générer une matrice.</p>';
+    const th = t => `<th class="px-2 py-1 text-center bg-gray-900 text-gray-400 border border-gray-700 whitespace-nowrap">${t}</th>`;
+    const td = t => `<td class="px-2 py-1 text-center border border-gray-700 whitespace-nowrap">${t}</td>`;
+    let html = `<table class="w-full border-collapse"><thead><tr>${th('&nbsp;')}`;
+    pts.forEach(p => (html += th(esc(p.nom))));
+    html += '</tr></thead><tbody>';
+    pts.forEach(p1 => {
+      html += `<tr>${th(esc(p1.nom))}`;
+      pts.forEach(p2 => {
+        if (p1.nom === p2.nom) { html += td('<span class="text-gray-500">—</span>'); return; }
+        let cell;
+        if (p1.type === 'Soleil') cell = `${p2.orbite} US`;
+        else if (p2.type === 'Soleil') cell = `${p1.orbite} US`;
+        else if ((p1.type === 'Planète' && p2.type === 'Limite') || (p1.type === 'Limite' && p2.type === 'Planète')) {
+          cell = `${Math.abs(p1.orbite - p2.orbite).toFixed(1)} US`;
+        } else if (p1.type === 'Planète' && p2.type === 'Planète') {
+          const diff = Math.abs(p1.orbite - p2.orbite);
+          const mod = distModifier(Math.min(p1.orbite, p2.orbite));
+          cell = `${diff.toFixed(1)}<span class="text-gray-400">+${mod}</span>=<strong>${(diff + mod).toFixed(1)}</strong>`;
+        } else {
+          cell = `${Math.abs(p1.orbite - p2.orbite).toFixed(1)} US`;
+        }
+        html += td(cell);
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  };
+
+  const refreshMatrix = () => { overlay.querySelector('#fms-matrix-wrap').innerHTML = buildMatrixHtml(); };
+
+  const bindBodyButtons = () => {
+    overlay.querySelectorAll('.btn-edit-body').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.idx);
+        openBodyModal(corps[idx], updated => { corps[idx] = updated; refreshBodyList(); });
+      });
+    });
+    overlay.querySelectorAll('.btn-del-body').forEach(btn => {
+      btn.addEventListener('click', () => { corps.splice(Number(btn.dataset.idx), 1); refreshBodyList(); });
+    });
+  };
+
+  const refreshBodyList = () => {
+    overlay.querySelector('#fms-bodies-list').innerHTML = renderBodyList();
+    bindBodyButtons();
+    refreshMatrix();
+  };
+
+  bindBodyButtons();
+  overlay.querySelector('#btn-add-body').addEventListener('click', () => {
+    openBodyModal({}, newBody => { corps.push(newBody); refreshBodyList(); });
+  });
+  overlay.querySelector('#btn-recalc-matrix').addEventListener('click', refreshMatrix);
+  refreshMatrix();
+  overlay.querySelector('#fms-sol-saut').addEventListener('change', refreshMatrix);
+  overlay.querySelector('#fms-sol-nom').addEventListener('change', refreshMatrix);
+
+  overlay.querySelector('#fms-save').addEventListener('click', async () => {
+    const errEl = overlay.querySelector('#fms-error');
+    errEl.classList.add('hidden');
+    const nom = overlay.querySelector('#fms-nom').value.trim();
+    if (!nom) { errEl.textContent = 'Le nom est requis'; errEl.classList.remove('hidden'); return; }
+
+    const str = id => overlay.querySelector(id)?.value?.trim() || null;
+    const num = id => { const v = overlay.querySelector(id)?.value?.trim(); return v ? Number(v) : null; };
+
+    const solNom = str('#fms-sol-nom'), solClasse = str('#fms-sol-classe');
+    const solDiam = num('#fms-sol-diametre'), solSaut = num('#fms-sol-saut'), solDesc = str('#fms-sol-desc');
+    const soleilObj = (solNom || solClasse || solDiam || solSaut || solDesc)
+      ? { nom: solNom, classe: solClasse, diametre: solDiam, distanceSaut: solSaut, description: solDesc }
+      : null;
+
+    const body = {
+      nom,
+      quadrant: str('#fms-quadrant'),
+      faction: overlay.querySelector('#fms-faction').value || null,
+      gouvernement: str('#fms-gouvernement'),
+      route: str('#fms-route'),
+      is_frontiere: overlay.querySelector('#fms-frontiere').checked ? 1 : 0,
+      description: str('#fms-description'),
+      soleil_json: soleilObj ? JSON.stringify(soleilObj) : null,
+      corps_celestes_json: corps.length ? JSON.stringify(corps) : null,
+    };
+
     try {
-      const url = sys ? `/api/admin/systems/${sys.id}` : '/api/admin/systems';
-      const r = await fetch(url, { method: sys ? 'PATCH' : 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error?.message || `Erreur ${r.status}`);
+      const url = isNew ? '/api/admin/systems' : `/api/admin/systems/${sys.id}`;
+      const r = await fetch(url, {
+        method: isNew ? 'POST' : 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = await r.json();
+      if (!r.ok) throw new Error(json.error?.message || `Erreur ${r.status}`);
       overlay.remove();
       loadAdminSystems();
-    } catch (e) { errEl.textContent = e.message; errEl.classList.remove('hidden'); }
+    } catch (ex) { errEl.textContent = ex.message; errEl.classList.remove('hidden'); }
   });
 }
 
