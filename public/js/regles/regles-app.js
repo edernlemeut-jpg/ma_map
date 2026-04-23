@@ -139,12 +139,8 @@ function renderList() {
     list.appendChild(card);
   }
 
-  // Restore selection if still in filtered list
-  if (state.selectedId && state.filtered.find(e => e.id === state.selectedId)) {
-    if (window.innerWidth >= 1024) renderDetail(state.selectedId);
-  } else if (state.filtered.length > 0 && window.innerWidth >= 1024) {
-    selectEntry(state.filtered[0].id);
-  }
+  // Restore selection if still in filtered list — never auto-open modal
+  // (user will click to open)
 }
 
 function selectEntry(id) {
@@ -157,13 +153,9 @@ function selectEntry(id) {
       active ? 'bg-gray-700 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 hover:border-gray-500 text-gray-200',
     ].join(' ');
   });
-  // Mobile (< lg): open detail in modal overlay; Desktop: show in side panel
-  if (window.innerWidth < 1024) {
-    renderDetail(id, DOM.modalBody());
-    DOM.modalOverlay().classList.remove('hidden');
-  } else {
-    renderDetail(id);
-  }
+  // Always open detail in modal overlay
+  renderDetail(id, DOM.modalBody());
+  DOM.modalOverlay().classList.remove('hidden');
 }
 
 function renderDetail(id, container) {

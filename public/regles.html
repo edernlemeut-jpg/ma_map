@@ -66,16 +66,14 @@
     <!-- Loading -->
     <div id="loading" class="text-center py-12 text-gray-400">Chargement…</div>
 
-    <!-- Layout: list + detail -->
-    <div id="main-layout" class="hidden flex flex-col lg:flex-row gap-4">
-      <!-- Left: entry list (full width on mobile, sidebar on desktop) -->
-      <aside id="entry-list" class="w-full lg:w-64 lg:flex-shrink-0 flex flex-col gap-1 lg:overflow-y-auto lg:max-h-[calc(100vh-280px)]">
+    <!-- Layout: entry list (full width — detail always in modal) -->
+    <div id="main-layout" class="hidden">
+      <div id="entry-list" class="flex flex-col gap-1.5">
         <!-- Cards injected here -->
-      </aside>
-
-      <!-- Right: entry detail (hidden on mobile → opened as modal; visible on desktop) -->
-      <section id="entry-detail" class="hidden lg:block flex-1 min-w-0 bg-gray-800 rounded-xl border border-gray-700 p-5 overflow-y-auto lg:max-h-[calc(100vh-280px)]">
-        <p id="detail-placeholder" class="text-gray-500 italic text-sm">Sélectionnez une entrée pour afficher ses détails.</p>
+      </div>
+      <!-- Hidden detail panel (kept for JS compatibility) -->
+      <section id="entry-detail" class="hidden">
+        <p id="detail-placeholder"></p>
       </section>
     </div>
 
