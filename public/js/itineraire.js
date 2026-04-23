@@ -928,8 +928,6 @@ async function saveShipPos(leg, btn) {
   }
 }
 
-}
-
 // ── ENREGISTRER TRAJET AU CALENDRIER ────────────────────────────────────────
 function galacticDateToIndex(s) {
   const m = s?.match(/^(\d{2})(\d{2})\.(\d{2})$/);
