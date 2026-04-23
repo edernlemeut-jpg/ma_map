@@ -112,7 +112,7 @@ export function getEvents(tableId, year, isMJ) {
   return db.prepare(sql).all(tableId, y);
 }
 
-export function createEvent(tableId, userId, { title, description, category_id, date_start, date_end, galactic_year, is_public }) {
+export function createEvent(tableId, userId, { title, description, category_id, color, date_start, date_end, galactic_year, is_public }) {
   if (!title?.trim()) throw Object.assign(new Error('Titre requis'), { status: 400 });
   if (!isValidDate(date_start)) throw Object.assign(new Error('date_start invalide'), { status: 400 });
   if (date_end && !isValidDate(date_end)) throw Object.assign(new Error('date_end invalide'), { status: 400 });
@@ -121,9 +121,9 @@ export function createEvent(tableId, userId, { title, description, category_id, 
 
   const id = randomUUID();
   db.prepare(
-    `INSERT INTO calendar_events (id, table_id, title, description, category_id, date_start, date_end, galactic_year, is_public, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, tableId, title.trim(), description?.trim() || null, category_id || null,
+    `INSERT INTO calendar_events (id, table_id, title, description, category_id, color, date_start, date_end, galactic_year, is_public, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, tableId, title.trim(), description?.trim() || null, category_id || null, color || null,
         date_start, date_end || null, y, is_public ? 1 : 0, userId);
 
   return db.prepare(
@@ -132,7 +132,7 @@ export function createEvent(tableId, userId, { title, description, category_id, 
   ).get(id);
 }
 
-export function updateEvent(eventId, tableId, { title, description, category_id, date_start, date_end, galactic_year, is_public }) {
+export function updateEvent(eventId, tableId, { title, description, category_id, color, date_start, date_end, galactic_year, is_public }) {
   const ev = db.prepare('SELECT * FROM calendar_events WHERE id = ? AND table_id = ?').get(eventId, tableId);
   if (!ev) throw Object.assign(new Error('Événement introuvable'), { status: 404 });
 
@@ -144,6 +144,7 @@ export function updateEvent(eventId, tableId, { title, description, category_id,
       title       = COALESCE(?, title),
       description = ?,
       category_id = COALESCE(?, category_id),
+      color       = ?,
       date_start  = COALESCE(?, date_start),
       date_end    = ?,
       galactic_year = COALESCE(?, galactic_year),
@@ -153,6 +154,7 @@ export function updateEvent(eventId, tableId, { title, description, category_id,
     title?.trim() || null,
     description !== undefined ? (description?.trim() || null) : ev.description,
     category_id || null,
+    color !== undefined ? (color || null) : ev.color,
     date_start || null,
     date_end !== undefined ? (date_end || null) : ev.date_end,
     galactic_year ? Number(galactic_year) : null,

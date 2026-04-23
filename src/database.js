@@ -212,6 +212,7 @@ function ensureCalendarTables() {
       title        TEXT NOT NULL,
       description  TEXT,
       category_id  INTEGER REFERENCES calendar_categories(id) ON DELETE SET NULL,
+      color        TEXT,
       date_start   TEXT NOT NULL,
       date_end     TEXT,
       galactic_year INTEGER NOT NULL,
@@ -221,6 +222,9 @@ function ensureCalendarTables() {
     );
     CREATE INDEX IF NOT EXISTS idx_cal_evt_table ON calendar_events(table_id, galactic_year);
   `);
+  // Add color column to events if missing (migration for tables created before this version)
+  const evtCols = new Set(db.prepare("PRAGMA table_info('calendar_events')").all().map(c => c.name));
+  if (!evtCols.has('color')) db.exec("ALTER TABLE calendar_events ADD COLUMN color TEXT");
 }
 
 ensureCalendarTables();

@@ -210,7 +210,15 @@ function render() {
 
   grid.innerHTML = '';
 
+  const WEEK_NAMES = ['', 'Semaine I', 'Semaine II', 'Semaine III', 'Semaine IV', 'Semaine V'];
+
   for (let week = 1; week <= 5; week++) {
+    // Mobile-only week separator (hidden on sm+)
+    const sep = document.createElement('div');
+    sep.className = 'block sm:hidden text-xs text-gray-500 font-semibold tracking-wider text-center py-1.5 border-t border-gray-700' + (week === 1 ? '' : ' mt-2');
+    sep.textContent = `── ${WEEK_NAMES[week]} ──`;
+    grid.appendChild(sep);
+
     for (let day = 1; day <= 5; day++) {
       const dateStr = formatDate(viewMonth, week, day);
       const idx = dateToIndex(dateStr);
@@ -228,16 +236,16 @@ function render() {
             : 'border-gray-700 bg-gray-800 hover:border-gray-500',
       ].join(' ');
 
-      // Day label
+      // Day label — mobile shows "S1 · J1", desktop shows dateStr
       const label = document.createElement('div');
       label.className = `text-xs font-mono mb-1 ${isToday ? 'text-yellow-300 font-bold' : 'text-gray-500'}`;
-      label.textContent = dateStr;
+      label.innerHTML = `<span class="block sm:hidden">J${day}</span><span class="hidden sm:block">${dateStr}</span>`;
       cell.appendChild(label);
 
       // Event pills
       dayEvs.slice(0, 3).forEach(ev => {
         const pill = document.createElement('div');
-        const color = ev.category_color || '#6b7280';
+        const color = ev.color || ev.category_color || '#6b7280';
         pill.className = 'text-white text-[0.6rem] font-medium rounded px-1 py-0.5 truncate mb-0.5 leading-tight';
         pill.style.backgroundColor = color + 'cc';
         pill.style.borderLeft = `2px solid ${color}`;
@@ -273,7 +281,7 @@ function render() {
 }
 
 function renderEventRow(ev) {
-  const color = ev.category_color || '#6b7280';
+  const color = ev.color || ev.category_color || '#6b7280';
   const vis = ev.is_public ? '' : '<span class="text-gray-500 text-xs ml-1" title="Masqué aux joueurs">🔒</span>';
   const range = ev.date_end && ev.date_end !== ev.date_start
     ? `${ev.date_start} → ${ev.date_end}`
