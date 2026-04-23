@@ -128,4 +128,32 @@ router.delete('/events/:id', (req, res) => {
   }
 });
 
+// ── Export / Import ───────────────────────────────────────────────────────────
+
+// GET /api/calendar/export — Exporte toutes les données calendrier de la table courante
+router.get('/export', (req, res) => {
+  if (!isMJOrAdmin(req)) return forbidden(res);
+  const tableId = getTableId(req);
+  if (!tableId) return validationError(res, 'Aucune table active');
+  const data = cal.exportCalendar(Number(tableId));
+  res.setHeader('Content-Disposition', `attachment; filename="calendar-export-${Date.now()}.json"`);
+  success(res, data);
+});
+
+// POST /api/calendar/import — Importe des données calendrier dans la table courante
+// Body: { data: <export JSON>, mode: 'merge' | 'replace' }
+router.post('/import', (req, res) => {
+  if (!isMJOrAdmin(req)) return forbidden(res);
+  const tableId = getTableId(req);
+  if (!tableId) return validationError(res, 'Aucune table active');
+  const { data, mode = 'merge' } = req.body;
+  if (!data || typeof data !== 'object') return validationError(res, 'Données manquantes');
+  try {
+    const result = cal.importCalendar(Number(tableId), req.user.id, data, mode);
+    success(res, result);
+  } catch (e) {
+    error(res, { code: 'IMPORT_ERROR', message: e.message });
+  }
+});
+
 export default router;
