@@ -160,6 +160,11 @@
 
   <script type="module" src="/js/shared/cold-start.js?v=2.0.0"></script>
   <script type="module">
+    // Redirection vers l'univers (onglet Flotte)
+    window.location.replace('/univers.html#ships');
+  </script>
+  <!-- Legacy vaisseaux content below (preserved for reference only) -->
+  <script type="module" data-legacy>
     import { initAuthUI } from '/js/shared/auth-ui.js';
     import { getActiveTableId, fetchWithTable, isMJ, clearActiveTable } from '/js/shared/table-selector.js';
 

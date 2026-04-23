@@ -1,0 +1,76 @@
+/* =====================================================
+   Metal Adventures — Thème unifié (palette dorée)
+   Basé sur itineraire.html
+   ===================================================== */
+
+:root {
+  --gold:        #c8a464;
+  --gold-dim:    #9a7a3e;
+  --bg:          #1a1a1a;
+  --bg2:         #2c2c2c;
+  --bg3:         #383838;
+  --border:      #444;
+  --text:        #e0e0e0;
+  --text-light:  #f1f1f1;
+  --text-muted:  #888;
+  --primary:     #5bc0de;
+  --primary-dim: #3a9cbd;
+  --danger:      #d9534f;
+  --success:     #5cb85c;
+  --warning:     #f0ad4e;
+}
+
+/* ---- Base ---- */
+body {
+  background-color: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+/* ---- Header ---- */
+header {
+  background-color: var(--bg2) !important;
+  border-bottom-color: var(--gold) !important;
+  border-bottom-width: 2px !important;
+}
+header h1,
+header h1 a {
+  color: var(--gold) !important;
+  text-shadow: 0 1px 6px rgba(200,164,100,.25);
+}
+header nav a {
+  color: var(--primary) !important;
+}
+
+/* ---- Tab navigation ---- */
+.tab-btn {
+  color: var(--text-muted) !important;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+}
+.tab-btn:hover {
+  color: var(--gold) !important;
+  border-bottom-color: var(--gold-dim) !important;
+  background: rgba(200,164,100,.07) !important;
+}
+.tab-btn.active-tab,
+.tab-btn[aria-selected="true"] {
+  color: var(--gold) !important;
+  border-bottom-color: var(--gold) !important;
+  background: rgba(200,164,100,.1) !important;
+}
+
+/* ---- Cards & panels ---- */
+.bg-gray-800 { background-color: var(--bg2) !important; }
+.bg-gray-700 { background-color: var(--bg3) !important; }
+.bg-gray-900 { background-color: var(--bg) !important; }
+.border-gray-700 { border-color: var(--border) !important; }
+
+/* ---- Links ---- */
+a.text-blue-400 { color: var(--primary) !important; }
+a.text-blue-400:hover { color: var(--primary-dim) !important; }
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }

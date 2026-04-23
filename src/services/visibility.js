@@ -45,8 +45,15 @@ function getDefault(entityType) {
 export function isVisible(entityType, entityId, tableId, role) {
   if (role === 'mj') return true;
 
-  // For systems, check parent quadrant cascade first
+  // For systems: explicit rule takes priority; fall back to quadrant cascade
   if (entityType === 'systems') {
+    const explicitRule = db.prepare(
+      'SELECT visible FROM visibility_rules WHERE table_id = ? AND entity_type = ? AND entity_id = ?'
+    ).get(tableId, 'systems', String(entityId));
+
+    if (explicitRule !== undefined) return !!explicitRule.visible;
+
+    // No explicit rule — inherit from parent quadrant
     const system = db.prepare('SELECT quadrant FROM systems WHERE id = ?').get(Number(entityId));
     if (system) {
       const quadrantRule = db.prepare(
@@ -54,8 +61,9 @@ export function isVisible(entityType, entityId, tableId, role) {
       ).get(tableId, 'quadrants', system.quadrant);
 
       const quadrantVisible = quadrantRule ? quadrantRule.visible : getDefault('quadrants');
-      if (!quadrantVisible) return false;
+      return !!quadrantVisible;
     }
+    return !!getDefault('systems');
   }
 
   const table = getVisibilityTable(entityType);

@@ -11,12 +11,16 @@ import factionsRoutes from './src/routes/factions.js';
 import shipModelsRoutes from './src/routes/ship-models.js';
 import searchRoutes from './src/routes/search.js';
 import adminRoutes from './src/routes/admin.js';
-import dashboardRoutes from './src/routes/dashboard.js';
+import profileRoutes from './src/routes/profile.js';
 import previewRoutes from './src/routes/preview.js';
 import shipsRoutes from './src/routes/ships.js';
 import travelRoutes from './src/routes/travel-routes.js';
 import legacyRoutes from './src/routes/legacy.js';
 import perilsRoutes from './src/routes/perils.js';
+import perilsApiRoutes from './src/routes/perils-api.js';
+import rulesRoutes from './src/routes/rules.js';
+import uploadRoutes from './src/routes/upload.js';
+import planetsRoutes from './src/routes/planets.js';
 
 import { fileURLToPath } from 'url';
 import { resolve } from 'path';
@@ -43,12 +47,20 @@ app.use('/api/factions', factionsRoutes);
 app.use('/api/ship-models', shipModelsRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/profile', profileRoutes);
 app.use('/api/preview', previewRoutes);
 app.use('/api/ships', shipsRoutes);
 app.use('/api/travel-routes', travelRoutes);
 app.use('/api/perils-default', perilsRoutes);
+app.use('/api/perils', perilsApiRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/rules', rulesRoutes);
+app.use('/api/planets', planetsRoutes);
 app.use(legacyRoutes);
+
+// Clean URL support for pages without .html extension
+app.get('/rejoindre', (req, res) => res.sendFile(resolve('public/rejoindre.html')));
+app.get('/campagne', (req, res) => res.sendFile(resolve('public/campagne.html')));
 
 // Error handler (must be last)
 app.use(errorHandler);

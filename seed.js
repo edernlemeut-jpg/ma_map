@@ -61,7 +61,7 @@ if (fs.existsSync(pPath)) {
 }
 
 // ── 3. Importer les modèles de vaisseaux depuis itineraire.html ──
-const iPath = path.join(__dirname, 'itineraire.html');
+const iPath = path.join(__dirname, 'public', 'itineraire.html');
 if (fs.existsSync(iPath)) {
   const existing = d.prepare('SELECT COUNT(*) as c FROM ship_models').get().c;
   if (existing > 0) {

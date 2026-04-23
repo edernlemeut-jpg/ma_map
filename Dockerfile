@@ -17,13 +17,13 @@ ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-# Assets compilés depuis le builder
-COPY --from=builder /app/public/css/tailwind.css ./public/css/tailwind.css
-
 # Sources de l'application
 COPY server.js ./
 COPY src/ ./src/
 COPY public/ ./public/
+
+# CSS compilé depuis le builder (remplace l'éventuelle version locale obsolète)
+COPY --from=builder /app/public/css/tailwind.css ./public/css/tailwind.css
 COPY scripts/ ./scripts/
 COPY perils_data.json ./
 COPY quadrants_MA.json ./

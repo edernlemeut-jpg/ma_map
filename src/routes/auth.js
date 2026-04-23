@@ -60,7 +60,8 @@ router.get('/me', (req, res) => {
     id: user.id,
     username: user.username,
     display_name: user.display_name,
-    is_admin: user.is_admin
+    is_admin: user.is_admin,
+    avatar: user.avatar || null
   });
 });
 

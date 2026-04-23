@@ -1,0 +1,99 @@
+# generated: 2026-04-20
+# last_updated: 2026-04-20
+# project: MA
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-04-20
+last_updated: 2026-04-23T15:00:00
+project: MA
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # Epic 1: Socle technique, Auth & Tables de jeu
+  epic-1: done
+  1-1-initialisation-projet-base-de-donnees: done
+  1-2-inscription-authentification: done
+  1-3-onboarding-premier-admin: done
+  1-4-gestion-tables-de-jeu-invitation: done
+  1-5-selection-table-contexte-automatique: done
+  1-6-skeleton-polling: done
+  epic-1-retrospective: done
+
+  # Epic 2: Compendium, Univers & Service de visibilité
+  epic-2: done
+  2-1-service-de-visibilite: done
+  2-2-compendium-api-routes-lecture-filtrees: done
+  2-3-compendium-frontend-navigation-empty-states-toggle-mj: done
+  2-4-recherche-compendium-plausible-deniability: done
+  2-5-edition-compendium-par-le-mj: done
+  2-6-import-admin-rapport-validation: done
+  epic-2-retrospective: done
+
+  # Epic 3: Carte interactive & Révélation en session
+  epic-3: done
+  3-1-carte-interactive-rendu-systemes-navigation: done
+  3-2-fiche-systeme-au-clic: done
+  3-3-polling-actif-reveal-animation-indicateur-connexion: done
+  epic-3-retrospective: optional
+
+  # Epic 4: Dashboard MJ & Visibilité avancée
+  epic-4: done
+  4-1-dashboard-mj-page-accueil-raccourcis: done
+  4-2-recherche-cross-entites-rapide: done
+  4-3-gestion-visibilite-en-masse-bulk-reveal: done
+  4-4-undo-reveal-delai-de-grace-deferred-commit: done
+  4-5-mode-session-active: done
+  4-6-preview-joueur-vue-comme-joueur: done
+  epic-4-retrospective: optional
+
+  # Epic 5: Itinéraire & Vaisseaux
+  epic-5: done
+  5-1-gestion-vaisseaux-de-la-table: done
+  5-2a-route-planning-crud-api: done
+  5-2b-visualisation-routes-sur-carte: done
+  5-3-generation-liste-perils: done
+  5-4-partage-donnees-itineraire-joueurs: done
+  epic-5-retrospective: optional
+
+  # Epic 6: Résilience, Polish & Décommissionnement
+  epic-6: done
+  6-1a-indicateur-reseau-mode-lecture-seule: done
+  6-1b-file-attente-mj-offline: deferred
+  6-2-cold-start-nas-loading-ux: done
+  6-3a-suite-e2e-playwright-cross-epic: done
+  6-3b-decommissionnement-legacy: done
+  6-3c-docker-build-deploy-documentation: done
+  epic-6-retrospective: done

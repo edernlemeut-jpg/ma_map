@@ -1,0 +1,2588 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Itinéraire - Metal Adventures</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --gold: #c8a464;
+      --bg: #1a1a1a;
+      --bg2: #2c2c2c;
+      --bg3: #383838;
+      --border: #444;
+      --text: #e0e0e0;
+      --text-light: #f1f1f1;
+      --primary: #5bc0de;
+      --danger: #d9534f;
+      --success: #5cb85c;
+      --warning: #f0ad4e;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: sans-serif; overflow: hidden; }
+    #app-header { height: 48px; background: var(--bg2); border-bottom: 2px solid var(--gold); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; position: fixed; top: 0; left: 0; right: 0; z-index: 50; }
+    #app-header h1 { color: var(--gold); font-size: 1.1rem; margin: 0; }
+    #app-header .header-actions { display: flex; gap: 8px; }
+    #app-header button, #app-header a.hbtn { background: var(--bg3); border: 1px solid var(--border); color: var(--text-light); padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; text-decoration: none; display: inline-block; }
+    #app-header button:hover, #app-header a.hbtn:hover { border-color: var(--gold); }
+    #main-layout { position: fixed; top: 48px; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; }
+    #carte-zone { flex: 1; overflow: hidden; position: relative; touch-action: none; background: #111; cursor: grab; }
+    #carte-zone.grabbing { cursor: grabbing; }
+    #carte-zone.picking { cursor: crosshair; }
+    #carte-zone.picking .quad:hover { outline: 2px solid var(--gold); z-index: 1; }
+    #carte-zone.picking::after { content: '🎯 Cliquez sur un quadrant'; position: absolute; top: 8px; left: 50%; transform: translateX(-50%); background: var(--gold); color: #000; padding: 4px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: bold; z-index: 100; pointer-events: none; white-space: nowrap; }
+    #carte-wrapper { position: absolute; transform-origin: 0 0; display: inline-flex; flex-direction: column; }
+    #col-legende { display: grid; grid-template-columns: 20px repeat(40, 20px); height: 20px; }
+    #ligne-wrapper { display: flex; }
+    #row-legende { display: grid; grid-template-rows: repeat(40, 20px); width: 20px; }
+    .col-header, .row-header { font-size: 0.6rem; color: #666; text-align: center; display: flex; align-items: center; justify-content: center; }
+    .row-header { justify-content: flex-end; padding-right: 2px; }
+    #carte { display: grid; grid-template-columns: repeat(40, 20px); grid-template-rows: repeat(40, 20px); background: url('carte_ma.jpg') 0 0/800px 800px no-repeat; }
+    .quad { width: 20px; height: 20px; background: rgba(200,164,100,0.07); border: 1px solid rgba(200,164,100,0.15); cursor: pointer; }
+    .quad:hover { background: rgba(200,164,100,0.4); }
+    .quad.has-system { background: rgba(91,192,222,0.25); border-color: rgba(91,192,222,0.5); }
+    .quad.selected-dep { background: rgba(217,83,79,0.7) !important; border-color: var(--danger) !important; }
+    .quad.selected-arr { background: rgba(92,184,92,0.7) !important; border-color: var(--success) !important; }
+    .quad.selected-eta { background: rgba(255,165,0,0.7) !important; border-color: var(--warning) !important; }
+    .quad.path { background: rgba(240,173,78,0.3); border-color: var(--warning); }
+    #bottom-sheet { position: absolute; bottom: 0; left: 0; right: 0; background: var(--bg2); border-top: 2px solid var(--gold); max-height: 55vh; overflow-y: auto; transform: translateY(100%); transition: transform 0.3s ease; z-index: 20; border-radius: 12px 12px 0 0; }
+    #bottom-sheet.open { transform: translateY(0); }
+    #bottom-sheet-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 8px auto; cursor: pointer; }
+    #bottom-sheet-title { display: flex; justify-content: space-between; align-items: center; color: var(--gold); font-weight: bold; padding: 0 12px 4px; font-size: 0.95rem; }
+    #bottom-sheet-content { padding: 0 16px 16px; }
+    .point-buttons { display: flex; gap: 4px; margin-top: 4px; }
+    .btn-point { padding: 6px 10px; border-radius: 4px; border: 2px solid; font-size: 0.8rem; font-weight: bold; cursor: pointer; background: transparent; }
+    .btn-dep { border-color: var(--danger); color: var(--danger); }
+    .btn-dep:hover, .btn-dep.active { background: var(--danger); color: white; }
+    .btn-eta { border-color: var(--warning); color: var(--warning); }
+    .btn-eta:hover, .btn-eta.active { background: var(--warning); color: #111; }
+    .btn-arr { border-color: var(--success); color: var(--success); }
+    .btn-arr:hover, .btn-arr.active { background: var(--success); color: white; }
+    #fab-calculer { position: absolute; bottom: 12px; right: 12px; z-index: 30; background: var(--success); color: white; border: none; border-radius: 28px; padding: 14px 20px; font-size: 1rem; font-weight: bold; box-shadow: 0 4px 16px rgba(0,0,0,0.5); cursor: pointer; display: flex; align-items: center; gap: 8px; transition: bottom 0.3s; }
+    #fab-calculer.sheet-open { bottom: calc(55vh + 12px); }
+    #result-panel { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 100; transform: translateY(100%); transition: transform 0.35s ease; display: flex; flex-direction: column; }
+    #result-panel.open { transform: translateY(0); }
+    #result-panel.minimized { transform: translateY(calc(100% - 52px)); cursor: pointer; }
+    #result-panel.minimized #result-body { pointer-events: none; }
+    #result-header { background: var(--bg2); border-bottom: 2px solid var(--gold); padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; height: 52px; box-sizing: border-box; }
+    #result-header h2 { color: var(--gold); margin: 0; font-size: 1.1rem; flex-grow: 1; }
+    #btn-close-result { background: none; border: none; color: var(--text-light); font-size: 1.8rem; cursor: pointer; padding: 0; }
+    #btn-minimize-result { background: none; border: 1px solid var(--border); color: var(--text-light); font-size: 0.9rem; cursor: pointer; padding: 2px 8px; border-radius: 4px; transition: transform 0.3s; flex-shrink: 0; }
+    #result-panel.minimized #btn-minimize-result { transform: rotate(180deg); }
+    #result-body { flex: 1; overflow-y: auto; padding: 12px 16px 24px; }
+    .result-summary { background: #111; border-radius: 8px; padding: 12px; margin-bottom: 16px; text-align: center; font-size: 0.9rem; border: 1px solid var(--border); line-height: 1.9; }
+    .result-leg { border-left: 4px solid var(--primary); margin-bottom: 16px; background: var(--bg2); border-radius: 0 8px 8px 0; }
+    .result-leg-header { padding: 10px 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+    .result-leg-header h3 { color: var(--primary); margin: 0; font-size: 0.9rem; }
+    .leg-info { font-size: 0.78rem; color: #aaa; margin-top: 2px; }
+    .result-leg-body { padding: 0 14px 14px; }
+    .result-leg.collapsed .result-leg-body { display: none; }
+    .result-leg.collapsed .caret { transform: rotate(-90deg); }
+    .caret { transition: transform 0.2s; display: inline-block; }
+    .trip-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .trip-table th, .trip-table td { border: 1px solid var(--border); padding: 4px 5px; text-align: center; }
+    .trip-table th { background: var(--bg3); color: #bbb; font-size: 0.75rem; }
+    .trip-table input[type=number] { width: 50px; padding: 2px 4px; text-align: center; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 3px; }
+    .peril-link { color: var(--gold); cursor: pointer; text-decoration: underline; font-size: 0.82rem; }
+    .status-ok { color: var(--success); }
+    .status-done { color: var(--primary); font-weight: bold; }
+    .status-warn { color: var(--warning); font-weight: bold; }
+    .btn-action { width: 100%; padding: 11px; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: bold; cursor: pointer; margin-top: 8px; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-gold { background: var(--bg3); border: 1px solid var(--gold) !important; color: var(--gold); }
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+    .modal-backdrop.open { opacity: 1; pointer-events: all; }
+    .modal-sheet { background: var(--bg2); width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto; border-radius: 16px 16px 0 0; padding: 16px; transform: translateY(100%); transition: transform 0.3s ease; }
+    .modal-backdrop.open .modal-sheet { transform: translateY(0); }
+    .modal-title { color: var(--gold); font-weight: bold; font-size: 1rem; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .modal-close { background: none; border: none; color: var(--text-light); font-size: 1.5rem; cursor: pointer; }
+    .params-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .param-field label { font-size: 0.8rem; color: #bbb; display: block; margin-bottom: 4px; }
+    .param-field input { width: 100%; background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 8px; border-radius: 4px; font-size: 0.95rem; }
+    .param-field.full { grid-column: 1 / -1; }
+    .peril-sheet h2 { color: var(--gold); margin: 0 0 8px; }
+    .detail-section { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+    .detail-section-hdr { background: var(--bg3); padding: 9px 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+    .detail-section-hdr h3 { margin: 0; font-size: 0.88rem; color: var(--gold); }
+    .detail-section-body { padding: 10px 12px; }
+    .detail-section.collapsed .detail-section-body { display: none; }
+    .detail-section.collapsed .d-caret { transform: rotate(-90deg); }
+    .d-caret { transition: transform 0.2s; display: inline-block; font-size: 0.7rem; color: #aaa; }
+    .detail-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; margin-bottom: 6px; }
+    .detail-stat { font-size: 0.8rem; line-height: 1.4; }
+    .detail-stat strong { color: #bbb; font-weight: normal; }
+    .detail-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: bold; margin: 2px 2px 2px 0; }
+    .badge-atmos { background: #1e3a4a; color: #7dd3fc; }
+    .badge-grav { background: #2d2a1e; color: #fcd34d; }
+    .badge-sec { background: #1e2d1e; color: #86efac; }
+    .badge-com { background: #2d1e2d; color: #d8b4fe; }
+    .detail-desc { font-style: italic; color: #ccc; font-size: 0.82rem; line-height: 1.5; margin: 6px 0 0; }
+    .detail-list { padding-left: 16px; margin: 4px 0 0; font-size: 0.82rem; }
+    .detail-list li { margin-bottom: 3px; }
+    .detail-merch { font-size: 0.78rem; color: #aaa; background: var(--bg3); border-radius: 4px; padding: 5px 8px; margin-top: 6px; border: 1px solid var(--border); }
+    .peril-sheet .desc { font-style: italic; color: #ccc; margin-bottom: 10px; line-height: 1.5; }
+    .peril-sheet .pstats { font-weight: bold; color: var(--primary); margin: 8px 0; }
+    .peril-sheet .psection { margin-top: 12px; }
+    .peril-sheet .psection-title { font-weight: bold; color: #aaa; border-bottom: 1px solid var(--border); padding-bottom: 4px; margin-bottom: 6px; font-size: 0.85rem; }
+    .peril-sheet p { white-space: pre-wrap; font-size: 0.88rem; line-height: 1.5; margin: 0; }
+    .historique-item { background: var(--bg3); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .historique-item .hinfo { flex-grow: 1; }
+    .historique-item .hinfo strong { color: var(--gold); font-size: 0.9rem; }
+    .historique-item .hinfo small { color: #888; font-size: 0.75rem; display: block; }
+    .historique-item .hactions { display: flex; gap: 4px; flex-shrink: 0; }
+    .btn-hist-load { padding: 5px 10px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+    .btn-hist-del { padding: 5px 8px; background: var(--danger); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+    .admin-category { margin-bottom: 6px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .admin-cat-header { padding: 8px 12px; background: var(--bg3); cursor: pointer; display: flex; justify-content: space-between; color: var(--gold); font-size: 0.85rem; font-weight: bold; }
+    .admin-cat-body { display: none; padding: 6px; }
+    .admin-category.open .admin-cat-body { display: block; }
+    .pt-row { display:flex; align-items:center; gap:4px; padding:4px 0; border-bottom:1px solid var(--border); font-size:0.82rem; }
+    .pt-row:last-child { border-bottom:none; }
+    .pt-role { width:38px; font-size:0.72rem; font-weight:bold; flex-shrink:0; }
+    .pt-label { flex:1; color:var(--text-light); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pt-move { background:none; border:none; color:#666; cursor:pointer; padding:0 3px; font-size:0.9rem; line-height:1; }
+    .pt-move:hover { color:#ccc; }
+    .pt-del { background:none; border:none; color:#666; cursor:pointer; padding:0 3px; font-size:0.9rem; }
+    .pt-del:hover { color:var(--danger); }
+    .admin-peril-row input { flex-grow: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 3px 7px; border-radius: 3px; font-size: 0.82rem; }
+    .admin-tabs { display:flex; gap:0; margin-bottom:12px; border-bottom:2px solid var(--border); }
+    .admin-tab { padding:8px 14px; background:none; border:none; color:#888; cursor:pointer; font-size:0.82rem; font-weight:bold; border-bottom:2px solid transparent; margin-bottom:-2px; transition:color 0.2s; }
+    .admin-tab.active { color:var(--gold); border-bottom-color:var(--gold); }
+    .admin-tab:hover { color:var(--text-light); }
+    .admin-tab-content { display:none; }
+    .admin-tab-content.active { display:block; }
+    .admin-table-item { display:flex; align-items:center; justify-content:space-between; background:var(--bg3); padding:8px 12px; border-radius:6px; margin-bottom:6px; gap:8px; }
+    .admin-table-item .atname { flex:1; font-size:0.88rem; }
+    .admin-table-item .attype { font-size:0.72rem; padding:2px 8px; border-radius:10px; flex-shrink:0; }
+    .admin-table-item .attype.ip { background:#1e3a4a; color:#7dd3fc; }
+    .admin-table-item .attype.hs { background:#2d1e2d; color:#d8b4fe; }
+    .admin-table-item .at-actions { display:flex; gap:4px; flex-shrink:0; }
+    .admin-table-item .at-actions button { padding:4px 8px; border:1px solid var(--border); background:var(--bg); color:var(--text); border-radius:3px; cursor:pointer; font-size:0.75rem; }
+    .admin-table-item .at-actions button:hover { border-color:var(--gold); }
+    .admin-table-item .at-actions .btn-del { color:var(--danger); }
+    .peril-edit-header { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+    .peril-edit-header button { padding:5px 10px; background:var(--bg3); border:1px solid var(--border); color:var(--text); border-radius:4px; cursor:pointer; font-size:0.82rem; }
+    .peril-edit-header input { flex:1; background:var(--bg); border:1px solid var(--border); color:var(--gold); padding:6px 10px; border-radius:4px; font-size:0.95rem; font-weight:bold; }
+    .peril-edit-cat { margin-bottom:8px; border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+    .peril-edit-cat-hdr { padding:8px 12px; background:var(--bg3); cursor:pointer; display:flex; justify-content:space-between; align-items:center; color:var(--gold); font-size:0.85rem; font-weight:bold; }
+    .peril-edit-cat-body { display:none; padding:8px; }
+    .peril-edit-cat.open .peril-edit-cat-body { display:block; }
+    .peril-edit-item { border:1px solid var(--border); border-radius:4px; margin-bottom:6px; padding:8px; background:var(--bg); }
+    .peril-edit-item-hdr { display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
+    .peril-edit-item-hdr .pe-nom { color:var(--text-light); font-size:0.85rem; font-weight:bold; }
+    .peril-edit-item-hdr .pe-range { color:#777; font-size:0.72rem; }
+    .peril-edit-fields { display:none; margin-top:8px; }
+    .peril-edit-item.open .peril-edit-fields { display:block; }
+    .pe-field { margin-bottom:6px; }
+    .pe-field label { display:block; font-size:0.75rem; color:#888; margin-bottom:2px; }
+    .pe-field input,.pe-field textarea { width:100%; background:var(--bg2); border:1px solid var(--border); color:var(--text); padding:5px 8px; border-radius:3px; font-size:0.82rem; box-sizing:border-box; }
+    .pe-field textarea { min-height:50px; resize:vertical; font-family:inherit; }
+    .pe-field-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:6px; }
+    .pe-field-check { display:flex; align-items:center; gap:6px; font-size:0.82rem; }
+    .pe-field-check input[type=checkbox] { width:auto; }
+    .assign-row { display:flex; align-items:center; gap:8px; padding:6px 10px; background:var(--bg3); border-radius:4px; margin-bottom:4px; font-size:0.82rem; }
+    .assign-row .ar-label { flex:1; }
+    .assign-row .ar-coord { color:#888; font-size:0.72rem; width:50px; flex-shrink:0; }
+    .assign-row select { background:var(--bg); border:1px solid var(--border); color:var(--text); padding:4px 8px; border-radius:3px; font-size:0.82rem; max-width:180px; }
+    .btn-add-table { display:flex; gap:8px; margin-bottom:12px; }
+    .btn-add-table button { flex:1; padding:8px; border:1px dashed var(--border); background:transparent; color:var(--primary); border-radius:6px; cursor:pointer; font-size:0.82rem; }
+    .btn-add-table button:hover { border-color:var(--gold); color:var(--gold); }
+    .sys-edit-card { border:1px solid var(--border); border-radius:6px; margin-bottom:10px; overflow:hidden; background:var(--bg); }
+    .sys-edit-card.card-sun { border-left:3px solid #ffcc00; }
+    .sys-edit-card.card-planet { border-left:3px solid #6495c8; }
+    .sys-edit-card.card-moon { border-left:3px solid #ccc; margin-left:16px; }
+    .sys-edit-card.card-patrol { border-left:3px solid var(--danger); }
+    .sys-edit-card.card-system { border-left:3px solid var(--primary); }
+    .sys-card-hdr { padding:8px 10px; background:var(--bg3); display:flex; align-items:center; gap:6px; cursor:pointer; }
+    .sys-card-hdr h4 { margin:0; font-size:0.85rem; color:var(--gold); flex:1; }
+    .sys-card-hdr input[type=text] { flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-light); padding:4px 8px; border-radius:3px; font-size:0.85rem; font-weight:bold; }
+    .sys-card-hdr .se-caret { font-size:0.7rem; color:#888; transition:transform 0.2s; }
+    .sys-card-body { padding:8px 10px; }
+    .sys-edit-card.collapsed .sys-card-body { display:none; }
+    .sys-edit-card.collapsed .se-caret { transform:rotate(-90deg); }
+    .se-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 10px; }
+    .se-grid.g3 { grid-template-columns:1fr 1fr 1fr; }
+    .se-field { display:flex; flex-direction:column; }
+    .se-field.full { grid-column:1/-1; }
+    .se-field label { font-size:0.72rem; color:#888; margin-bottom:2px; }
+    .se-field input,.se-field select,.se-field textarea { width:100%; background:var(--bg2); border:1px solid var(--border); color:var(--text); padding:5px 8px; border-radius:3px; font-size:0.82rem; box-sizing:border-box; }
+    .se-list-row input,.se-list-row select,.se-list-row textarea { color:var(--text); }
+    .se-field textarea { min-height:45px; resize:vertical; font-family:inherit; }
+    .se-field input:disabled { background:var(--bg3); color:#888; }
+    .se-fieldset { border:1px solid var(--border); border-radius:4px; padding:8px; margin-top:6px; grid-column:1/-1; }
+    .se-fieldset legend { padding:0 6px; color:var(--gold); font-size:0.78rem; }
+    .se-list-row { display:flex; gap:6px; align-items:center; margin-bottom:4px; }
+    .se-list-row input,.se-list-row select { flex:1; }
+    .se-list-row textarea { flex:1; min-height:35px; }
+    .se-btn-add { display:block; width:100%; padding:4px; border:1px dashed var(--border); background:none; color:var(--primary); border-radius:3px; cursor:pointer; font-size:0.75rem; margin-top:4px; }
+    .se-btn-add:hover { border-color:var(--gold); color:var(--gold); }
+    .se-btn-del { background:var(--danger); color:white; border:none; border-radius:3px; cursor:pointer; padding:3px 6px; font-size:0.72rem; flex-shrink:0; }
+    .se-btn-del:hover { opacity:0.8; }
+    .faction-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:4px; margin-bottom:6px; }
+    .faction-item img { width:32px; height:32px; border-radius:4px; object-fit:cover; flex-shrink:0; }
+    .faction-item .fi-info { flex:1; min-width:0; }
+    .faction-item .fi-name { font-weight:bold; color:var(--gold); font-size:0.85rem; }
+    .faction-item .fi-desc { font-size:0.72rem; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .faction-picker { display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+    .faction-chip { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border:1px solid var(--border); border-radius:12px; cursor:pointer; font-size:0.78rem; background:var(--bg2); color:var(--text); transition:border-color 0.15s; }
+    .faction-chip:hover { border-color:var(--gold); }
+    .faction-chip.active { border-color:var(--primary); background:var(--primary); color:white; }
+    .faction-chip img { width:18px; height:18px; border-radius:3px; object-fit:cover; }
+    .se-actions { display:flex; gap:6px; margin-top:6px; }
+    .se-actions button { flex:1; padding:6px; border-radius:4px; cursor:pointer; font-size:0.82rem; border:none; }
+    .sys-header-fields { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+    .sys-header-fields .se-field input,.sys-header-fields .se-field select { font-size:0.88rem; }
+    .sys-header-fields .se-field.full { grid-column:1/-1; }
+    .point-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; border: 1px solid; }
+    .point-badge.dep { border-color: var(--danger); color: var(--danger); }
+    .point-badge.eta { border-color: var(--warning); color: var(--warning); }
+    .point-badge.arr { border-color: var(--success); color: var(--success); }
+    #points-summary { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    @media (min-width: 768px) {
+      #main-layout { flex-direction: row; }
+      #carte-zone { flex: 7; }
+      #desktop-panel { flex: 3; min-width: 300px; max-width: 400px; background: var(--bg2); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+      #desktop-panel-content { flex: 1; overflow-y: auto; padding: 12px; }
+      #bottom-sheet { display: none !important; }
+      #fab-calculer { display: none !important; }
+      #result-panel { display: none !important; }
+      .dp-section { margin-bottom: 14px; }
+      .dp-section-title { font-size: 0.72rem; font-weight: bold; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+      .btn-action { font-size: 0.88rem; padding: 9px; }
+      #desktop-result .result-leg-header h3 { font-size: 0.85rem; }
+    }
+    @media (max-width: 767px) { #desktop-panel { display: none; } }
+  </style>
+</head>
+<body>
+  <header id="app-header">
+    <h1>⚡ Itinéraire</h1>
+    <div class="header-actions">
+      <a href="index.html" class="hbtn">← Accueil</a>
+      <button id="btn-params" title="Paramètres">⚙</button>
+      <button id="btn-historique" title="Historique">📋</button>
+      <button id="btn-admin" title="Périls">≡</button>
+    </div>
+  </header>
+
+  <div id="main-layout">
+    <div id="carte-zone">
+      <div id="carte-wrapper">
+        <div id="col-legende"></div>
+        <div id="ligne-wrapper">
+          <div id="row-legende"></div>
+          <div id="carte"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="bottom-sheet">
+      <div id="bottom-sheet-handle"></div>
+      <div id="bottom-sheet-title"><span id="bs-title-text">—</span><div id="bs-quad-btns" style="display:flex;gap:4px"></div></div>
+      <div id="bs-trip-state"></div>
+      <div id="bottom-sheet-content"></div>
+    </div>
+
+    <button id="fab-calculer">🚀 Calculer</button>
+
+    <div id="desktop-panel">
+      <div id="desktop-panel-content">
+        <div class="dp-section">
+          <div class="dp-section-title">Quadrant sélectionné</div>
+          <div id="dp-quad-info" style="font-size:0.85rem;color:#aaa;padding:6px;background:var(--bg3);border-radius:4px;min-height:50px;">Tapez sur un quadrant.</div>
+        </div>
+        <div class="dp-section">
+          <div class="dp-section-title">Itinéraire</div>
+          <div id="dp-points" style="font-size:0.82rem;margin-bottom:8px;min-height:30px;color:#aaa;line-height:1.8;">Aucun point.</div>
+          <button id="btn-calc-desktop" class="btn-action btn-primary" style="display:none">🚀 Calculer</button>
+        </div>
+        <div class="dp-section" id="dp-result-section" style="display:none">
+          <div class="dp-section-title">Résultat</div>
+          <div id="dp-summary" class="result-summary" style="font-size:0.82rem;margin-bottom:10px;"></div>
+          <div id="dp-legs"></div>
+          <button class="btn-action btn-primary" id="btn-update-desktop">Actualiser</button>
+          <button class="btn-action btn-gold" style="border:none" id="btn-save-hist-desktop">💾 Sauvegarder</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="result-panel">
+    <div id="result-header">
+      <button id="btn-close-result">←</button>
+      <h2>Rapport de Voyage</h2>
+      <button id="btn-minimize-result" title="Réduire">▼</button>
+    </div>
+    <div id="result-body">
+      <div id="points-summary"></div>
+      <div id="mob-summary" class="result-summary"></div>
+      <div id="mob-legs"></div>
+      <button class="btn-action btn-primary" id="btn-update-mobile">Actualiser</button>
+      <button class="btn-action btn-gold" style="border:1px solid var(--gold)" id="btn-save-hist-mobile">💾 Sauvegarder</button>
+    </div>
+  </div>
+
+  <div id="modal-params" class="modal-backdrop">
+    <div class="modal-sheet">
+      <div class="modal-title">⚙ Paramètres <button class="modal-close" data-modal="modal-params">✕</button></div>
+      <div class="params-grid">
+        <div class="param-field"><label>Vitesse interplanétaire (US/j)</label><input type="number" id="p-ip-spd" value="100" min="1"></div>
+        <div class="param-field"><label>Vitesse hyperspace (PC/j)</label><input type="number" id="p-hs-spd" value="1000" min="1"></div>
+        <div class="param-field"><label>Autonomie (PC)</label><input type="number" id="p-hs-auto" value="10000" min="0"></div>
+      </div>
+      <button id="btn-save-params" class="btn-action btn-primary" style="margin-top:14px">Enregistrer</button>
+    </div>
+  </div>
+
+  <div id="modal-peril" class="modal-backdrop">
+    <div class="modal-sheet">
+      <div class="modal-title">Péril <button class="modal-close" data-modal="modal-peril">✕</button></div>
+      <div id="peril-content" class="peril-sheet"></div>
+    </div>
+  </div>
+
+  <div id="modal-historique" class="modal-backdrop">
+    <div class="modal-sheet">
+      <div class="modal-title">📋 Historique <button class="modal-close" data-modal="modal-historique">✕</button></div>
+      <div id="hist-list"></div>
+      <div id="hist-empty" style="text-align:center;color:#888;padding:20px;display:none">Aucun itinéraire sauvegardé.</div>
+    </div>
+  </div>
+
+  <div id="modal-admin" class="modal-backdrop">
+    <div class="modal-sheet">
+      <div class="modal-title">≡ Administration <button class="modal-close" data-modal="modal-admin">✕</button></div>
+      <div class="admin-tabs">
+        <button class="admin-tab active" data-tab="tab-perils">Périls</button>
+        <button class="admin-tab" data-tab="tab-factions">Factions</button>
+        <button class="admin-tab" data-tab="tab-systemes">Systèmes</button>
+        <button class="admin-tab" data-tab="tab-quadrants">Quadrants</button>
+      </div>
+      <div id="tab-perils" class="admin-tab-content active"></div>
+      <div id="tab-factions" class="admin-tab-content"></div>
+      <div id="tab-systemes" class="admin-tab-content"></div>
+      <div id="tab-quadrants" class="admin-tab-content"></div>
+    </div>
+  </div>
+
+  <div id="modal-detail" class="modal-backdrop">
+    <div class="modal-sheet">
+      <div class="modal-title"><span id="modal-detail-title">Système</span><button class="modal-close" data-modal="modal-detail">✕</button></div>
+      <div id="detail-content" class="peril-sheet"></div>
+    </div>
+  </div>
+
+  <div id="modal-edit-system" class="modal-backdrop">
+    <div class="modal-sheet" style="max-width:720px">
+      <div class="modal-title"><span id="edit-sys-title">Éditer Système</span><button class="modal-close" data-modal="modal-edit-system">✕</button></div>
+      <div id="edit-sys-content"></div>
+    </div>
+  </div>
+
+  <div id="modal-faction" class="modal-backdrop">
+    <div class="modal-sheet" style="max-width:420px">
+      <div class="modal-title"><span id="faction-modal-title">Nouvelle Faction</span><button class="modal-close" data-modal="modal-faction">✕</button></div>
+      <div style="padding:10px">
+        <div class="se-field" style="margin-bottom:8px"><label>Nom</label><input type="text" id="faction-name" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:3px;width:100%;box-sizing:border-box"></div>
+        <div class="se-field" style="margin-bottom:8px"><label>Diminutif</label><input type="text" id="faction-short" placeholder="ex: EG, LPL…" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:3px;width:100%;box-sizing:border-box"></div>
+        <div class="se-field" style="margin-bottom:8px"><label>Description</label><textarea id="faction-desc" rows="3" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:3px;font-family:inherit;box-sizing:border-box"></textarea></div>
+        <div class="se-field" style="margin-bottom:8px"><label>Icône (image)</label><div style="display:flex;align-items:center;gap:8px"><img id="faction-icon-preview" src="" style="width:40px;height:40px;border-radius:4px;object-fit:cover;border:1px solid var(--border);display:none"><input type="file" id="faction-icon-input" accept="image/*" style="font-size:0.78rem;color:var(--text)"></div></div>
+        <input type="hidden" id="faction-icon-data">
+        <input type="hidden" id="faction-edit-id">
+        <div style="display:flex;gap:8px;margin-top:12px"><button id="btn-save-faction" style="flex:1;padding:8px;background:var(--primary);color:white;border:none;border-radius:4px;cursor:pointer">Enregistrer</button></div>
+      </div>
+    </div>
+  </div>
+
+  <script id="quadrants-data" type="application/json">{
+  "Π′-37": [],
+  "Ι′-34": [],
+  "Α′-29": [],
+  "Β′-21": [],
+  "Λ′-37": [],
+  "Λ′-35": [],
+  "Λ′-33": [],
+  "Λ′-31": [],
+  "Λ′-29": [],
+  "Λ′-27": [],
+  "Κ′-26": [],
+  "Κ′-25": [],
+  "Μ′-26": [],
+  "Ψ-27": [],
+  "Ω-40": [],
+  "Α′-40": [],
+  "Γ′-40": [],
+  "Π′-40": [],
+  "Κ-8": [
+    {
+      "nom": "Bazaar",
+      "faction": "Barrens",
+      "corpsCelestes": [
+        {
+          "nom": "Calden",
+          "classe": "M",
+          "description": "",
+          "lunes": [
+            {
+              "nom": "Dalnar",
+              "description": "",
+              "lunes": [],
+              "classe": "Satellite"
+            }
+          ]
+        },
+        {
+          "nom": "Bazaar",
+          "classe": "M",
+          "description": "",
+          "lunes": [
+            {
+              "nom": "Torda",
+              "description": "",
+              "lunes": [],
+              "classe": "Satellite"
+            },
+            {
+              "nom": "Malva",
+              "description": "",
+              "lunes": [],
+              "classe": "Satellite"
+            }
+          ]
+        },
+        {
+          "nom": "Katar",
+          "classe": "M",
+          "description": "",
+          "lunes": []
+        },
+        {
+          "nom": "Deenar",
+          "classe": "M",
+          "description": "",
+          "lunes": [
+            {
+              "nom": "Volto",
+              "description": "",
+              "lunes": [],
+              "classe": "Satellite"
+            },
+            {
+              "nom": "Deenar-01",
+              "description": "",
+              "lunes": []
+            }
+          ]
+        },
+        {
+          "nom": "Cloaque",
+          "classe": "Planétoïde",
+          "description": "",
+          "lunes": []
+        },
+        {
+          "nom": "Barossa",
+          "classe": "M",
+          "description": "",
+          "lunes": [
+            {
+              "nom": "Kovar",
+              "description": "",
+              "lunes": [],
+              "classe": "Satellite"
+            }
+          ]
+        }
+      ],
+      "soleil": {
+        "nom": "Losserim",
+        "classe": "Naine jaune",
+        "description": "Face à vous, une gigantesque boule de feu d'un jaune passé envoie quelques décharges solaires maladives. A sa surface, des éruptions solaires se succèdent à un rythme lent. Quelques taches d'un jaune tirant sur  l'orange évoluent sur la sphère jaunâtre, signes probables d'une irréversible déchéance.\n--------------\nLosserim n'est guère dangereux comme soleil. Cependant, aucun vaisseau ne croise dans ses environs, car les habitants du système ne portent aucun intérêt aux phénomènes astrophysiques propres aux étoiles."
+      },
+      "isFrontiere": true,
+      "gouvernement": "Corporatiste",
+      "route": "Route Galactique (+1d)",
+      "patrouilles": [
+        {
+          "cout": "20",
+          "vaisseaux": "Galactic Scout"
+        },
+        {
+          "cout": "30",
+          "vaisseaux": "Galactic Scout + 2 Galactic Escort"
+        }
+      ],
+      "description": "Le système Exxalia est constamment parcouru par des millions de vaisseaux spatiaux, presque tous des vaisseaux de commerce. l[ est rare de passer une journée sans apercevoir un écho radar, même lointain, et un SOS ne reste jamais longtemps sans réponse. Le système est également patrouille par quelques vaisseaux de [a compagnie Galactic ainsi que, selon les rumeurs, par des patrouilles du syndicat. Ces patrouilles suffisent à décourager les pirates et les pillards. Si jamais le système devait être attaqué par une force plus conséquente, les directeurs du système devraient faire appel aux forces de l'OCG des systèmes voisins pour résister. Mais qui aurait intérêt à attaquer l'une des plus grandes planètes marchandes de la Galaxie ?"
+    }
+  ],
+  "Δ′-36": [],
+  "Λ′-24": [
+    {
+      "nom": "Coralia",
+      "faction": "Ligue des Planètes Libres",
+      "corpsCelestes": [],
+      "soleil": {
+        "nom": "Noméa",
+        "classe": "Soleil",
+        "description": ""
+      }
+    }
+  ],
+  "Ψ-1": [],
+  "Ω-1": [],
+  "Ω-3": [
+    {
+      "nom": "Darek",
+      "faction": "Empire Galactique",
+      "corpsCelestes": [],
+      "soleil": {
+        "nom": "Kordat",
+        "description": ""
+      }
+    }
+  ],
+  "Υ-3": [],
+  "Χ-3": [],
+  "Ψ-3": [],
+  "Α′-3": [],
+  "Ζ-3": [],
+  "Ζ-9": [],
+  "Η-9": [],
+  "Δ′-9": [
+    {
+      "nom": "Δ′-9",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ε′-9": [],
+  "Ζ′-9": [
+    {
+      "nom": "Dès",
+      "faction": "Empire Galactique",
+      "corpsCelestes": [],
+      "soleil": {
+        "nom": "Raltyr",
+        "description": ""
+      }
+    }
+  ],
+  "Τ-14": [],
+  "Τ-23": [
+    {
+      "nom": "Destria",
+      "faction": "Empire de Sol",
+      "corpsCelestes": [
+        {
+          "nom": "Nova Supremis",
+          "description": "",
+          "lunes": []
+        }
+      ],
+      "soleil": {}
+    }
+  ],
+  "Ε-21": [
+    {
+      "nom": "Exxalia",
+      "faction": "OCG",
+      "corpsCelestes": [
+        {
+          "nom": "Temesys",
+          "description": "Temesys est une planète inhospitalière, soumise à la chaleur de Losserim et aux caprices de sa tectonique volcanique. Les éruptions y sont fréquentes, et surtout, les conditions climatiques et la composition de la lave font que celle-ci reste chaude et liquide pendant très longtemps. Seuls quelques pionniers osent braver la fournaise de Temesys. Aucun plan d'eau ne permet de s'y poser, hormis le lac protégé de l'astroport.\nAu temps des seigneurs d'Exxalia, Temesys était déjà occupée dans le but d'exploiter ses ressources minières. Cependant, le niveau technologique et les infrastructures de l'époque ne permirent jamais de profiter pleinement du sous-sol de la planète. Ce n'est que lorsque le système rejoignit l'OCG que l'exploitation pu prendre une ampleur industrielle. Plutôt que de gérer directement la chose, Galactic mit en vente des concessions minières, et les pionniers affluèrent sur Temesys pour y faire fortune en vidant son sous-sol.\nTemesys est constituée de plusieurs plaques continentales qui se jouxtent les unes les autres. Il en résulte de grandes chaînes montagneuses qui strient sa surface, des tremblements de terre et des éruptions volcaniques. La géologie de la planète est très bouleversée, et les filons peuvent être détruits par les mouvements des plaques. A l'inverse, il arrive que des gisements affleurent à la surface de la planète suite à un tremblement de terre. Les pionniers sont toujours sur le qui-vive et prêts à se ruer dans les zones encore dépourvues d'occupants légitimes.\nCar Temesys accueille une importante communauté de colons. Celle-ci est concentrée autour de l'astroport, et des lignes de trains blindés partent de celui-ci pour desservir les stations disséminées à la surface de la planète. Ici, tout le monde a un fusil laser à portée de main et les vaisseaux spatiaux sont tous prêts à faire feu. Quand un marchand est ruiné à Exxalia, il vient souvent sur Temesys en espérant se refaire grâce à un gisement affleurant miraculeusement. La planète abrite également quelques centres de recherches scientifiques qui étudient Losserim ou la géologie de la planète. Ils échangent leur savoir-faire technologique contre la protection des pionniers alentour et l'assurance de ne pas être inquiétés.",
+          "lunes": [],
+          "orbite": "0.5",
+          "classe": "M",
+          "diametre": "5",
+          "atmosphere": "Irrespirable",
+          "environnement": "Montagne, Roche (Fournaise)",
+          "gravite": "Normale",
+          "astroport": "Rudimentaire",
+          "securite": "2",
+          "population": "1500000",
+          "techno": "B",
+          "gouvernement": "Corporatiste",
+          "commerce": "Planète pauvre (D+1)",
+          "marchandiseA": "1.5",
+          "marchandiseB": "1.5",
+          "marchandiseC": "1",
+          "illegal": "armes lourdes, armes embarquées, drogues, esclaves",
+          "lieux": [
+            {
+              "nom": "La ligne rouge",
+              "description": "Immatérielle, la ligne rouge est la limite sur la la carte de Temesys au-delà de laquelle les lignes de train et les concessions s'arrêtent. Elle forme un cercle dont Station centrale est le centre. Au-delà, c'est une terre sauvage où les pionniers tuent pour le minerai et où personne ne vous entend crier."
+            },
+            {
+              "nom": "Mont magma",
+              "description": "Il s'agit du plus haut volcan de la planète, culminant à 37 000 mètres d'altitude. Situé dans une zone désormais \"relativement stable\", il entre tout de même régulièrement en éruption. Aucun pionnier ne s'en approche, mais des cadres en mal de sensations fortes vont parfois assister à une éruption \"de près\"."
+            },
+            {
+              "nom": "Station centrale",
+              "description": "C'est le nom de l'astroport local, une bulle de métal dont une partie s'ouvre pour laisser entrer les vaisseaux spatiaux afin qu'ils amerrissent sur le lac artificiel. C'est ici que les mineurs viennent vendre le produit de leur labeur aux marchands spatiaux et acheter l'équipement dont ils ont besoin pour continuer à travailler. Les installations sont rudimentaires et même si on peut s'y déplacer sans combinaison, la chaleur est écrasante."
+            }
+          ],
+          "astroports": [
+            {
+              "type": "Rudimentaire D+1",
+              "nom": "Temesys"
+            }
+          ],
+          "patrouilles": [
+            {
+              "cout": "11",
+              "vaisseaux": "5 mercenaires"
+            },
+            {
+              "cout": "21",
+              "vaisseaux": "10 mercenaires d'élites"
+            }
+          ]
+        },
+        {
+          "nom": "Exxalia",
+          "description": "Exxalia est une planète marchande ultra urbanisée qui vit sous une pluie permanente. Par bien des aspects, c'est une planète idéale de l'OCG : carrefour des routes galactiques, rentable au-delà des espoirs les plus fous, elle est recouverte d'urba-blocs bien optimisés, d'entrepôts toujours pleins et d'astroports toujours en effervescence.\nAu cours de l'âge de métal, Exxalia fut le théâtre de terribles guerres navales. Personne n'en ressortit jamais vainqueur, mais quelques seigneurs décidèrent de s'allier contre tous les autres. Ils se firent appeler \"les seigneurs d'Exxalia\". Grâce à cette alliance, ils redécouvrirent la technologie spatiale et se lancèrent à la conquête du système. Amassant ainsi encore plus de ressources, ils redécouvrirent l'hyperpropulsion (P&P 47). Lorsque le système est intégré à l'OCG, Galactic déménage son siège social ici et réaménage toute la planète en suivant un plan général ultra optimisé.\nLes terres émergées couvrent environ 15 % du globe. Un de ces continents constitue le coeur de la planète : le continent-entrepôt. Dans les masses continentales alentour, Galactic a installé les centres urbains et les installations technologiques : de grandes villes aux bâtiments gris et mornes, aux avenues droites et monotones, et au nuage de pollution omniprésent. Le reste de la planète est un gigantesque réservoir de ressources naturelles. Celles-ci sont presque totalement épuissées, et ces archipels se transforment peu à peu en gigantesques décharges, aussi nocives que radioactives (100 rads). On n'y trouve plus que de vieilles usines abandonnées et des bandes de pillards, héritiers des seigneurs de guerre qui n'ont pas accepté la venue de l'OCG.\nToute l monde sait qu'Exxalia est une planète de complaisance, mais les bénéfices faramineux, et les taxes versées au cartel, lui permettent de conserver ce statut particulier. Ici, on peut y vendre et y acheter presque n'importe quoi, et une bonne bouteille de rhum suffit pour s'acquitter des droits de douane. Il est possible d'y trouver presque toutes les marchandises de la Galaxie, et également la plupart des services : chasseurs de primes, cartes spatiales, explorateurs, hommes de main, etc...",
+          "lunes": [],
+          "lieux": [
+            {
+              "nom": "Exxa-00",
+              "description": "Grosse comme une petite lune, cette gigantesque station orbitale est le principal astroport d'Exxalia. Réservé aux vaisseaux de 10 000 t et plus, c'est elle qui assure l'essentiel des échanges commerciaux. Elle est approvisionné par un flot incessant de navettes."
+            },
+            {
+              "nom": "Exxa-01",
+              "description": "Ici, on peut déclarer des marchandises sans avoir de justificatif, il suffit de payer 1 % supplémentaire. En outre, la détention ou la vente de marchandises illégales n'est punie que d'une amende (5 %), quelle que soit la situation. L'astroport abrite également un comptoir de la Bourse galactique (P&P 41)."
+            },
+            {
+              "nom": "Exxa-02",
+              "description": "L'astroport tout neuf d'Exxalia abrite des installations \"grand luxe\". Le coût du ponton y est doublé, mais il est possible, dans cette halle marchande, d'acheter tous les vaisseaux du Manuel des joueurs, quelle que soit leur nation d'origine."
+            },
+            {
+              "nom": "Siège de Galactic",
+              "description": "Situé au coeur du continent-entrepot, ce gigantesque gratte-ciel abrite également le gouvernement du système. Il est équipé d'une piste d'atterrissage pour navettes et de puissantes défenses aériennes."
+            },
+            {
+              "nom": "Telya (A)",
+              "description": "Cette petite bille de roche déserte abrite le QG des compagnies mercenaires qui surveillent la planète. Son accès est interdit et les mercenaires tirent à vue !"
+            },
+            {
+              "nom": "Le Triple Twister",
+              "description": "Ce bar louche est connu de tous les criminels et vauriens faisant halte à Exxa-01. Le bar est connu pour ses strip-teases de mutantes, dont le nombre de seins a donné son nom à l'établissement"
+            }
+          ],
+          "orbite": "1",
+          "classe": "M",
+          "diametre": "10",
+          "atmosphere": "Respirable",
+          "environnement": "Mer",
+          "gravite": "Normale",
+          "astroport": "Exxa-00 : Standard, Exxa-02 : Première classe (+1d)",
+          "securite": "4",
+          "population": "5000000000",
+          "techno": "B",
+          "gouvernement": "Corporatiste",
+          "commerce": "Carrefour galactique (TF)",
+          "patrouilles": [
+            {
+              "cout": "11",
+              "vaisseaux": "5 mercenaires"
+            },
+            {
+              "cout": "21",
+              "vaisseaux": "10 mercenaires d'élites"
+            }
+          ],
+          "astroports": [
+            {
+              "nom": "Exxa-00",
+              "type": "Standard"
+            },
+            {
+              "nom": "Exxa-02",
+              "type": "Première classe +1d"
+            }
+          ],
+          "marchandiseA": "1",
+          "marchandiseB": "1",
+          "marchandiseC": "1",
+          "illegal": "armes lourdes, armes embarquées, drogues, esclaves"
+        },
+        {
+          "nom": "Aldéna",
+          "description": "Aldéna est une planète inhospitalière, mais au sous-sol riche en ressources minières. Elle motive donc Galactic à envoyer des employés pour exploiter ces trésors, quitte à leur faire vivre un véritable enfer gelé.\nAvant l'intégration à l'OCG, personne ne vivait de façon permanente sur Aldéna. Les troupes des signeurs d'Exxalia venaient en vaisseau, exploitaient les gisements jusqu'à remplir les soutes, puis repartaient avant de mourir de froid. Galactic mit un terme à ce gaspillage d'énergie et ordonna l'installation d'une exploitation minière. Cela se fit en plusieurs étapes, et la première consista à construire des stations orbitales à partir desquelles les colons construisirent l'astroport, puis les exploitations minières de surface. Cette longue phase de colonisation donna naissance à la ceinture de débris qui existe toujours aujourd'hui. Depuis, toutes les installations de l'OCG sont à la surface.\nAldéna est une gigantesque bille blanche dépourvue d'océans : il y fait si froid que la banquise se confond avec les terres émergées, sans jamais risquer de fondre. Toutes les installations humaines sont à moitié enterrées dans de véritables bunkers et on y vit emmitouflé en permanence. L'astroport a été spécialement construit pour abriter sous un dôme un étang chauffé afin d'accueillir les vaisseaux. Il n'existe aucune route sur Aldéna : tout le monde y voyage en navettes spécialement équipées pour lutter contre le froid. De terribles animaux, si forts qu'ils supportent les conditions de vie locales, chassent sur la neige et la banquise.\nLa vie sur Aldéna est une lute perpétuelle et les habitants de cette planète consacrent tout leur temps à leur travail ou à leur survie. La structure corporatiste et le monde du travail sont encore plus présents ici que dans le reste de l'OCG : il n'y a pas de moment pour se détendre. Les habitants d'Aldéna qui ont la vie la plus normale sont ceux qui vivent en orbite : pour \"compléter\" les ravitaillements officiels de Galactic, de nombreux réseaux de contrebande se sont développés et chaque jour, d'innombrables navettes adaptées à la planète partent de stations orbitales clandestines pour apporter leur chargement à la surface.",
+          "lunes": [],
+          "lieux": [
+            {
+              "nom": "Atdérion (A)",
+              "description": "Quelques pionniers ont obtenu des concessions de Galactic et exploitent la surface de ce satellite dépourvu d'atmosphère... et de richesse. Les habitants arrondissent leurs fins de mois en agressant les vaisseaux qui s'y perdent."
+            },
+            {
+              "nom": "Ceinture de débris",
+              "description": "A l'abri dans la nuée de débris qui encercle la planète, des contrebandiers et des criminels ont installé de petites stations orbitales qui servent de relais au marché noir du système. Il existe même des patrouilles qui slaloment entre les débris. C'est un lieu de refuge pour tous les criminels du système. Dans la ceinture, aucune marchandise n'est illégale, mais il faut tout de même utiliser la compétence \"Illégalités\"."
+            },
+            {
+              "nom": "Danya (A)",
+              "description": "Ce satellite est encore utilisé par Galactic comme station d'observation météorologique. En théorie, c'est également d'ici que partent les patrouilles officielles, mais les vaisseaux restent au hangar la plupart du temps."
+            },
+            {
+              "nom": "Dela",
+              "description": "Ce satellite est tellement désert et dépourvu d'intérêt que personne ne s'y est installé."
+            }
+          ],
+          "patrouilles": [
+            {
+              "cout": "13",
+              "vaisseaux": "5 mercenaires"
+            },
+            {
+              "cout": "23",
+              "vaisseaux": "10 mercenaires d'élite"
+            }
+          ],
+          "astroports": [
+            {
+              "nom": "Aldena",
+              "type": "Rudimentaire D+1"
+            }
+          ],
+          "techno": "B",
+          "gouvernement": "Corporatiste",
+          "commerce": "Planète pauvre (D+1)",
+          "marchandiseA": "0",
+          "marchandiseB": "1.5",
+          "marchandiseC": "1",
+          "illegal": "armes lourdes, armes embarquées, drogues, esclaves",
+          "orbite": "23",
+          "classe": "M",
+          "diametre": "25",
+          "population": "1000000000",
+          "gravite": "Normale",
+          "securite": "2"
+        },
+        {
+          "nom": "Meldory",
+          "description": "",
+          "lunes": [
+            {
+              "nom": "Delory (A)",
+              "description": "",
+              "lunes": [],
+              "lieux": [],
+              "patrouilles": [],
+              "astroports": [],
+              "orbite": "25",
+              "diametre": "30",
+              "population": "1000000",
+              "atmosphere": "Irrespirable",
+              "gravite": "Faible (Athlétisme, Acrobatie, Pilotage +1d)",
+              "classe": "Géante gazuse",
+              "techno": "B",
+              "gouvernement": "Corporatiste",
+              "commerce": "Planète primitive (TD)"
+            }
+          ],
+          "lieux": [],
+          "patrouilles": [
+            {
+              "cout": "13",
+              "vaisseaux": "5 mercenaires"
+            },
+            {
+              "cout": "23",
+              "vaisseaux": "10 mercenaires d'élites"
+            }
+          ],
+          "astroports": [
+            {
+              "nom": "Meldory",
+              "type": "Rudimentaire D+1"
+            }
+          ],
+          "atmosphere": "Irrespirable",
+          "gravite": "Faible (Athlétisme, Acrobatie, Pilotage +1d)",
+          "techno": "B",
+          "gouvernement": "Corporatiste",
+          "commerce": "Planète primitive (TD)",
+          "orbite": "42",
+          "classe": "Géante gazeuse",
+          "diametre": "30",
+          "population": "1000000",
+          "securite": "2",
+          "marchandiseA": "1.5",
+          "marchandiseB": "1.5",
+          "marchandiseC": "0",
+          "illegal": "armes lourdes, armes embarquées, drogues, esclaves"
+        }
+      ],
+      "soleil": {
+        "nom": "Losserim",
+        "description": "Face à vous, une gigantesque boule de feu d'un jaune passé envoie quelques décharges solaires maladives. A sa surface, des éruptions solaires se succèdent à un rythme lent. Quelques taches d'un jaune tirant sur  l'orange évoluent sur la sphère jaunâtre, signes probables d'une irréversible déchéance.\n--------------\nLosserim n'est guère dangereux comme soleil. Cependant, aucun vaisseau ne croise dans ses environs, car les habitants du système ne portent aucun intérêt aux phénomènes astrophysiques propres aux étoiles.",
+        "classe": "Naine jaune",
+        "activiteSolaire": [
+          {
+            "distance": "Passer à proximité",
+            "consequence": "8d MF"
+          },
+          {
+            "distance": "2,5 US ou moins",
+            "consequence": "8d MF au début de chaque heure"
+          },
+          {
+            "distance": "500k ou moins",
+            "consequence": "8d MF au début de chaque scène"
+          },
+          {
+            "distance": "125k ou moins",
+            "consequence": "8d MF au début de chaque tour"
+          }
+        ],
+        "diametre": "1200",
+        "distanceSaut": "48"
+      },
+      "patrouilles": [
+        {
+          "cout": "20",
+          "vaisseaux": "Galactic Scout"
+        },
+        {
+          "cout": "30",
+          "vaisseaux": "Galactic Scout + 2 Galactic Escort"
+        }
+      ],
+      "description": "Le système Exxalia est constamment parcouru par des millions de vaisseaux spatiaux, presque tous des vaisseaux de commerce. l[ est rare de passer une journée sans apercevoir un écho radar, même lointain, et un SOS ne reste jamais longtemps sans réponse. Le système est également patrouille par quelques vaisseaux de [a compagnie Galactic ainsi que, selon les rumeurs, par des patrouilles du syndicat. Ces patrouilles suffisent à décourager les pirates et les pillards. Si jamais le système devait être attaqué par une force plus conséquente, les directeurs du système devraient faire appel aux forces de l'OCG des systèmes voisins pour résister. Mais qui aurait intérêt à attaquer l'une des plus grandes planètes marchandes de la Galaxie ?"
+    }
+  ],
+  "Η-18": [
+    {
+      "nom": "Fortune",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Μ-15": [
+    {
+      "nom": "Palace",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ε-13": [
+    {
+      "nom": "E-13",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ξ-10": [
+    {
+      "nom": "Ξ-10",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ρ-14": [
+    {
+      "nom": "Ρ-14",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Τ-7": [
+    {
+      "nom": "Τ-7",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ω-7": [
+    {
+      "nom": "Khargall",
+      "faction": "Empire Galactique",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Λ′-17": [
+    {
+      "nom": "Λ′-17",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Μ′-21": [
+    {
+      "nom": "Π",
+      "faction": "Ligue des Planètes Libres",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ι′-22": [
+    {
+      "nom": "Ι′-22",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ε′-24": [
+    {
+      "nom": "Ε′-24",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Φ-23": [
+    {
+      "nom": "Sol",
+      "faction": "Empire de Sol",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Χ-28": [
+    {
+      "nom": "Χ-28",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Π-28": [
+    {
+      "nom": "Π-28",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Μ-23": [
+    {
+      "nom": "Μ-23",
+      "faction": "OCG",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Α′-20": [
+    {
+      "nom": "Vardessa",
+      "faction": "Empire de Sol",
+      "corpsCelestes": [],
+      "soleil": {}
+    }
+  ],
+  "Ζ-28": [],
+  "Η-28": [
+    {
+      "nom": "Karokum",
+      "faction": "Barrens",
+      "corpsCelestes": [],
+      "soleil": {
+        "nom": "Torkana",
+        "description": ""
+      }
+    }
+  ],
+  "Ζ-25": [
+    {
+      "nom": "Sulpira",
+      "faction": "Barrens",
+      "corpsCelestes": [],
+      "soleil": {
+        "nom": "Daltéros",
+        "description": ""
+      }
+    }
+  ],
+  "Α′-18": [],
+  "Α′-19": [],
+  "Ν-33": [
+    {
+      "nom": "Havana",
+      "faction": "Pirates",
+      "corpsCelestes": [
+        {
+          "nom": "Cayo de la muerte",
+          "classe": "M",
+          "orbite": "7 US",
+          "diametre": "17 K",
+          "atmosphere": "Toxique",
+          "environnement": "Montagnes, Roche (Fournaise)",
+          "gravite": "Normale",
+          "astroport": "Aucun",
+          "securite": "0",
+          "population": "0",
+          "techno": "-",
+          "gouvernement": "Aucun",
+          "commerce": "Impossible",
+          "description": "",
+          "lunes": [],
+          "marchandiseA": "0",
+          "marchandiseB": "0",
+          "marchandiseC": "0",
+          "illegal": "Aucune"
+        },
+        {
+          "nom": "Nueva Havana",
+          "classe": "M",
+          "orbite": "10 US",
+          "diametre": "23 K",
+          "atmosphere": "Respirable",
+          "environnement": "Jungle, Mer",
+          "gravite": "Normale",
+          "astroport": "Aucun",
+          "securite": "0",
+          "population": "30 millions",
+          "techno": "C",
+          "gouvernement": "Anarchie",
+          "commerce": "Aucun",
+          "description": "",
+          "lunes": [],
+          "marchandiseA": "0",
+          "marchandiseB": "0",
+          "marchandiseC": "0",
+          "illegal": "Aucune"
+        },
+        {
+          "nom": "Havana",
+          "classe": "M",
+          "orbite": "36 US",
+          "diametre": "12 K",
+          "atmosphere": "Respirable",
+          "environnement": "Jungle, Mer",
+          "gravite": "Normale",
+          "astroport": "Rudimentaire (D+1)",
+          "securite": "0",
+          "population": "70 millions",
+          "techno": "B",
+          "gouvernement": "Anarchie",
+          "commerce": "Planète pauvre (D+1)",
+          "description": "",
+          "lunes": [],
+          "marchandiseA": "0/1",
+          "marchandiseB": "0/1",
+          "marchandiseC": "0/1",
+          "illegal": "Esclaves"
+        },
+        {
+          "nom": "Libertad",
+          "classe": "M",
+          "orbite": "43 US",
+          "diametre": "20 K",
+          "atmosphere": "Respirable",
+          "environnement": "Jungle, Mer, Montagnes",
+          "gravite": "Normale",
+          "astroport": "rudimentaire (D+1)",
+          "securite": "0",
+          "population": "25 millions",
+          "techno": "B",
+          "gouvernement": "Anarchie",
+          "commerce": "planète primitive (TD)",
+          "description": "",
+          "lunes": [],
+          "marchandiseA": "0/1.5",
+          "marchandiseB": "0/1",
+          "marchandiseC": "0/1",
+          "illegal": "Esclaves"
+        },
+        {
+          "nom": "Porto Stellare",
+          "classe": "M",
+          "orbite": "63 US",
+          "diametre": "50 K",
+          "atmosphere": "Respirable",
+          "environnement": "Désert",
+          "gravite": "Forte (D+1)",
+          "astroport": "Standard",
+          "securite": "0",
+          "population": "50000",
+          "techno": "B",
+          "gouvernement": "Anarchie",
+          "commerce": "planète pauvre (D+1)",
+          "description": "",
+          "lunes": [],
+          "marchandiseA": "0/1.5",
+          "marchandiseB": "0/1",
+          "marchandiseC": "0/1",
+          "illegal": "Esclaves"
+        }
+      ],
+      "soleil": {
+        "nom": "Ligero",
+        "description": ""
+      },
+      "limiteSaut": {
+        "distance": "69 US"
+      }
+    }
+  ],
+  "Λ-32": [],
+  "Μ-32": [],
+  "Ω-29": [],
+  "Π-27": [],
+  "Λ-36": [],
+  "Λ-31": [],
+  "Μ-31": [],
+  "Ν-31": [],
+  "Η-33": [],
+  "Μ-34": [],
+  "Φ-33": [],
+  "Ο-26": [],
+  "Ν-27": [],
+  "Λ-27": [],
+  "Ν-25": [],
+  "Μ-25": [],
+  "Ο-28": [],
+  "Ε-20": [],
+  "Ζ-24": [],
+  "Ζ-26": [],
+  "Θ-25": [],
+  "Θ-26": [],
+  "Ι-26": [],
+  "Ι-25": [],
+  "Λ-26": [],
+  "Κ-27": [],
+  "Ι-27": [],
+  "Η-29": [],
+  "Θ-27": [
+    {
+      "nom": "Tchagaan",
+      "faction": "Empire Galactique",
+      "isFrontiere": true,
+      "route": "Hors des routes(D+1)",
+      "gouvernement": "Dictature",
+      "description": "Le système Tchagaan est une anomalie historique et stratégique. Autrefois un monde isolé aux confins des Barrens, il est récemment tombé sous le joug de l'Empire Galactique suite à la découverte d'un gisement massif de Nuurium, un minerai rare et vital. La population locale, les Delkhiiens, une civilisation au seuil de son âge industriel et à la forte tradition guerrière, a été brutalement asservie. La planète est aujourd'hui une colonie d'exploitation militarisée, un point de tension majeur où la fierté d'un peuple brisé couve sous la botte de fer de l'Empire.   \n\nLes légendes locales peuvent révéler une ancienne civilisation de \"Précurseurs\", les Altan Gadas, qui auraient laissé des ruines sur plusieurs mondes du système. Ces vestiges sont désormais des zones d'intérêt prioritaires pour le département de xéno-archéologie de l'Empire.",
+      "patrouilles": [
+        {
+          "cout": "5",
+          "vaisseaux": "1 frégate et 6 chasseurs"
+        }
+      ],
+      "soleil": {
+        "nom": "Tchagaan",
+        "description": "Une naine orange mature et stable, source de toute vie sur Delkhii.",
+        "diametre": "1000",
+        "distanceSaut": "80",
+        "activiteSolaire": [
+          {
+            "distance": "",
+            "consequence": ""
+          },
+          {
+            "distance": "",
+            "consequence": ""
+          },
+          {
+            "distance": "",
+            "consequence": ""
+          }
+        ],
+        "classe": "Naine jaune"
+      },
+      "corpsCelestes": [
+        {
+          "nom": "Gal",
+          "description": "Votre vaisseau frôle un monde coupé en deux. D'un côté, un océan de magma en fusion lente sous le regard implacable de Tchagaan. De l'autre, une nuit de glace et de silence absolu. Entre les deux, dans une bande crépusculaire balayée par des vents de roche en fusion, des formes géométriques parfaites, à l'échelle de continents, sont visibles sous la lave solidifiée. C'est le cimetière d'une industrie titanesque.\n\n",
+          "lunes": [],
+          "lieux": [
+            {
+              "nom": "Tömör Zürkh",
+              "description": "Ruines antiques des précurseurs emprisonnés dans la lave"
+            }
+          ],
+          "patrouilles": [],
+          "astroports": [],
+          "atmosphere": "Dangereux",
+          "orbite": "0.3",
+          "techno": "C",
+          "gouvernement": "Aucun",
+          "commerce": "Planète primitive (TD)",
+          "classe": "M",
+          "population": "0",
+          "atmosphereDetail": "vapeur de silicates, Dégâts 2d/minute",
+          "securite": "",
+          "diametre": "11"
+        },
+        {
+          "nom": "Delkhii ",
+          "description": "Depuis l'orbite, la beauté de Delkhii est une tragédie. Des continents aux teintes ocre et vert sombre sont marbrés de nuages blancs. Mais la nuit, la surface n'est plus piquée des feux de camp des nomades. Elle est zébrée par les lumières criardes des complexes industriels et des cités occupées, tandis que d'immenses cicatrices minières brillent d'une lueur infernale. Au-dessus de vous, les silhouettes menaçantes des croiseurs impériaux remplacent les étoiles.\n\nEnvironnement : Steppe, Montagne, Forêt, Désert, Marais",
+          "lunes": [
+            {
+              "nom": "Sar",
+              "description": "",
+              "lunes": [],
+              "lieux": [],
+              "patrouilles": [],
+              "astroports": []
+            }
+          ],
+          "lieux": [
+            {
+              "nom": "",
+              "description": ""
+            },
+            {
+              "nom": "",
+              "description": ""
+            },
+            {
+              "nom": "",
+              "description": ""
+            },
+            {
+              "nom": "",
+              "description": ""
+            }
+          ],
+          "patrouilles": [
+            {
+              "cout": "3",
+              "vaisseaux": "Corps Auxiliaire"
+            },
+            {
+              "cout": "8",
+              "vaisseaux": "Soldats impériaux"
+            }
+          ],
+          "astroports": [
+            {
+              "nom": "Ordu-Balyk",
+              "type": "Standard"
+            },
+            {
+              "nom": "Zagas-Balgas",
+              "type": "Standard"
+            }
+          ],
+          "orbite": "0.7",
+          "classe": "M",
+          "gravite": "Forte (Survie/Technique D+1)",
+          "techno": "B",
+          "gouvernement": "Dictature",
+          "commerce": "Planète pauvre (D+1)",
+          "population": "3000000000",
+          "securite": "7",
+          "diametre": "13",
+          "illegal": "te arme non-impériale, tout artefact religieux du Shagai, toute technologie de communication non autorisée."
+        },
+        {
+          "nom": " Bat-Erdene",
+          "description": "La géante gazeuse domine le système extérieur. Ses bandes nuageuses aux couleurs crème et ocre tourbillonnent autour d'un anticyclone colossal, le \"Grand Rubis\". Mais votre attention est attirée par l'une de ses lunes, Ochir. Même à cette distance, les senseurs détectent des structures aux angles impossibles, des tours brisées hautes de plusieurs kilomètres et des spatioports fantômes. C'est la capitale d'un empire mort depuis quatre milliards d'années.\n\nSystème orbital : plus de 80 lunes.",
+          "lunes": [],
+          "lieux": [],
+          "patrouilles": [],
+          "astroports": [],
+          "classe": "G",
+          "population": "0",
+          "atmosphere": "Non respirable",
+          "orbite": "3",
+          "diametre": "150",
+          "gouvernement": "Aucun",
+          "techno": "C",
+          "commerce": "Planète primitive (TD)"
+        },
+        {
+          "nom": "Mönkh-Tenger",
+          "description": "La planète semble... blessée. D'une magnifique couleur cyan, cette géante de glace ne tourne pas comme les autres mondes. Elle roule sur son orbite, basculée sur le côté, comme si un coup d'une puissance inimaginable l'avait renversée il y a des éons. Son silence est celui d'un dieu déchu, un témoin muet d'une guerre cosmique oubliée.",
+          "lunes": [],
+          "lieux": [],
+          "patrouilles": [],
+          "astroports": [],
+          "classe": "G",
+          "diametre": "50",
+          "techno": "C",
+          "gouvernement": "Aucun",
+          "commerce": "Planète primitive (TD)",
+          "orbite": "8",
+          "population": "0"
+        },
+        {
+          "nom": "Nergüi ",
+          "description": "Aux confins du système, là où la lumière de Tchagaan n'est plus qu'une étoile brillante parmi d'autres, dérive le Sans-Nom. Ce planétoïde est une tache d'obscurité, un morceau de nuit qui ne reflète presque aucune lumière. Les senseurs à longue portée détectent une anomalie à sa surface : un sphéroïde d'un noir absolu, géométriquement parfait, qui absorbe toute énergie. C'est un secret endormi, et les légendes locales disent qu'il ne faut surtout pas le réveiller.",
+          "lunes": [],
+          "lieux": [],
+          "patrouilles": [],
+          "astroports": [],
+          "atmosphere": "Non respirable",
+          "gravite": "Aucune",
+          "techno": "C",
+          "gouvernement": "Aucun",
+          "commerce": "Planète primitive (TD)",
+          "orbite": "35",
+          "classe": "Planétoïde",
+          "diametre": "2",
+          "population": "-1"
+        }
+      ]
+    }
+  ],
+  "Η-24": []
+}</script>
+
+  <script>
+  (function(){
+    'use strict';
+
+    const LETTRES = ["Α","Β","Γ","Δ","Ε","Ζ","Η","Θ","Ι","Κ","Λ","Μ","Ν","Ξ","Ο","Π","Ρ","Σ","Τ","Υ","Φ","Χ","Ψ","Ω","Α′","Β′","Γ′","Δ′","Ε′","Ζ′","Η′","Θ′","Ι′","Κ′","Λ′","Μ′","Ν′","Ξ′","Ο′","Π′"];
+
+    // ── STATE ──
+    let donnees = {};
+    let perilsData = {};
+    let tripState = { points: [] };
+    let currentTripLegs = null;
+    let customTables = [];
+    let perilAssignments = { systems: {}, quadrants: {} };
+    let factions = [];
+
+    // ── DATA ──
+    async function loadData() {
+      try {
+        const s = localStorage.getItem('quadrantsMA');
+        if (s) { donnees = JSON.parse(s) || {}; }
+        else {
+          const el = document.getElementById('quadrants-data');
+          if (el && el.textContent.trim()!=='null') { donnees = JSON.parse(el.textContent) || {}; }
+          else { try { const r=await fetch('quadrants_MA.json'); donnees=await r.json()||{}; } catch(e2){} }
+        }
+      } catch(e) { donnees = {}; }
+
+      perilsData = PERILS_DEFAULT;
+      try { const a = localStorage.getItem('perilsDataAdmin'); if (a) perilsData = JSON.parse(a); } catch(e) {}
+      try { customTables = JSON.parse(localStorage.getItem('customPerilTables')||'[]'); } catch(e) { customTables=[]; }
+      try { perilAssignments = JSON.parse(localStorage.getItem('perilAssignments')||'{"systems":{},"quadrants":{}}'); } catch(e) { perilAssignments={systems:{},quadrants:{}}; }
+      try { factions = JSON.parse(localStorage.getItem('factions')||'[]'); } catch(e) { factions=[]; }
+      if(!factions.length){
+        factions=[
+          {id:'fac-def-1',name:'Empire Galactique',short:'EG',description:'',icon:''},
+          {id:'fac-def-2',name:'Empire de Sol',short:'Sol',description:'',icon:''},
+          {id:'fac-def-3',name:'Barrens',short:'B',description:'',icon:''},
+          {id:'fac-def-4',name:'Ligue des Planètes Libres',short:'LPL',description:'',icon:''},
+          {id:'fac-def-5',name:'Omni-Cartel Galactique',short:'OCG',description:'',icon:''},
+          {id:'fac-def-6',name:'Pirate',short:'Pirate',description:'',icon:''}
+        ];
+        saveFactions();
+      }
+    }
+
+    function getParams() {
+      const def = { ipSpd:100, hsSpd:1000, hsAuto:10000 };
+      try { const s = localStorage.getItem('itineraireParams'); if (s) return Object.assign(def, JSON.parse(s)); } catch(e) {}
+      return def;
+    }
+    function saveParams(p) { localStorage.setItem('itineraireParams', JSON.stringify(p)); }
+
+    // ── CARTE ──
+    function initCarte() {
+      const colLeg = document.getElementById('col-legende');
+      colLeg.innerHTML = '<div style="width:20px"></div>' + LETTRES.map(l => `<div class="col-header" style="width:20px;font-size:0.5rem">${l.length <= 2 ? l : ''}</div>`).join('');
+
+      const rowLeg = document.getElementById('row-legende');
+      rowLeg.innerHTML = '';
+      for(let i=1;i<=40;i++){
+        const d=document.createElement('div');
+        d.className='row-header';
+        d.style.height='20px';
+        d.textContent=41-i;
+        rowLeg.appendChild(d);
+      }
+
+      const carte = document.getElementById('carte');
+      carte.innerHTML = '';
+      for(let y=0;y<40;y++){
+        for(let x=0;x<40;x++){
+          const coord = `${LETTRES[x]}-${40-y}`;
+          const div = document.createElement('div');
+          div.className = 'quad';
+          div.dataset.coord = coord;
+          if(donnees[coord]&&donnees[coord].length>0) div.classList.add('has-system');
+          div.addEventListener('click', ()=>{ if(!isDragging)onCellClick(coord); });
+          carte.appendChild(div);
+        }
+      }
+      refreshCarte();
+    }
+
+    function refreshCarte() {
+      document.querySelectorAll('.quad').forEach(q => {
+        q.classList.remove('selected-dep','selected-arr','selected-eta','path');
+        const c = q.dataset.coord;
+        const pts = tripState.points, n = pts.length;
+        if(n>0 && pts[0].quadrant===c) q.classList.add('selected-dep');
+        else if(n>1 && pts[n-1].quadrant===c) q.classList.add('selected-arr');
+        else if(pts.some((p,i)=>i>0&&i<n-1&&p.quadrant===c)) q.classList.add('selected-eta');
+      });
+      const pts=tripState.points;
+      for(let i=0;i<pts.length-1;i++) markPath(pts[i].quadrant,pts[i+1].quadrant);
+    }
+
+    function coordXY(coord){ const p=coord.split('-'); return {x:LETTRES.indexOf(p[0]),y:40-parseInt(p[1])}; }
+
+    function markPath(a,b){
+      const ca=coordXY(a),cb=coordXY(b);
+      let x0=ca.x,y0=ca.y,x1=cb.x,y1=cb.y;
+      const dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;
+      let err=dx-dy;
+      const cells=new Set();
+      while(true){cells.add(`${x0},${y0}`);if(x0===x1&&y0===y1)break;const e2=2*err;if(e2>-dy){err-=dy;x0+=sx;}if(e2<dx){err+=dx;y0+=sy;}}
+      document.querySelectorAll('.quad').forEach(q=>{
+        const c=coordXY(q.dataset.coord);
+        if(cells.has(`${c.x},${c.y}`)&&!q.classList.contains('selected-dep')&&!q.classList.contains('selected-arr')&&!q.classList.contains('selected-eta'))
+          q.classList.add('path');
+      });
+    }
+
+    // ── PAN/ZOOM ──
+    let zoom=1,panX=0,panY=0,panning=false,panSX=0,panSY=0,pinching=false,pinchD0=1,pinchZ0=1;
+    let isDragging=false,_dsX=0,_dsY=0;
+
+    function applyT(){ document.getElementById('carte-wrapper').style.transform=`translate(${panX}px,${panY}px) scale(${zoom})`; }
+
+    function initPanZoom(){
+      const z=document.getElementById('carte-zone');
+      z.addEventListener('mousedown',e=>{ panning=true; isDragging=false; _dsX=e.clientX; _dsY=e.clientY; panSX=e.clientX-panX; panSY=e.clientY-panY; z.classList.add('grabbing'); });
+      window.addEventListener('mousemove',e=>{ if(!panning)return; if(!isDragging&&(Math.abs(e.clientX-_dsX)>4||Math.abs(e.clientY-_dsY)>4))isDragging=true; panX=e.clientX-panSX; panY=e.clientY-panSY; applyT(); });
+      window.addEventListener('mouseup',()=>{ panning=false; z.classList.remove('grabbing'); });
+      z.addEventListener('wheel',e=>{ e.preventDefault(); const f=e.deltaY<0?1.1:0.91; const r=z.getBoundingClientRect(); const mx=e.clientX-r.left,my=e.clientY-r.top; const nz=Math.min(Math.max(zoom*f,0.25),6); panX=mx-(mx-panX)*(nz/zoom); panY=my-(my-panY)*(nz/zoom); zoom=nz; applyT(); },{passive:false});
+      z.addEventListener('touchstart',e=>{ if(e.touches.length===2){pinching=true;pinchD0=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);pinchZ0=zoom;}else if(e.touches.length===1){panning=true;panSX=e.touches[0].clientX-panX;panSY=e.touches[0].clientY-panY;} },{passive:true});
+      z.addEventListener('touchmove',e=>{ e.preventDefault(); if(e.touches.length===2&&pinching){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);const r=z.getBoundingClientRect();const mx=(e.touches[0].clientX+e.touches[1].clientX)/2-r.left,my=(e.touches[0].clientY+e.touches[1].clientY)/2-r.top;const nz=Math.min(Math.max(pinchZ0*(d/pinchD0),0.25),6);panX=mx-(mx-panX)*(nz/zoom);panY=my-(my-panY)*(nz/zoom);zoom=nz;applyT();}else if(e.touches.length===1&&panning){panX=e.touches[0].clientX-panSX;panY=e.touches[0].clientY-panSY;applyT();} },{passive:false});
+      z.addEventListener('touchend',()=>{panning=false;pinching=false;});
+    }
+
+    function centerMap(){
+      const z=document.getElementById('carte-zone'),r=z.getBoundingClientRect();
+      zoom=Math.min(r.width/820,r.height/820,1);
+      panX=(r.width-820*zoom)/2; panY=(r.height-820*zoom)/2;
+      applyT();
+    }
+
+    // ── BOTTOM SHEET (MOBILE) ──
+    function onCellClick(coord){
+      if(_pickingQuadrant){
+        if(_editCoord==='__new__') finishPickQuadrant(coord);
+        else { _pickingQuadrant=false; document.getElementById('carte-zone').classList.remove('picking'); relocateSystem(coord); openModal('modal-edit-system'); }
+        return;
+      }
+      const systems=donnees[coord]||[];
+      const sheet=document.getElementById('bottom-sheet');
+      document.getElementById('bs-title-text').textContent=`Quadrant ${coord}`;
+      const qbContainer=document.getElementById('bs-quad-btns');
+      qbContainer.innerHTML='';
+      const qp={quadrant:coord,systemNom:null,astroNom:null,orbit:0};
+      const addBtn=document.createElement('button');
+      addBtn.className='btn-point btn-eta';
+      addBtn.style.cssText='padding:3px 9px;font-size:0.75rem';
+      addBtn.textContent='+ Quadrant';
+      addBtn.addEventListener('click',()=>{tripState.points.push({...qp});refreshAll();});
+      qbContainer.appendChild(addBtn);
+      renderBSTripState();
+      const content=document.getElementById('bottom-sheet-content');
+      content.innerHTML='';
+      // HS peril picker for this quadrant
+      const hsRow=document.createElement('div');
+      hsRow.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--bg3)';
+      const hsTid=perilAssignments.quadrants[coord]||'';
+      hsRow.innerHTML=`<span style="font-size:0.78rem;color:#aaa;white-space:nowrap">⚠️ Périls HS :</span>${_perilTableSelect('hyperspatial',coord,hsTid)}`;
+      content.appendChild(hsRow);
+      if(systems.length===0){
+        const empty=document.createElement('div');
+        empty.style.cssText='padding:20px;text-align:center;color:#888;font-style:italic';
+        empty.textContent='Quadrant vide.';
+        content.appendChild(empty);
+      } else {
+        systems.forEach((sys,si)=>{
+          const sd=document.createElement('div');
+          sd.style.cssText='margin-bottom:10px;border:1px solid var(--border);border-radius:6px;overflow:hidden';
+          const hdr=document.createElement('div');
+          hdr.style.cssText='background:var(--bg3);padding:7px 12px;font-weight:bold;color:var(--gold);font-size:0.88rem;cursor:pointer;display:flex;justify-content:space-between;align-items:center';
+          hdr.innerHTML=`<span>${sys.nom||'?'}</span><span style="color:#888;font-weight:normal;font-size:0.76rem">${_factionLabel(sys.faction)} <span style="color:var(--primary)">ℹ</span></span>`;
+          hdr.addEventListener('click',()=>showSystemDetail(coord,si));
+          sd.appendChild(hdr);
+          getAstres(sys).forEach(a=>{
+            const pt={quadrant:coord,systemNom:sys.nom,astroNom:a.label,orbit:a.orbit};
+            const row=document.createElement('div');
+            row.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:6px 12px;border-top:1px solid var(--border)';
+            row.innerHTML=`<span style="font-size:0.85rem">${a.label}</span>`;
+            const b=document.createElement('button');
+            b.className='btn-point btn-eta';
+            b.style.cssText='padding:3px 9px;font-size:0.75rem';
+            b.textContent='+';
+            b.addEventListener('click',()=>{tripState.points.push({...pt});refreshAll();});
+            row.appendChild(b);
+            sd.appendChild(row);
+          });
+          content.appendChild(sd);
+        });
+      }
+      sheet.classList.add('open');
+      document.getElementById('fab-calculer').classList.add('sheet-open');
+      updateDesktopQuadInfo(coord,systems);
+    }
+
+    function getAstres(sys){
+      const list=[];
+      if(sys.soleil?.nom) list.push({label:`☀ ${sys.soleil.nom}`,orbit:0});
+      (sys.corpsCelestes||[]).forEach(p=>{ if(p.orbite) list.push({label:p.nom,orbit:parseFloat(p.orbite)||0}); });
+      if(sys.soleil?.distanceSaut) list.push({label:'Limite de Saut',orbit:parseFloat(sys.soleil.distanceSaut)||0});
+      return list;
+    }
+
+    function updateDesktopQuadInfo(coord,systems){
+      const el=document.getElementById('dp-quad-info');
+      if(!el)return;
+      const qp=JSON.stringify({quadrant:coord,systemNom:null,astroNom:null,orbit:0});
+      const addQBtn=`<button onclick='APP.add(${JSON.stringify(qp)})' class="btn-point btn-eta" style="padding:2px 8px;font-size:0.7rem">+</button>`;
+      let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><strong style="color:var(--gold)">${coord}</strong>${addQBtn}</div>`;
+      // HS peril picker (desktop)
+      const _hsTid=perilAssignments.quadrants[coord]||'';
+      h+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border)"><span style="font-size:0.72rem;color:#aaa;white-space:nowrap">⚠️ HS :</span>${_perilTableSelect('hyperspatial',coord,_hsTid)}</div>`;
+      if(!systems.length){el.innerHTML=h+`<span style="color:#888;font-size:0.8rem">Quadrant vide</span>`;return;}
+      systems.forEach((sys,si)=>{
+        h+=`<div style="margin-top:5px"><span style="font-weight:bold;cursor:pointer;text-decoration:underline dotted" onclick="showDetail('${coord}',${si})">${sys.nom}</span> <span style="color:#888;font-size:0.78rem">${_factionLabel(sys.faction)}</span>`;
+        getAstres(sys).forEach(a=>{
+          const pj=JSON.stringify({quadrant:coord,systemNom:sys.nom,astroNom:a.label,orbit:a.orbit});
+          h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-top:3px;padding-top:3px;border-top:1px solid var(--border)">
+            <span style="font-size:0.8rem">${a.label}</span>
+            <button onclick='APP.add(${JSON.stringify(pj)})' class="btn-point btn-eta" style="padding:2px 8px;font-size:0.7rem">+</button></div>`;
+        });
+        h+=`</div>`;
+      });
+      el.innerHTML=h;
+    }
+
+    function refreshAll(){
+      refreshCarte();
+      updateDesktopPointsList();
+      renderBSTripState();
+    }
+
+    function updateDesktopPointsList(){
+      const el=document.getElementById('dp-points');
+      const btn=document.getElementById('btn-calc-desktop');
+      if(!el)return;
+      const pts=tripState.points,n=pts.length;
+      const lbl=p=>p.astroNom?`${p.astroNom} (${p.quadrant})`:p.quadrant;
+      const roleColor=i=>i===0?'var(--danger)':i===n-1?'var(--success)':'var(--warning)';
+      const roleName=i=>i===0?'Dép':i===n-1?'Arr':`Étp ${i}`;
+      if(!n){el.innerHTML='<span style="color:#888">Aucun point.</span>';btn.style.display='';return;}
+      el.innerHTML=pts.map((p,i)=>`
+        <div class="pt-row">
+          <span class="pt-role" style="color:${roleColor(i)}">${roleName(i)}</span>
+          <span class="pt-label">${lbl(p)}</span>
+          <button class="pt-move" onclick="movePt(${i},-1)" ${i===0?'disabled style="opacity:.3"':''} title="Monter">▲</button>
+          <button class="pt-move" onclick="movePt(${i},1)" ${i===n-1?'disabled style="opacity:.3"':''} title="Descendre">▼</button>
+          <button class="pt-del" onclick="removePt(${i})" title="Supprimer">✕</button>
+        </div>`).join('');
+      btn.style.display='';
+    }
+
+    window.APP={
+      add(j){tripState.points.push(JSON.parse(j));refreshAll();}
+    };
+
+    window.removePt=function(idx){ tripState.points.splice(+idx,1); refreshAll(); };
+    window.movePt=function(idx,dir){
+      const pts=tripState.points, ni=+idx+dir;
+      if(ni<0||ni>=pts.length)return;
+      [pts[+idx],pts[ni]]=[pts[ni],pts[+idx]];
+      refreshAll();
+    };
+
+    function renderBSTripState(){
+      const el=document.getElementById('bs-trip-state');
+      if(!el)return;
+      const pts=tripState.points,n=pts.length;
+      if(!n){el.innerHTML='';return;}
+      const lbl=p=>p.astroNom?`${p.astroNom} (${p.quadrant})`:p.quadrant;
+      const roleColor=i=>i===0?'var(--danger)':i===n-1?'var(--success)':'var(--warning)';
+      const roleName=i=>i===0?'Dép':i===n-1?'Arr':`Étp ${i}`;
+      const items=pts.map((p,i)=>`
+        <span style="display:inline-flex;align-items:center;gap:3px;background:var(--bg3);border-radius:4px;padding:2px 5px">
+          <span style="color:${roleColor(i)};font-size:0.7rem;font-weight:bold">${roleName(i)}</span>
+          <span style="font-size:0.78rem">${lbl(p)}</span>
+          <button onclick="movePt(${i},-1)" style="background:none;border:none;color:#666;cursor:pointer;padding:0 1px;font-size:0.7rem" ${i===0?'disabled':''}>&#9650;</button>
+          <button onclick="movePt(${i},1)" style="background:none;border:none;color:#666;cursor:pointer;padding:0 1px;font-size:0.7rem" ${i===n-1?'disabled':''}>&#9660;</button>
+          <button onclick="removePt(${i})" style="background:none;border:none;color:#888;cursor:pointer;padding:0 2px;font-size:0.8rem">✕</button>
+        </span>`);
+      el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:6px 12px;border-bottom:1px solid var(--border)">${items.join('')}</div>`;
+    }
+
+    function _perilTableSelect(type, assignKey, currentTableId){
+      const tables=customTables.filter(t=>t.type===type);
+      let h=`<select onchange="_perilAssign('${type}','${escH(assignKey)}',this.value)" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:3px;font-size:0.78rem;max-width:200px">`;
+      h+=`<option value="">Défaut</option>`;
+      tables.forEach(t=>{h+=`<option value="${t.id}"${currentTableId===t.id?' selected':''}>${escH(t.name)}</option>`;});
+      h+=`</select>`;
+      return h;
+    }
+    window._perilAssign=function(type,key,val){
+      if(type==='interplanetaire'){ if(val)perilAssignments.systems[key]=val; else delete perilAssignments.systems[key]; }
+      else{ if(val)perilAssignments.quadrants[key]=val; else delete perilAssignments.quadrants[key]; }
+      saveAssignments();
+    };
+
+    function _perilTableSummary(tableId,type){
+      let cats;
+      if(!tableId){ cats=(perilsData[type]||{}).categories||[]; }
+      else{ const t=customTables.find(t=>t.id===tableId); cats=t?t.categories:(perilsData[type]||{}).categories||[]; }
+      if(!cats.length) return '<div style="color:#888;font-size:0.78rem;font-style:italic">Aucun péril défini.</div>';
+      let h='';
+      cats.forEach(cat=>{
+        h+=`<div style="margin-top:6px"><div style="font-size:0.78rem;font-weight:bold;color:var(--gold);margin-bottom:2px">${escH(cat.nom)} <span style="color:#888;font-weight:normal">(${cat.seuilMin}–${cat.seuilMax})</span></div>`;
+        (cat.perils||[]).forEach(p=>{
+          h+=`<div style="display:flex;align-items:baseline;gap:6px;padding:2px 0 2px 8px;font-size:0.75rem;border-bottom:1px solid var(--border)"><span style="color:#888;min-width:32px">${p.seuilMin}–${p.seuilMax}</span><span style="color:var(--text)">${escH(p.nom)}</span></div>`;
+        });
+        h+=`</div>`;
+      });
+      return h;
+    }
+
+    function showSystemDetail(coord,si){
+      const sys=(donnees[coord]||[])[si];
+      if(!sys)return;
+      const jl=parseFloat(sys.soleil?.distanceSaut)||0;
+      function section(title,body,open=true){
+        return `<div class="detail-section${open?'':' collapsed'}">
+          <div class="detail-section-hdr" onclick="this.closest('.detail-section').classList.toggle('collapsed')">
+            <h3>${title}</h3><span class="d-caret">▼</span>
+          </div><div class="detail-section-body">${body}</div></div>`;
+      }
+      let h=`<div style="margin-bottom:14px">`;
+      h+=`<h2 style="color:var(--gold);margin:0 0 4px;font-size:1.05rem">${sys.nom||'Système'}</h2>`;
+      if(sys.faction)h+=`<div style="color:#aaa;font-size:0.82rem">${_factionLabel(sys.faction,true)}${sys.isFrontiere?` · <span style="color:var(--warning)">Frontière</span>`:''}</div>`;
+      const meta=[];
+      if(sys.route)meta.push(`🛤 Route : ${sys.route}`);
+      if(sys.gouvernement)meta.push(`⚖ ${sys.gouvernement}`);
+      if(meta.length)h+=`<div style="color:#aaa;font-size:0.78rem;margin-top:3px">${meta.join(' ')}</div>`;
+      h+=`</div>`;
+      if(sys.description)h+=section('📋 Description',`<p class="detail-desc">${sys.description}</p>`);
+      if(sys.soleil){
+        let sb=`<div class="detail-stats">`;
+        const sf={Classe:sys.soleil.classe,'Diamètre (K)':sys.soleil.diametre,'Dist. saut (US)':sys.soleil.distanceSaut};
+        for(const[k,v]of Object.entries(sf))if(v)sb+=`<div class="detail-stat"><strong>${k} :</strong> ${v}</div>`;
+        sb+=`</div>`;
+        if(sys.soleil.description)sb+=`<p class="detail-desc">${sys.soleil.description}</p>`;
+        if(sys.soleil.activiteSolaire?.length){sb+=`<div style="margin-top:6px;font-size:0.8rem;font-weight:bold;color:#bbb">Activité solaire</div><ul class="detail-list">`;sys.soleil.activiteSolaire.forEach(a=>sb+=`<li>Dist. ${a.distance} : ${a.consequence}</li>`);sb+=`</ul>`;}
+        h+=section(`☀ ${sys.soleil.nom||'Étoile'}`,sb);
+      }
+      (sys.corpsCelestes||[]).forEach(p=>{
+        const orb=parseFloat(p.orbite)||0;
+        const ds=jl>0?(jl-orb).toFixed(0)+' US':'—';
+        let pb='';
+        const badges=[];
+        if(p.atmosphere)badges.push(`<span class="detail-badge badge-atmos">${p.atmosphere}</span>`);
+        if(p.gravite)badges.push(`<span class="detail-badge badge-grav">G ${p.gravite}</span>`);
+        if(p.securite)badges.push(`<span class="detail-badge badge-sec">Séc ${p.securite}</span>`);
+        if(p.commerce)badges.push(`<span class="detail-badge badge-com">Com ${p.commerce}</span>`);
+        if(badges.length)pb+=`<div style="margin-bottom:8px">${badges.join('')}</div>`;
+        pb+=`<div class="detail-stats">`;
+        const pf={'Orbite (US)':p.orbite,'Dist. saut':ds,Classe:p.classe,'Diamètre (K)':p.diametre,Technologie:p.techno,Population:p.population};
+        for(const[k,v]of Object.entries(pf))if(v!==undefined&&v!==null&&v!=='')pb+=`<div class="detail-stat"><strong>${k} :</strong> ${v}</div>`;
+        pb+=`</div>`;
+        if(p.description)pb+=`<p class="detail-desc">${p.description}</p>`;
+        if(p.astroports?.length)pb+=`<div style="margin-top:7px;font-size:0.8rem">🚀 <strong>Astroports :</strong> ${p.astroports.map(a=>`${a.nom||''}${a.type?` (${a.type})`:''}`).join(', ')}</div>`;
+        if(p.lieux?.length){pb+=`<div style="margin-top:7px"><div style="font-size:0.8rem;font-weight:bold;color:#bbb;margin-bottom:3px">📍 Lieux</div><ul class="detail-list">`;p.lieux.forEach(l=>pb+=`<li><strong>${l.nom||''}:</strong> ${l.description||''}</li>`);pb+=`</ul></div>`;}
+        const mc=[p.marchandiseA&&`A: ${p.marchandiseA}`,p.marchandiseB&&`B: ${p.marchandiseB}`,p.marchandiseC&&`C: ${p.marchandiseC}`,p.illegal&&`⛔ ${p.illegal}`].filter(Boolean);
+        if(mc.length)pb+=`<div class="detail-merch">🛒 Marchandises : ${mc.join(' · ')}</div>`;
+        h+=section(`🪐 ${p.nom||'Astre'}`,pb,false);
+      });
+      // IP Peril table for this system
+      const _ipKey=`${coord}/${sys.nom}`;
+      const _ipTid=perilAssignments.systems[_ipKey]||'';
+      let _ipBody=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:0.78rem;color:#aaa">Table :</span>${_perilTableSelect('interplanetaire',_ipKey,_ipTid)}</div>`;
+      _ipBody+=_perilTableSummary(_ipTid,'interplanetaire');
+      h+=section('⚠️ Périls Interplanétaires',_ipBody,false);
+      h+=`<div style="margin-top:12px;text-align:center"><button style="padding:8px 20px;background:var(--primary);color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85rem" onclick="closeModal('modal-detail');openEditSystem('${coord}',${si})">✏️ Éditer ce système</button></div>`;
+      document.getElementById('modal-detail-title').textContent=`${coord} — ${sys.nom}`;
+      document.getElementById('detail-content').innerHTML=h;
+      openModal('modal-detail');
+    }
+    window.showDetail=showSystemDetail;
+    window.openEditSystem=openEditSystem;
+    window.renderEditSystem=renderEditSystem;
+
+    // ── CALCUL ──
+    function roll2D6(){ return Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1; }
+
+    function getFlatList(type,tblOverride){
+      const pd=tblOverride||perilsData[type];
+      if(!pd?.categories?.length) return [];
+      const fl=[];
+      const sc=[...pd.categories].sort((a,b)=>a.seuilMin-b.seuilMin);
+      for(const cat of sc){ const sp=[...(cat.perils||[])].sort((a,b)=>a.seuilMin-b.seuilMin); for(const p of sp) fl.push(p); }
+      return fl;
+    }
+
+    function getPeril(type,surplusSuccesses=0,tblOverride){
+      const flatList=getFlatList(type,tblOverride);
+      if(!flatList.length) return {peril:{nom:'Calme plat',data:{description:'Aucun événement.'}},baseIndex:0};
+      const pd=tblOverride||perilsData[type];
+      const catRoll=roll2D6();
+      const cat=pd.categories.find(c=>catRoll>=c.seuilMin&&catRoll<=c.seuilMax);
+      if(!cat?.perils?.length) return {peril:flatList[0],baseIndex:0};
+      const modRoll=roll2D6();
+      const sp=[...cat.perils].sort((a,b)=>a.seuilMin-b.seuilMin);
+      const rolled=sp.find(p=>modRoll>=p.seuilMin&&modRoll<=p.seuilMax)||sp[sp.length-1];
+      let baseIndex=flatList.findIndex(p=>p===rolled);
+      if(baseIndex===-1) baseIndex=flatList.findIndex(p=>p.nom===rolled.nom);
+      if(baseIndex===-1) baseIndex=flatList.length-1;
+      const finalIndex=Math.max(0,Math.min(baseIndex-surplusSuccesses,flatList.length-1));
+      return {peril:flatList[finalIndex],baseIndex};
+    }
+
+    function resolvePeril(type,baseIndex,skill,tblOverride){
+      const flatList=getFlatList(type,tblOverride);
+      if(!flatList.length) return {nom:'Calme plat',data:{description:'Aucun événement.'}};
+      const finalIndex=Math.max(0,Math.min(baseIndex-skill,flatList.length-1));
+      return flatList[finalIndex];
+    }
+
+    function genDayData(type,days,skill,tblOverride){
+      return Array.from({length:days},(_,i)=>{
+        const r=getPeril(type,skill,tblOverride);
+        return {day:i+1,peril:r.peril,baseIndex:r.baseIndex,surf:0,conso:0};
+      });
+    }
+
+    function getTableForLeg(type,quadrant,systemNom){
+      if(type==='interplanetaire'&&systemNom){
+        const tid=perilAssignments.systems[`${quadrant}/${systemNom}`];
+        if(tid){ const t=customTables.find(t=>t.id===tid); if(t)return t; }
+      }
+      if(type==='hyperspatial'&&quadrant){
+        const tid=perilAssignments.quadrants[quadrant];
+        if(tid){ const t=customTables.find(t=>t.id===tid); if(t)return t; }
+      }
+      return null;
+    }
+
+    function findPerilByNom(nom){
+      for(const type of ['interplanetaire','hyperspatial']){
+        for(const cat of (perilsData[type]?.categories||[])){
+          const p=(cat.perils||[]).find(p=>p.nom===nom);
+          if(p)return p;
+        }
+      }
+      return {nom:nom,data:{description:''}};
+    }
+
+    function calcHSDist(a,b){ const ca=coordXY(a),cb=coordXY(b); return Math.max(Math.abs(ca.x-cb.x),Math.abs(ca.y-cb.y))*1000; }
+
+    function calculateTrip(){
+      if(tripState.points.length<2){alert('Ajoutez au moins 2 points.');return null;}
+      const p=getParams();
+      const points=tripState.points;
+      const legs=[];
+      for(let i=0;i<points.length-1;i++){
+        const cur=points[i],nxt=points[i+1];
+        const curSys=(donnees[cur.quadrant]||[]).find(s=>s.nom===cur.systemNom);
+        const nxtSys=(donnees[nxt.quadrant]||[]).find(s=>s.nom===nxt.systemNom);
+        if(cur.astroNom&&cur.astroNom!=='Limite de Saut'&&curSys){
+          const jl=parseFloat(curSys.soleil?.distanceSaut)||0;
+          const dist=Math.abs(jl-cur.orbit);
+          const days=Math.max(1,Math.ceil(dist/p.ipSpd));
+          const tbl=getTableForLeg('interplanetaire',cur.quadrant,cur.systemNom);
+          legs.push({name:`Départ de ${cur.systemNom}`,type:'interplanetaire',from:cur.astroNom,to:`Limite — ${cur.systemNom}`,distance:dist,unit:'US',days,spd:p.ipSpd,skill:0,_tableId:tbl?.id||null,dailyData:genDayData('interplanetaire',days,0,tbl)});
+        }
+        if(cur.quadrant!==nxt.quadrant){
+          const dist=calcHSDist(cur.quadrant,nxt.quadrant);
+          const days=Math.max(1,Math.ceil(dist/p.hsSpd));
+          const tbl=getTableForLeg('hyperspatial',cur.quadrant,null);
+          legs.push({name:`Saut ${cur.quadrant} → ${nxt.quadrant}`,type:'hyperspatial',from:`Q.${cur.quadrant}`,to:`Q.${nxt.quadrant}`,distance:dist,unit:'PC',days,spd:p.hsSpd,skill:0,_tableId:tbl?.id||null,dailyData:genDayData('hyperspatial',days,0,tbl)});
+        }
+        if(nxt.astroNom&&nxt.astroNom!=='Limite de Saut'&&nxtSys){
+          const jl=parseFloat(nxtSys.soleil?.distanceSaut)||0;
+          const dist=Math.abs(jl-nxt.orbit);
+          const days=Math.max(1,Math.ceil(dist/p.ipSpd));
+          const tbl=getTableForLeg('interplanetaire',nxt.quadrant,nxt.systemNom);
+          legs.push({name:`Arrivée à ${nxt.systemNom}`,type:'interplanetaire',from:`Limite — ${nxt.systemNom}`,to:nxt.astroNom,distance:dist,unit:'US',days,spd:p.ipSpd,skill:0,_tableId:tbl?.id||null,dailyData:genDayData('interplanetaire',days,0,tbl)});
+        }
+      }
+      return {legs,autonomy:p.hsAuto,points};
+    }
+
+    // ── RENDU RÉSULTAT ──
+    function summaryHTML(trip){
+      let days=0,pc=0,us=0,conso=0;
+      trip.legs.forEach(l=>{days+=l.days;l.unit==='PC'?pc+=l.distance:us+=l.distance;});
+      trip.legs.filter(l=>l.type==='hyperspatial').forEach(l=>l.dailyData.forEach(d=>conso+=l.spd-d.conso));
+      const over=conso>trip.autonomy;
+      return `<strong>${days} jour${days>1?'s':''}</strong> · ${Math.round(pc).toLocaleString()} PC · ${us.toFixed(0)} US<br>Conso: <strong>${Math.round(conso).toLocaleString()} / ${trip.autonomy.toLocaleString()} PC</strong>${over?' <span style="color:var(--danger)">⚠ Autonomie dépassée!</span>':''}`;
+    }
+
+    function legsHTML(legs,pfx){
+      return legs.map((leg,li)=>{
+        const isHS=leg.type==='hyperspatial';
+        const surfMult=isHS?100:1;
+        let rows=''; let cum=0;
+        leg.dailyData.forEach((d,di)=>{
+          cum+=leg.spd+(d.surf||0)*surfMult;
+          const done=cum>=leg.distance;
+          rows+=`<tr>
+            <td>${d.day}</td>
+            <td><span class="peril-link" data-li="${li}" data-di="${di}" data-pfx="${pfx}">${d.peril.nom}</span></td>
+            <td><input type="number" id="${pfx}-s-${li}-${di}" value="${d.surf}" step="1" style="width:52px"></td>
+            ${isHS?`<td><input type="number" id="${pfx}-c-${li}-${di}" value="${d.conso}" step="100"></td><td>${(leg.spd-d.conso).toLocaleString()}</td>`:''}
+            <td style="font-size:0.72rem">${Math.min(cum,leg.distance).toFixed(0)}/${leg.distance.toFixed(0)}</td>
+            <td>${done?'<span class="status-done">Arr.</span>':'<span class="status-ok">→</span>'}</td>
+          </tr>`;
+        });
+        return `<div class="result-leg" id="${pfx}-leg-${li}">
+          <div class="result-leg-header" onclick="toggleLeg(this)">
+            <div><h3>${leg.name}</h3><div class="leg-info">${leg.from} → ${leg.to} · ${leg.days}j · ${leg.distance.toFixed(0)} ${leg.unit}</div></div>
+            <div style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">
+              <label style="font-size:0.72rem;color:#aaa;display:flex;align-items:center;gap:4px;white-space:nowrap">
+                Succ. exc. (${isHS?'Saut':'Cap'})
+                <input type="number" id="${pfx}-sk-${li}" value="${leg.skill||0}" min="0"
+                  style="width:38px;padding:2px 4px;background:var(--bg);border:1px solid var(--border);color:var(--text-light);border-radius:3px;font-size:0.8rem">
+              </label>
+              <span class="caret">▼</span>
+            </div>
+          </div>
+          <div class="result-leg-body">
+            <table class="trip-table">
+              <thead><tr><th>J</th><th>Péril</th><th>Surf${isHS?' (×100&nbsp;PC)':' (US)'}</th>${isHS?'<th>◁Conso</th><th>PC/j</th>':''}<th>Dist</th><th></th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function attachPerilEvents(container,legs){
+      container.querySelectorAll('.peril-link').forEach(lk=>{
+        lk.addEventListener('click',()=>showPeril(legs[+lk.dataset.li].dailyData[+lk.dataset.di].peril));
+      });
+    }
+
+    function showPeril(peril){
+      const d=peril.data||{};
+      let h=`<h2>${peril.nom}</h2>`;
+      if(d.description) h+=`<p class="desc">${d.description}</p>`;
+      const stats=[];
+      if(d.mobile)stats.push('📡 Mobile');
+      if(d.senseurs)stats.push(`Senseurs: ${d.senseurs}`);
+      if(d.sciencesStellaires)stats.push(`Sc.Stellaires: ${d.sciencesStellaires}`);
+      if(stats.length)h+=`<div class="pstats">${stats.join(' · ')}</div>`;
+      if(d.definition)h+=`<div class="psection"><div class="psection-title">Définition</div><p>${d.definition}</p></div>`;
+      if(d.protocole)h+=`<div class="psection"><div class="psection-title">Protocole</div><p>${d.protocole}</p></div>`;
+      if(d.resultat)h+=`<div class="psection"><div class="psection-title">Résultat</div><p>${d.resultat}</p></div>`;
+      document.getElementById('peril-content').innerHTML=h;
+      openModal('modal-peril');
+    }
+
+    window.toggleLeg=function(hdr){ hdr.closest('.result-leg').classList.toggle('collapsed'); };
+
+    function readInputs(legs,pfx){
+      legs.forEach((leg,li)=>{
+        const ski=document.getElementById(`${pfx}-sk-${li}`);
+        if(ski){
+          const newSkill=parseInt(ski.value)||0;
+          if(newSkill!==(leg.skill||0)){
+            leg.skill=newSkill;
+            const tbl=leg._tableId?customTables.find(t=>t.id===leg._tableId):null;
+            leg.dailyData.forEach(d=>{ d.peril=resolvePeril(leg.type,d.baseIndex,newSkill,tbl); });
+          }
+        }
+        leg.dailyData.forEach((d,di)=>{
+          const si=document.getElementById(`${pfx}-s-${li}-${di}`);
+          if(si)d.surf=parseFloat(si.value)||0;
+          if(leg.type==='hyperspatial'){const ci=document.getElementById(`${pfx}-c-${li}-${di}`);if(ci)d.conso=parseFloat(ci.value)||0;}
+        });
+      });
+    }
+
+    function renderTrip(trip,isMob){
+      if(isMob){
+        const pts=tripState.points, n=pts.length;
+        const lbl=p=>p.astroNom?p.astroNom:p.quadrant;
+        const badges=[];
+        if(n>0)badges.push(`<span class="point-badge dep">Dép: ${lbl(pts[0])}</span>`);
+        pts.slice(1,n-1).forEach(e=>badges.push(`<span class="point-badge eta">Étp: ${lbl(e)}</span>`));
+        if(n>1)badges.push(`<span class="point-badge arr">Arr: ${lbl(pts[n-1])}</span>`);
+        document.getElementById('points-summary').innerHTML=badges.join('');
+        document.getElementById('mob-summary').innerHTML=summaryHTML(trip);
+        const ml=document.getElementById('mob-legs');
+        ml.innerHTML=legsHTML(trip.legs,'mob');
+        attachPerilEvents(ml,trip.legs);
+        document.getElementById('result-panel').classList.add('open');
+      }
+      const ds=document.getElementById('dp-result-section');
+      if(ds){
+        ds.style.display='';
+        document.getElementById('dp-summary').innerHTML=summaryHTML(trip);
+        const dl=document.getElementById('dp-legs');
+        dl.innerHTML=legsHTML(trip.legs,'dsk');
+        attachPerilEvents(dl,trip.legs);
+      }
+    }
+
+    function doCalc(isMob){
+      const t=calculateTrip();
+      if(!t)return;
+      currentTripLegs=t;
+      renderTrip(t,isMob);
+    }
+
+    function doUpdate(pfx,isMob){
+      if(!currentTripLegs)return;
+      readInputs(currentTripLegs.legs,pfx);
+      renderTrip(currentTripLegs,isMob);
+    }
+
+    // ── HISTORIQUE ──
+    function getHist(){ try{return JSON.parse(localStorage.getItem('itineraireHistorique')||'[]');}catch(e){return[];} }
+    function setHist(h){ localStorage.setItem('itineraireHistorique',JSON.stringify(h)); }
+
+    function saveCurrentTrip(){
+      if(!currentTripLegs){alert('Calculez un itinéraire d\'abord.');return;}
+      try{
+        const name=prompt('Nom:',`${tripState.points[0]?.systemNom||'?'} → ${tripState.points[tripState.points.length-1]?.systemNom||'?'}`);
+        if(!name)return;
+        const h=getHist();
+        const legsSnapshot=currentTripLegs.legs.map(leg=>({
+          name:leg.name,type:leg.type,from:leg.from,to:leg.to,
+          distance:leg.distance,unit:leg.unit,days:leg.days,spd:leg.spd,skill:leg.skill||0,_tableId:leg._tableId||null,
+          dailyData:leg.dailyData.map(d=>({day:d.day,perilNom:d.peril?.nom||'Inconnu',baseIndex:d.baseIndex!=null?d.baseIndex:0,surf:d.surf||0,conso:d.conso||0}))
+        }));
+        h.unshift({id:Date.now(),name,date:new Date().toLocaleDateString('fr-FR'),
+          points:JSON.parse(JSON.stringify(tripState.points)),
+          autonomy:currentTripLegs.autonomy,
+          legsSnapshot});
+        if(h.length>30)h.pop();
+        setHist(h);
+        alert('Sauvegardé!');
+      }catch(e){alert('Erreur sauvegarde: '+e.message);console.error(e);}
+    }
+
+    function renderHist(){
+      const h=getHist();
+      const el=document.getElementById('hist-list');
+      const empty=document.getElementById('hist-empty');
+      if(!h.length){el.innerHTML='';empty.style.display='';return;}
+      empty.style.display='none';
+      el.innerHTML=h.map((item,idx)=>`
+        <div class="historique-item">
+          <div class="hinfo"><strong>${item.name}</strong><small>${item.date}</small></div>
+          <div class="hactions">
+            <button class="btn-hist-load" onclick="HIST.load(${idx})">Charger</button>
+            <button class="btn-hist-del" onclick="HIST.del(${idx})">✕</button>
+          </div>
+        </div>`).join('');
+    }
+
+    window.HIST={
+      load(idx){
+        const h=getHist(); if(!h[idx])return;
+        const entry=h[idx];
+        tripState.points=JSON.parse(JSON.stringify(entry.points||entry.tripState?.points||(()=>{const ts=entry.tripState;return ts?[ts.depart,...(ts.etapes||[]),ts.arrivee].filter(Boolean):[];})()));
+        refreshAll();
+        closeModal('modal-historique');
+        if(entry.legsSnapshot){
+          const tblFor=tid=>tid?customTables.find(t=>t.id===tid):null;
+          const legs=entry.legsSnapshot.map(leg=>({
+            ...leg,
+            dailyData:leg.dailyData.map(d=>({
+              day:d.day,
+              baseIndex:d.baseIndex!=null?d.baseIndex:0,
+              peril:d.baseIndex!=null?resolvePeril(leg.type,d.baseIndex,leg.skill||0,tblFor(leg._tableId)):findPerilByNom(d.perilNom),
+              surf:d.surf||0,conso:d.conso||0
+            }))
+          }));
+          currentTripLegs={legs,autonomy:entry.autonomy||getParams().hsAuto,points:tripState.points};
+          renderTrip(currentTripLegs,window.innerWidth<768);
+        }
+      },
+      del(idx){ const h=getHist(); h.splice(idx,1); setHist(h); renderHist(); }
+    };
+
+    // ── ADMIN ──
+    function saveCustomTables(){ localStorage.setItem('customPerilTables',JSON.stringify(customTables)); }
+    function saveAssignments(){ localStorage.setItem('perilAssignments',JSON.stringify(perilAssignments)); }
+    function escH(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function renderAdminTabs(){
+      document.querySelectorAll('.admin-tab').forEach(tab=>{
+        tab.onclick=()=>{
+          document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));
+          document.querySelectorAll('.admin-tab-content').forEach(c=>c.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById(tab.dataset.tab).classList.add('active');
+        };
+      });
+      renderPerilsTab();
+      renderFactionsTab();
+      renderSystemsTab();
+      renderQuadrantsTab();
+    }
+
+    function saveFactions(){ localStorage.setItem('factions',JSON.stringify(factions)); }
+
+    function getFactionsSorted(){ return [...factions].sort((a,b)=>a.name.localeCompare(b.name)); }
+
+    function renderFactionsTab(){
+      const el=document.getElementById('tab-factions');
+      const sorted=getFactionsSorted();
+      let h='<div style="margin-bottom:8px;font-size:0.78rem;color:#888">Factions (nom, diminutif, icône)</div>';
+      if(!sorted.length) h+='<div style="text-align:center;color:#888;padding:16px;font-style:italic">Aucune faction définie.</div>';
+      sorted.forEach(f=>{
+        h+=`<div class="faction-item">`;
+        if(f.icon) h+=`<img src="${f.icon}" alt="">`;
+        else h+=`<div style="width:32px;height:32px;border-radius:4px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#666">${escH(f.short||'?')}</div>`;
+        h+=`<div class="fi-info"><div class="fi-name">${escH(f.name)}${f.short?' <span style="color:#888;font-weight:normal">('+escH(f.short)+')</span>':''}</div>`;
+        if(f.description) h+=`<div class="fi-desc">${escH(f.description)}</div>`;
+        h+=`</div><div style="display:flex;gap:4px"><button style="background:none;border:1px solid var(--border);color:var(--primary);border-radius:3px;padding:3px 8px;cursor:pointer;font-size:0.72rem" onclick="ADMIN.editFaction('${f.id}')">✏️</button><button class="se-btn-del" onclick="ADMIN.delFaction('${f.id}')">✕</button></div></div>`;
+      });
+      h+=`<div style="margin-top:10px;text-align:center"><button style="padding:6px 16px;background:var(--primary);color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.82rem" onclick="ADMIN.newFaction()">+ Nouvelle faction</button></div>`;
+      el.innerHTML=h;
+    }
+
+    function openFactionModal(faction){
+      document.getElementById('faction-modal-title').textContent=faction?'Modifier Faction':'Nouvelle Faction';
+      document.getElementById('faction-name').value=faction?faction.name:'';
+      document.getElementById('faction-short').value=faction?faction.short||'':'';
+      document.getElementById('faction-desc').value=faction?faction.description||'':'';
+      document.getElementById('faction-icon-data').value=faction?faction.icon||'':'';
+      document.getElementById('faction-edit-id').value=faction?faction.id:'';
+      const prev=document.getElementById('faction-icon-preview');
+      if(faction?.icon){prev.src=faction.icon;prev.style.display='block';}else{prev.style.display='none';}
+      document.getElementById('faction-icon-input').value='';
+      openModal('modal-faction');
+    }
+
+    function initFactionModal(){
+      document.getElementById('faction-icon-input').addEventListener('change',function(){
+        const file=this.files[0]; if(!file)return;
+        if(file.size>200*1024){alert('Image trop volumineuse (max 200 Ko)');this.value='';return;}
+        const reader=new FileReader();
+        reader.onload=e=>{
+          document.getElementById('faction-icon-data').value=e.target.result;
+          const prev=document.getElementById('faction-icon-preview');
+          prev.src=e.target.result; prev.style.display='block';
+        };
+        reader.readAsDataURL(file);
+      });
+      document.getElementById('btn-save-faction').addEventListener('click',()=>{
+        const name=document.getElementById('faction-name').value.trim();
+        if(!name){alert('Le nom est requis.');return;}
+        const short=document.getElementById('faction-short').value.trim();
+        const desc=document.getElementById('faction-desc').value.trim();
+        const icon=document.getElementById('faction-icon-data').value;
+        const editId=document.getElementById('faction-edit-id').value;
+        if(editId){
+          const f=factions.find(x=>x.id===editId);
+          if(f){ f.name=name; f.short=short; f.description=desc; if(icon)f.icon=icon; }
+        }else{
+          factions.push({id:'fac-'+Date.now(),name,short,description:desc,icon});
+        }
+        saveFactions();
+        closeModal('modal-faction');
+        renderFactionsTab();
+        if(_editCoord!==null) renderEditSystem();
+      });
+    }
+
+    function renderPerilsTab(){
+      const el=document.getElementById('tab-perils');
+      let h='<div class="btn-add-table"><button onclick="ADMIN.dupTable(\'interplanetaire\')">+ Dupliquer IP</button><button onclick="ADMIN.dupTable(\'hyperspatial\')">+ Dupliquer HS</button></div>';
+      h+='<div class="admin-table-item"><span class="atname"><strong>Interplanétaire (défaut)</strong></span><span class="attype ip">IP</span><div class="at-actions"><button onclick="ADMIN.editTable(\'default-ip\')">Éditer</button></div></div>';
+      h+='<div class="admin-table-item"><span class="atname"><strong>Hyperspatial (défaut)</strong></span><span class="attype hs">HS</span><div class="at-actions"><button onclick="ADMIN.editTable(\'default-hs\')">Éditer</button></div></div>';
+      customTables.forEach(t=>{
+        const isIP=t.type==='interplanetaire';
+        h+=`<div class="admin-table-item"><span class="atname">${escH(t.name)}</span><span class="attype ${isIP?'ip':'hs'}">${isIP?'IP':'HS'}</span><div class="at-actions"><button onclick="ADMIN.editTable('${t.id}')">Éditer</button><button onclick="ADMIN.dupCustom('${t.id}')">Dup.</button><button class="btn-del" onclick="ADMIN.delTable('${t.id}')">✕</button></div></div>`;
+      });
+      h+='<div style="margin-top:12px;display:flex;gap:8px;justify-content:center"><button onclick="ADMIN.resetDefaults()" style="padding:5px 12px;background:var(--danger);color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.78rem">Réinit. défaut</button></div>';
+      el.innerHTML=h;
+    }
+
+    function renderEditTable(tableId){
+      const el=document.getElementById('tab-perils');
+      let tableData,tableName,isDefault=false;
+      if(tableId==='default-ip'){ tableData=perilsData.interplanetaire; tableName='Interplanétaire (défaut)'; isDefault=true; }
+      else if(tableId==='default-hs'){ tableData=perilsData.hyperspatial; tableName='Hyperspatial (défaut)'; isDefault=true; }
+      else{ const t=customTables.find(t=>t.id===tableId); if(!t){renderPerilsTab();return;} tableData=t; tableName=t.name; }
+      const cats=tableData.categories||[];
+      let h='<div class="peril-edit-header"><button onclick="ADMIN.backToList()">← Retour</button>';
+      if(!isDefault) h+=`<input type="text" value="${escH(tableName)}" onchange="ADMIN.renameTable('${tableId}',this.value)">`;
+      else h+=`<span style="flex:1;color:var(--gold);font-weight:bold;font-size:0.95rem;padding-left:8px">${tableName}</span>`;
+      h+='</div>';
+      cats.forEach((cat,ci)=>{
+        h+=`<div class="peril-edit-cat"><div class="peril-edit-cat-hdr" onclick="this.closest('.peril-edit-cat').classList.toggle('open')"><span>${escH(cat.nom)} (${cat.seuilMin}–${cat.seuilMax})</span><span>▼</span></div><div class="peril-edit-cat-body">`;
+        (cat.perils||[]).forEach((p,pi)=>{
+          const d=p.data||{};
+          h+=`<div class="peril-edit-item"><div class="peril-edit-item-hdr" onclick="this.closest('.peril-edit-item').classList.toggle('open')"><span class="pe-nom">${escH(p.nom)}</span><span class="pe-range">${p.seuilMin}–${p.seuilMax}</span></div><div class="peril-edit-fields">`;
+          h+=`<div class="pe-field"><label>Nom</label><input value="${escH(p.nom)}" onchange="ADMIN.updP('${tableId}',${ci},${pi},'nom',this.value);this.closest('.peril-edit-item').querySelector('.pe-nom').textContent=this.value"></div>`;
+          h+=`<div class="pe-field"><label>Description</label><textarea onchange="ADMIN.updP('${tableId}',${ci},${pi},'data.description',this.value)">${escH(d.description||'')}</textarea></div>`;
+          h+=`<div class="pe-field-row"><div class="pe-field"><label>Senseurs</label><input type="number" value="${d.senseurs||0}" onchange="ADMIN.updP('${tableId}',${ci},${pi},'data.senseurs',+this.value)"></div><div class="pe-field"><label>Sc. Stellaires</label><input type="number" value="${d.sciencesStellaires||0}" onchange="ADMIN.updP('${tableId}',${ci},${pi},'data.sciencesStellaires',+this.value)"></div><div class="pe-field-check"><label><input type="checkbox" ${d.mobile?'checked':''} onchange="ADMIN.updP('${tableId}',${ci},${pi},'data.mobile',this.checked)"> Mobile</label></div></div>`;
+          h+=`<div class="pe-field"><label>Définition</label><textarea onchange="ADMIN.updP('${tableId}',${ci},${pi},'data.definition',this.value)">${escH(d.definition||'')}</textarea></div>`;
+          h+=`<div class="pe-field"><label>Protocole</label><textarea onchange="ADMIN.updP('${tableId}',${ci},${pi},'data.protocole',this.value)">${escH(d.protocole||'')}</textarea></div>`;
+          h+=`<div class="pe-field"><label>Résultat</label><textarea onchange="ADMIN.updP('${tableId}',${ci},${pi},'data.resultat',this.value)">${escH(d.resultat||'')}</textarea></div>`;
+          h+=`<div class="pe-field-row"><div class="pe-field"><label>Seuil min</label><input type="number" value="${p.seuilMin}" onchange="ADMIN.updP('${tableId}',${ci},${pi},'seuilMin',+this.value)"></div><div class="pe-field"><label>Seuil max</label><input type="number" value="${p.seuilMax}" onchange="ADMIN.updP('${tableId}',${ci},${pi},'seuilMax',+this.value)"></div><div style="display:flex;align-items:flex-end"><button onclick="ADMIN.delPeril('${tableId}',${ci},${pi})" style="padding:4px 8px;background:var(--danger);color:white;border:none;border-radius:3px;cursor:pointer;font-size:0.72rem">Suppr.</button></div></div>`;
+          h+=`</div></div>`;
+        });
+        h+=`<button onclick="ADMIN.addPeril('${tableId}',${ci})" style="display:block;width:100%;padding:5px;border:1px dashed var(--border);background:none;color:var(--primary);border-radius:4px;cursor:pointer;font-size:0.78rem;margin-top:4px">+ Ajouter un péril</button>`;
+        h+=`</div></div>`;
+      });
+      if(!isDefault) h+=`<button onclick="ADMIN.addCat('${tableId}')" style="display:block;width:100%;padding:8px;border:1px dashed var(--border);background:none;color:var(--gold);border-radius:4px;cursor:pointer;font-size:0.82rem;margin-top:8px">+ Ajouter une catégorie</button>`;
+      el.innerHTML=h;
+    }
+
+    function renderSystemsTab(){
+      const el=document.getElementById('tab-systemes');
+      const tables=customTables.filter(t=>t.type==='interplanetaire');
+      let h='<div style="margin-bottom:8px;font-size:0.78rem;color:#888">Table de périls IP par système</div>';
+      const items=[];
+      for(const coord in donnees)(donnees[coord]||[]).forEach(sys=>items.push({coord,name:sys.nom||'?'}));
+      items.sort((a,b)=>a.name.localeCompare(b.name));
+      if(!items.length){ h+='<div style="text-align:center;color:#888;padding:20px">Aucun système.</div>'; }
+      else items.forEach(s=>{
+        const key=`${s.coord}/${s.name}`;
+        const cur=perilAssignments.systems[key]||'';
+        h+=`<div class="assign-row"><span class="ar-coord">${s.coord}</span><span class="ar-label">${escH(s.name)}</span><button style="background:none;border:1px solid var(--border);color:var(--primary);border-radius:3px;padding:2px 8px;cursor:pointer;font-size:0.72rem" onclick="closeModal('modal-admin');openEditSystem('${s.coord}',${donnees[s.coord].findIndex(x=>x.nom===s.name)})">✏️</button><select onchange="ADMIN.assignSys('${escH(key)}',this.value)"><option value="">Défaut</option>${tables.map(t=>`<option value="${t.id}"${cur===t.id?' selected':''}>${escH(t.name)}</option>`).join('')}</select></div>`;
+      });
+      h+=`<div style="margin-top:10px;text-align:center"><button style="padding:6px 16px;background:var(--primary);color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.82rem" onclick="ADMIN.newSystemPrompt()">+ Nouveau système</button></div>`;
+      el.innerHTML=h;
+    }
+
+    function renderQuadrantsTab(){
+      const el=document.getElementById('tab-quadrants');
+      const tables=customTables.filter(t=>t.type==='hyperspatial');
+      let h='<div style="margin-bottom:8px;font-size:0.78rem;color:#888">Table de périls HS par quadrant</div>';
+      const coords=Object.keys(donnees).filter(k=>donnees[k]?.length>0).sort();
+      if(!coords.length){ h+='<div style="text-align:center;color:#888;padding:20px">Aucun quadrant peuplé.</div>'; }
+      else coords.forEach(coord=>{
+        const cur=perilAssignments.quadrants[coord]||'';
+        const names=donnees[coord].map(s=>s.nom||'?').join(', ');
+        h+=`<div class="assign-row"><span class="ar-coord" style="width:60px;font-weight:bold;color:var(--gold)">${coord}</span><span class="ar-label" style="font-size:0.78rem;color:#aaa">${escH(names)}</span><select onchange="ADMIN.assignQuad('${coord}',this.value)"><option value="">Défaut</option>${tables.map(t=>`<option value="${t.id}"${cur===t.id?' selected':''}>${escH(t.name)}</option>`).join('')}</select></div>`;
+      });
+      el.innerHTML=h;
+    }
+
+    function _getAdminCats(tableId){
+      if(tableId==='default-ip') return perilsData.interplanetaire.categories;
+      if(tableId==='default-hs') return perilsData.hyperspatial.categories;
+      const t=customTables.find(t=>t.id===tableId); return t?t.categories:null;
+    }
+    function _saveAdminTable(tableId){
+      if(tableId==='default-ip'||tableId==='default-hs') localStorage.setItem('perilsDataAdmin',JSON.stringify(perilsData));
+      else saveCustomTables();
+    }
+
+    window.ADMIN={
+      dupTable(type){
+        const src=perilsData[type]; if(!src)return;
+        const name=prompt('Nom:',`${type==='interplanetaire'?'IP':'HS'} — Copie`); if(!name)return;
+        customTables.push({id:'ct_'+Date.now(),name,type,categories:JSON.parse(JSON.stringify(src.categories))});
+        saveCustomTables(); renderPerilsTab();
+      },
+      dupCustom(id){
+        const src=customTables.find(t=>t.id===id); if(!src)return;
+        const name=prompt('Nom:',`${src.name} — Copie`); if(!name)return;
+        customTables.push({id:'ct_'+Date.now(),name,type:src.type,categories:JSON.parse(JSON.stringify(src.categories))});
+        saveCustomTables(); renderPerilsTab();
+      },
+      delTable(id){
+        if(!confirm('Supprimer cette table?'))return;
+        customTables=customTables.filter(t=>t.id!==id);
+        for(const k in perilAssignments.systems)if(perilAssignments.systems[k]===id)delete perilAssignments.systems[k];
+        for(const k in perilAssignments.quadrants)if(perilAssignments.quadrants[k]===id)delete perilAssignments.quadrants[k];
+        saveCustomTables(); saveAssignments(); renderPerilsTab(); renderSystemsTab(); renderQuadrantsTab();
+      },
+      editTable(id){ renderEditTable(id); },
+      backToList(){ renderPerilsTab(); },
+      renameTable(id,v){ const t=customTables.find(t=>t.id===id); if(t){t.name=v;saveCustomTables();} },
+      updP(tableId,ci,pi,path,value){
+        const cats=_getAdminCats(tableId); if(!cats)return;
+        const peril=cats[ci]?.perils?.[pi]; if(!peril)return;
+        const parts=path.split('.');
+        if(parts.length===1) peril[parts[0]]=value;
+        else if(parts.length===2){ if(!peril[parts[0]])peril[parts[0]]={}; peril[parts[0]][parts[1]]=value; }
+        _saveAdminTable(tableId);
+      },
+      addPeril(tableId,ci){
+        const cats=_getAdminCats(tableId); if(!cats||!cats[ci])return;
+        const perils=cats[ci].perils||[];
+        const mx=perils.length?Math.max(...perils.map(p=>p.seuilMax)):1;
+        perils.push({seuilMin:mx+1,seuilMax:mx+1,nom:'Nouveau péril',data:{description:'',mobile:false,senseurs:0,sciencesStellaires:0,definition:'',protocole:'',resultat:''}});
+        cats[ci].perils=perils; _saveAdminTable(tableId); renderEditTable(tableId);
+      },
+      delPeril(tableId,ci,pi){
+        if(!confirm('Supprimer ce péril?'))return;
+        const cats=_getAdminCats(tableId); if(!cats?.[ci]?.perils)return;
+        cats[ci].perils.splice(pi,1); _saveAdminTable(tableId); renderEditTable(tableId);
+      },
+      addCat(tableId){
+        const t=customTables.find(t=>t.id===tableId); if(!t)return;
+        const mx=t.categories.length?Math.max(...t.categories.map(c=>c.seuilMax)):1;
+        t.categories.push({seuilMin:mx+1,seuilMax:mx+1,nom:'Nouvelle catégorie',perils:[]});
+        saveCustomTables(); renderEditTable(tableId);
+      },
+      assignSys(key,val){ if(val)perilAssignments.systems[key]=val; else delete perilAssignments.systems[key]; saveAssignments(); },
+      assignQuad(coord,val){ if(val)perilAssignments.quadrants[coord]=val; else delete perilAssignments.quadrants[coord]; saveAssignments(); },
+      resetDefaults(){ if(confirm('Réinitialiser les tables par défaut?')){localStorage.removeItem('perilsDataAdmin');perilsData=JSON.parse(JSON.stringify(PERILS_DEFAULT));renderPerilsTab();} },
+      newSystemPrompt(){ closeModal('modal-admin'); newSystem(); },
+      newFaction(){ openFactionModal(null); },
+      editFaction(id){ const f=factions.find(x=>x.id===id); if(f) openFactionModal(f); },
+      delFaction(id){
+        if(!confirm('Supprimer cette faction?'))return;
+        factions=factions.filter(x=>x.id!==id);
+        saveFactions(); renderFactionsTab();
+      }
+    };
+
+    // ── ÉDITEUR SYSTÈMES ──
+    let _editCoord=null, _editSysIdx=-1, _pickingQuadrant=false;
+    const _openCards=new Set();
+
+    function sauvegarderDonnees(){
+      const save=JSON.parse(JSON.stringify(donnees));
+      delete save['__new__'];
+      localStorage.setItem('quadrantsMA',JSON.stringify(save));
+    }
+
+    function _esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function _sel(opts,cur){ return opts.map(o=>{const v=typeof o==='string'?o:o.v;const l=typeof o==='string'?o:o.l;return `<option value="${_esc(v)}"${v===cur?' selected':''}>${_esc(l)}</option>`;}).join(''); }
+
+    function _factionPicker(cur){
+      let h=`<span class="faction-chip ${cur===''?'active':''}" onclick="SYSEDIT.hdr('faction','');renderEditSystem()">Aucune</span>`;
+      getFactionsSorted().forEach(f=>{
+        const act=cur===f.name?'active':'';
+        const img=f.icon?`<img src="${f.icon}" alt="">`:'';
+        const lbl=f.short||f.name;
+        h+=`<span class="faction-chip ${act}" onclick="SYSEDIT.hdr('faction','${_esc(f.name)}');renderEditSystem()" title="${_esc(f.name)}">${img}${_esc(lbl)}</span>`;
+      });
+      h+=`<span class="faction-chip" style="border-style:dashed;color:var(--primary)" onclick="openFactionModal(null)">+ Nouvelle</span>`;
+      return h;
+    }
+
+    function _factionLabel(name,full){
+      if(!name) return '';
+      const f=factions.find(x=>x.name===name);
+      if(f&&f.icon) return `<img src="${f.icon}" alt="${escH(f.name)}" title="${escH(f.name)}" style="width:20px;height:20px;border-radius:3px;object-fit:cover;vertical-align:middle">`;
+      if(f&&f.short&&!full) return escH(f.short);
+      return escH(name);
+    }
+
+
+    const ROUTES=['','Route Galactique (+1d)','Route Commerciale','Hors des routes (D+1)','Mystérieux (TD)'];
+    const GOUVERNEMENTS=['','Anarchie','Aucun','Collectivisme','Corporatiste','Démocratie','Dictature','Monarchie'];
+    const ATMOSPHERES=['Respirable','Non respirable','Toxique','Dangereux'];
+    const GRAVITES=['Ecrasante (TD, 1S par heure)','Forte (Survie/Technique D+1)','Normale','Faible (Athlétisme, Acrobatie, Pilotage +1d)','Très faible (Dist. x5, Vitesses Véhicules x1.5. Porter : TF)','Aucune'];
+    const TECHNOS=[{v:'A',l:'A (Planète évoluée)'},{v:'B',l:'B (Planète industrielle)'},{v:'C',l:'C (Planète sauvage)'}];
+    const COMMERCES=['Carrefour galactique (TF)','Carrefour commercial (+1d)','Planète normale','Planète pauvre (D+1)','Planète primitive (TD)'];
+    const ASTROPORT_TYPES=['Rudimentaire D+1','Standard','Première classe +1d'];
+    const SUN_CLASSES=['Naine rouge','Naine jaune','Géante rouge','Etoile variable','Etoile binaire','Autre'];
+
+    function openEditSystem(coord,sIdx){
+      _editCoord=coord;
+      _editSysIdx=sIdx;
+      donnees[coord]=donnees[coord]||[];
+      if(sIdx===-1){
+        donnees[coord].push({nom:'Nouveau Système',faction:'',isFrontiere:false,route:'',gouvernement:'',description:'',patrouilles:[],soleil:{nom:'Nouvelle Étoile',description:'',diametre:'',distanceSaut:'',classe:'',activiteSolaire:[]},corpsCelestes:[]});
+        _editSysIdx=donnees[coord].length-1;
+        if(coord!=='__new__') sauvegarderDonnees();
+      }
+      _pickingQuadrant=false;
+      renderEditSystem();
+      openModal('modal-edit-system');
+    }
+
+    function newSystem(){
+      openEditSystem('__new__',-1);
+    }
+
+    function pickQuadrantForNew(){
+      closeModal('modal-edit-system');
+      _pickingQuadrant=true;
+      document.getElementById('carte-zone').classList.add('picking');
+    }
+
+    function finishPickQuadrant(coord){
+      _pickingQuadrant=false;
+      document.getElementById('carte-zone').classList.remove('picking');
+      const sys=donnees['__new__']?.[_editSysIdx];
+      if(!sys)return;
+      donnees[coord]=donnees[coord]||[];
+      donnees[coord].push(sys);
+      donnees['__new__'].splice(_editSysIdx,1);
+      if(!donnees['__new__'].length) delete donnees['__new__'];
+      _editCoord=coord;
+      _editSysIdx=donnees[coord].length-1;
+      sauvegarderDonnees();
+      initCarte();
+      renderEditSystem();
+      openModal('modal-edit-system');
+    }
+
+    function relocateSystem(newCoord){
+      if(newCoord===_editCoord)return;
+      const sys=donnees[_editCoord]?.[_editSysIdx];
+      if(!sys)return;
+      donnees[_editCoord].splice(_editSysIdx,1);
+      if(!donnees[_editCoord].length && _editCoord!=='__new__') delete donnees[_editCoord];
+      donnees[newCoord]=donnees[newCoord]||[];
+      donnees[newCoord].push(sys);
+      _editCoord=newCoord;
+      _editSysIdx=donnees[newCoord].length-1;
+      sauvegarderDonnees();
+      initCarte();
+      renderEditSystem();
+    }
+
+    window.pickQuadrantForNew=pickQuadrantForNew;
+    window.pickQuadrantRelocate=function(){ closeModal('modal-edit-system'); _pickingQuadrant=true; document.getElementById('carte-zone').classList.add('picking'); };
+
+    function _sys(){ return donnees[_editCoord]?.[_editSysIdx]; }
+
+    function renderEditSystem(){
+      // Save open state
+      document.querySelectorAll('#edit-sys-content .sys-edit-card[data-cid]').forEach(c=>{
+        if(!c.classList.contains('collapsed'))_openCards.add(c.dataset.cid); else _openCards.delete(c.dataset.cid);
+      });
+      const s=_sys(); if(!s)return;
+      document.getElementById('edit-sys-title').textContent=`${_editCoord} — ${s.nom||'Système'}`;
+      const el=document.getElementById('edit-sys-content');
+      const jl=parseFloat(s.soleil?.distanceSaut)||0;
+      const isNew=_editCoord==='__new__';
+      const coordLabel=isNew?'<span style="color:var(--danger)">Non défini</span>':_editCoord;
+      let h='';
+
+      // Coord bar
+      h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--bg3);border-radius:4px">
+        <span style="font-size:0.82rem;color:#aaa">Quadrant :</span>
+        <strong style="color:var(--gold);font-size:0.92rem">${coordLabel}</strong>
+        <button style="margin-left:auto;padding:4px 12px;background:var(--primary);color:white;border:none;border-radius:3px;cursor:pointer;font-size:0.78rem" onclick="${isNew?'pickQuadrantForNew()':'pickQuadrantRelocate()'}">🎯 ${isNew?'Cibler sur la carte':'Déplacer'}</button>
+      </div>`;
+
+      // Header fields
+      h+=`<div class="sys-header-fields">
+        <div class="se-field"><label>Nom du système</label><input type="text" value="${_esc(s.nom)}" onchange="SYSEDIT.hdr('nom',this.value);document.getElementById('edit-sys-title').textContent=_editCoord+' — '+this.value"></div>
+        <div class="se-field full"><label>Faction</label><div class="faction-picker">${_factionPicker(s.faction||'')}</div></div>
+        <div class="se-field"><label>Route</label><select onchange="SYSEDIT.hdr('route',this.value)">${_sel(ROUTES,s.route||'')}</select></div>
+        <div class="se-field"><label>Gouvernement</label><select onchange="SYSEDIT.hdr('gouvernement',this.value)">${_sel(GOUVERNEMENTS,s.gouvernement||'')}</select></div>
+        <div class="se-field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" ${s.isFrontiere?'checked':''} onchange="SYSEDIT.hdr('isFrontiere',this.checked)" style="width:auto"> Frontière</label></div>
+        <div class="se-field full"><label>Description</label><textarea onchange="SYSEDIT.hdr('description',this.value)">${_esc(s.description)}</textarea></div>
+      </div>`;
+
+      // Patrouilles système
+      h+=_cardPatrols(s.patrouilles||[]);
+
+      // Soleil
+      h+=_cardSun(s.soleil||{});
+
+      // Planètes
+      (s.corpsCelestes||[]).forEach((_,pi)=>{ h+=_cardBody(s.corpsCelestes[pi],`corpsCelestes[${pi}]`,false,jl); });
+
+      // Matrice des distances
+      h+=_distMatrix(s);
+
+      h+=`<div class="se-actions" style="margin-top:10px">
+        <button style="background:var(--primary);color:white" onclick="SYSEDIT.addPlanet()">+ Planète</button>
+        <button style="background:var(--danger);color:white" onclick="SYSEDIT.delSystem()">Supprimer système</button>
+      </div>`;
+
+      el.innerHTML=h;
+    }
+
+    function _coll(cid){ return _openCards.has(cid)?'':'collapsed'; }
+    function _cardPatrols(patrols){
+      const cid='patrol-sys';
+      let h=`<div class="sys-edit-card card-patrol ${_coll(cid)}" data-cid="${cid}"><div class="sys-card-hdr" onclick="this.closest('.sys-edit-card').classList.toggle('collapsed')"><h4>Patrouilles du Système</h4><span class="se-caret">▼</span></div><div class="sys-card-body">`;
+      patrols.forEach((p,i)=>{
+        h+=`<div class="se-list-row"><input type="number" placeholder="Coût MF" value="${p.cout||''}" onchange="SYSEDIT.fld('patrouilles[${i}].cout',this.value)"><input type="text" placeholder="Vaisseaux" value="${_esc(p.vaisseaux)}" onchange="SYSEDIT.fld('patrouilles[${i}].vaisseaux',this.value)"><button class="se-btn-del" onclick="event.stopPropagation();SYSEDIT.delItem('patrouilles',${i})">✕</button></div>`;
+      });
+      h+=`<button class="se-btn-add" onclick="event.stopPropagation();SYSEDIT.addItem('patrouilles',{cout:0,vaisseaux:''})">+ Patrouille</button></div></div>`;
+      return h;
+    }
+
+    function _cardSun(sun){
+      const isCustom=sun.classe&&!SUN_CLASSES.includes(sun.classe);
+      const clsSel=SUN_CLASSES.map(c=>`<option value="${c}"${(c==='Autre'&&isCustom)||(c===sun.classe)?'selected':''}>${c}</option>`).join('');
+      let actH='';
+      (sun.activiteSolaire||[]).forEach((a,i)=>{
+        actH+=`<div class="se-list-row"><input type="text" placeholder="Distance" value="${_esc(a.distance)}" onchange="SYSEDIT.fld('soleil.activiteSolaire[${i}].distance',this.value)"><input type="text" placeholder="Conséquence" value="${_esc(a.consequence)}" onchange="SYSEDIT.fld('soleil.activiteSolaire[${i}].consequence',this.value)"><button class="se-btn-del" onclick="SYSEDIT.delSunAct(${i})">✕</button></div>`;
+      });
+      return `<div class="sys-edit-card card-sun ${_coll('sun')}" data-cid="sun"><div class="sys-card-hdr" onclick="this.closest('.sys-edit-card').classList.toggle('collapsed')"><h4>☀ ${_esc(sun.nom||'Étoile')}</h4><span class="se-caret">▼</span></div><div class="sys-card-body"><div class="se-grid">
+        <div class="se-field"><label>Nom</label><input type="text" value="${_esc(sun.nom)}" onchange="SYSEDIT.fld('soleil.nom',this.value)"></div>
+        <div class="se-field"><label>Classe</label><select onchange="SYSEDIT.sunClass(this)">${clsSel}</select></div>
+        <div class="se-field" id="sun-cls-custom" style="display:${isCustom?'flex':'none'}"><label>Classe perso.</label><input type="text" value="${_esc(isCustom?sun.classe:'')}" onchange="SYSEDIT.fld('soleil.classe',this.value)"></div>
+        <div class="se-field"><label>Diamètre (K)</label><input type="number" value="${sun.diametre||''}" onchange="SYSEDIT.fld('soleil.diametre',this.value)"></div>
+        <div class="se-field"><label>Distance de saut (US)</label><input type="number" value="${sun.distanceSaut||''}" onchange="SYSEDIT.fld('soleil.distanceSaut',this.value);renderEditSystem()"></div>
+        <div class="se-field full"><label>Description</label><textarea onchange="SYSEDIT.fld('soleil.description',this.value)">${_esc(sun.description)}</textarea></div>
+        <fieldset class="se-fieldset"><legend>Activité Solaire</legend>${actH}<button class="se-btn-add" onclick="SYSEDIT.addSunAct()">+ Activité</button></fieldset>
+      </div></div></div>`;
+    }
+
+    function _cardBody(body,path,isMoon,jl){
+      const orb=parseFloat(body.orbite)||0;
+      const jd=jl>0?(jl-orb).toFixed(2):'N/A';
+      const showAtmo=body.atmosphere==='Toxique'||body.atmosphere==='Dangereux';
+      let astH='';
+      (body.astroports||[]).forEach((a,i)=>{
+        astH+=`<div class="se-list-row"><input type="text" placeholder="Nom" value="${_esc(a.nom)}" onchange="SYSEDIT.fld('${path}.astroports[${i}].nom',this.value)"><select onchange="SYSEDIT.fld('${path}.astroports[${i}].type',this.value)">${_sel(ASTROPORT_TYPES,a.type||'Standard')}</select><button class="se-btn-del" onclick="SYSEDIT.delSub('${path}.astroports',${i})">✕</button></div>`;
+      });
+      let patH='';
+      (body.patrouilles||[]).forEach((p,i)=>{
+        patH+=`<div class="se-list-row"><input type="number" placeholder="Coût MF" value="${p.cout||''}" onchange="SYSEDIT.fld('${path}.patrouilles[${i}].cout',this.value)"><input type="text" placeholder="Vaisseaux" value="${_esc(p.vaisseaux)}" onchange="SYSEDIT.fld('${path}.patrouilles[${i}].vaisseaux',this.value)"><button class="se-btn-del" onclick="SYSEDIT.delSub('${path}.patrouilles',${i})">✕</button></div>`;
+      });
+      let lieuxH='';
+      (body.lieux||[]).forEach((l,i)=>{
+        lieuxH+=`<div class="se-list-row" style="flex-wrap:wrap"><input type="text" placeholder="Nom" value="${_esc(l.nom)}" onchange="SYSEDIT.fld('${path}.lieux[${i}].nom',this.value)"><button class="se-btn-del" onclick="SYSEDIT.delSub('${path}.lieux',${i})">✕</button><textarea style="width:100%" placeholder="Description" onchange="SYSEDIT.fld('${path}.lieux[${i}].description',this.value)">${_esc(l.description)}</textarea></div>`;
+      });
+      let moonsH='';
+      (body.lunes||[]).forEach((_,mi)=>{moonsH+=_cardBody(body.lunes[mi],`${path}.lunes[${mi}]`,true,jl);});
+      const cls=isMoon?'card-moon':'card-planet';
+      const pathId=path.replace(/\W/g,'');
+      return `<div class="sys-edit-card ${cls} ${_coll(path)}" data-cid="${path}"><div class="sys-card-hdr" onclick="this.closest('.sys-edit-card').classList.toggle('collapsed')"><input type="text" value="${_esc(body.nom)}" onclick="event.stopPropagation()" onchange="SYSEDIT.fld('${path}.nom',this.value)"><span class="se-caret">▼</span><button class="se-btn-del" onclick="event.stopPropagation();SYSEDIT.delBody('${path}')" title="Supprimer">✕</button></div><div class="sys-card-body"><div class="se-grid">
+        <div class="se-field full"><label>Description</label><textarea onchange="SYSEDIT.fld('${path}.description',this.value)">${_esc(body.description)}</textarea></div>
+        <div class="se-field"><label>Atmosphère</label><select onchange="SYSEDIT.atmo(this,'${path}','${pathId}')">${_sel(ATMOSPHERES,body.atmosphere||'Respirable')}</select></div>
+        <div class="se-field" id="atmo-${pathId}" style="display:${showAtmo?'flex':'none'}"><label>Détail atmo.</label><input type="text" value="${_esc(body.atmosphereDetail)}" onchange="SYSEDIT.fld('${path}.atmosphereDetail',this.value)"></div>
+        <div class="se-field"><label>Gravité</label><select onchange="SYSEDIT.fld('${path}.gravite',this.value)">${_sel(GRAVITES,body.gravite||'Normale')}</select></div>
+        <div class="se-field"><label>Technologie</label><select onchange="SYSEDIT.fld('${path}.techno',this.value)">${_sel(TECHNOS,body.techno||'B')}</select></div>
+        <div class="se-field"><label>Gouvernement</label><select onchange="SYSEDIT.fld('${path}.gouvernement',this.value)">${_sel(GOUVERNEMENTS,body.gouvernement||'')}</select></div>
+        <div class="se-field"><label>Commerce</label><select onchange="SYSEDIT.fld('${path}.commerce',this.value)">${_sel(COMMERCES,body.commerce||'Planète normale')}</select></div>
+        <div class="se-field"><label>Orbite (US)</label><input type="number" step="0.01" value="${body.orbite||''}" onchange="SYSEDIT.fld('${path}.orbite',this.value);renderEditSystem()"></div>
+        <div class="se-field"><label>Dist. saut (US)</label><input type="text" value="${jd}" disabled></div>
+        <div class="se-field"><label>Classe</label><input type="text" value="${_esc(body.classe)}" onchange="SYSEDIT.fld('${path}.classe',this.value)"></div>
+        <div class="se-field"><label>Diamètre (K)</label><input type="number" value="${body.diametre||''}" onchange="SYSEDIT.fld('${path}.diametre',this.value)"></div>
+        <div class="se-field"><label>Population</label><input type="number" value="${body.population||''}" onchange="SYSEDIT.fld('${path}.population',this.value)"></div>
+        <div class="se-field"><label>Sécurité (1-20)</label><input type="number" min="1" max="20" value="${body.securite||''}" onchange="SYSEDIT.fld('${path}.securite',this.value)"></div>
+        <fieldset class="se-fieldset"><legend>Astroports</legend>${astH}<button class="se-btn-add" onclick="SYSEDIT.addSub('${path}.astroports',{nom:'',type:'Standard'})">+ Astroport</button></fieldset>
+        <fieldset class="se-fieldset"><legend>Patrouilles</legend>${patH}<button class="se-btn-add" onclick="SYSEDIT.addSub('${path}.patrouilles',{cout:0,vaisseaux:''})">+ Patrouille</button></fieldset>
+        <fieldset class="se-fieldset"><legend>Marchandise</legend><div class="se-grid g3" style="margin-top:0">
+          <div class="se-field"><label>A</label><input type="number" step="0.1" value="${body.marchandiseA||''}" onchange="SYSEDIT.fld('${path}.marchandiseA',this.value)"></div>
+          <div class="se-field"><label>B</label><input type="number" step="0.1" value="${body.marchandiseB||''}" onchange="SYSEDIT.fld('${path}.marchandiseB',this.value)"></div>
+          <div class="se-field"><label>C</label><input type="number" step="0.1" value="${body.marchandiseC||''}" onchange="SYSEDIT.fld('${path}.marchandiseC',this.value)"></div>
+          <div class="se-field full"><label>Illégale</label><input type="text" value="${_esc(body.illegal)}" onchange="SYSEDIT.fld('${path}.illegal',this.value)"></div>
+        </div></fieldset>
+        <fieldset class="se-fieldset"><legend>Lieux</legend>${lieuxH}<button class="se-btn-add" onclick="SYSEDIT.addSub('${path}.lieux',{nom:'',description:''})">+ Lieu</button></fieldset>
+      </div><div class="se-actions"><button style="background:var(--primary);color:white" onclick="SYSEDIT.addMoon('${path}')">+ Lune</button></div>${moonsH}</div></div>`;
+    }
+
+    function _distMatrix(s){
+      const pts=[];
+      if(s.soleil)pts.push({nom:s.soleil.nom||'Soleil',orbite:0,type:'Soleil'});
+      (s.corpsCelestes||[]).forEach(p=>pts.push({nom:p.nom||'?',orbite:parseFloat(p.orbite)||0,type:'Planète'}));
+      if(s.soleil?.distanceSaut)pts.push({nom:'Limite de Saut',orbite:parseFloat(s.soleil.distanceSaut)||0,type:'Limite'});
+      if(pts.length<=1)return '';
+      const d6=()=>Math.floor(Math.random()*6)+1;
+      function getMod(co){ let r; if(co<1){r=d6();return{v:+(0.5*r).toFixed(1),t:`0.5d6(${r})`};} if(co>=60){r=d6()+d6();return{v:10*r,t:`10×2d6(${r})`};} if(co>=30){r=d6();return{v:10*r,t:`10d6(${r})`};} if(co>=15){r=d6();return{v:5*r,t:`5d6(${r})`};} r=d6();return{v:r,t:`1d6(${r})`}; }
+      let h=`<div class="sys-edit-card card-system ${_coll('dist-matrix')}" data-cid="dist-matrix"><div class="sys-card-hdr" onclick="this.closest('.sys-edit-card').classList.toggle('collapsed')"><h4>Matrice des distances</h4><span class="se-caret">▼</span></div><div class="sys-card-body" style="overflow-x:auto"><table style="border-collapse:collapse;font-size:0.72rem;width:100%"><thead><tr><th></th>`;
+      pts.forEach(p=>h+=`<th style="padding:3px 5px;color:var(--gold);white-space:nowrap">${_esc(p.nom)}</th>`);
+      h+='</tr></thead><tbody>';
+      pts.forEach(p1=>{
+        h+=`<tr><th style="padding:3px 5px;text-align:left;color:#bbb;white-space:nowrap">${_esc(p1.nom)}</th>`;
+        pts.forEach(p2=>{
+          let c='-';
+          if(p1.nom===p2.nom)c='0';
+          else if(p1.type==='Soleil')c=`${p2.orbite} US`;
+          else if(p2.type==='Soleil')c=`${p1.orbite} US`;
+          else if((p1.type==='Planète'&&p2.type==='Limite')||(p1.type==='Limite'&&p2.type==='Planète'))c=`${Math.abs(p1.orbite-p2.orbite).toFixed(2)} US`;
+          else if(p1.type==='Planète'&&p2.type==='Planète'){
+            const diff=Math.abs(p1.orbite-p2.orbite);const co=Math.min(p1.orbite,p2.orbite);
+            const m=getMod(co);c=`${diff.toFixed(1)}+${m.t}=<b>${(diff+m.v).toFixed(1)}</b>`;
+          }
+          h+=`<td style="padding:3px 5px;border:1px solid var(--border);text-align:center;white-space:nowrap">${c}</td>`;
+        });
+        h+='</tr>';
+      });
+      h+='</tbody></table><button class="se-btn-add" style="margin-top:6px" onclick="renderEditSystem()">🎲 Relancer</button></div></div>';
+      return h;
+    }
+
+    function _resolvePath(obj,path){
+      const parts=path.replace(/\[(\w+)\]/g,'.$1').split('.');
+      for(let i=0;i<parts.length-1;i++){if(!obj[parts[i]])obj[parts[i]]=isNaN(parts[i+1])?{}:[];obj=obj[parts[i]];}
+      return{parent:obj,key:parts[parts.length-1]};
+    }
+
+    window.SYSEDIT={
+      hdr(k,v){ const s=_sys(); if(!s)return; s[k]=v; sauvegarderDonnees(); },
+      fld(path,v){ const s=_sys(); if(!s)return; const r=_resolvePath(s,path); r.parent[r.key]=v; sauvegarderDonnees(); },
+      sunClass(sel){
+        const w=document.getElementById('sun-cls-custom');
+        if(sel.value==='Autre'){w.style.display='flex';}
+        else{w.style.display='none';this.fld('soleil.classe',sel.value);}
+      },
+      atmo(sel,path,pathId){
+        const w=document.getElementById('atmo-'+pathId);
+        if(w)w.style.display=(sel.value==='Toxique'||sel.value==='Dangereux')?'flex':'none';
+        this.fld(path+'.atmosphere',sel.value);
+      },
+      addItem(arrPath,obj){ const s=_sys(); if(!s)return; const r=_resolvePath(s,arrPath); if(!Array.isArray(r.parent[r.key]))r.parent[r.key]=[]; r.parent[r.key].push(JSON.parse(JSON.stringify(obj))); sauvegarderDonnees(); renderEditSystem(); },
+      delItem(arrPath,idx){ const s=_sys(); if(!s)return; const r=_resolvePath(s,arrPath); if(Array.isArray(r.parent[r.key]))r.parent[r.key].splice(idx,1); sauvegarderDonnees(); renderEditSystem(); },
+      addSunAct(){ const s=_sys(); if(!s?.soleil)return; if(!s.soleil.activiteSolaire)s.soleil.activiteSolaire=[]; s.soleil.activiteSolaire.push({distance:'',consequence:''}); sauvegarderDonnees(); renderEditSystem(); },
+      delSunAct(i){ const s=_sys(); if(!s?.soleil?.activiteSolaire)return; s.soleil.activiteSolaire.splice(i,1); sauvegarderDonnees(); renderEditSystem(); },
+      addPlanet(){ const s=_sys(); if(!s)return; if(!s.corpsCelestes)s.corpsCelestes=[]; s.corpsCelestes.push({nom:'Nouvelle Planète',description:'',orbite:'',classe:'',diametre:'',atmosphere:'Respirable',gravite:'Normale',techno:'B',gouvernement:'',commerce:'Planète normale',securite:'',population:'',lunes:[],lieux:[],patrouilles:[],astroports:[],marchandiseA:'',marchandiseB:'',marchandiseC:'',illegal:''}); sauvegarderDonnees(); renderEditSystem(); },
+      addMoon(bodyPath){ const s=_sys(); if(!s)return; const r=_resolvePath(s,bodyPath); const body=r.parent[r.key]; if(!body)return; if(!body.lunes)body.lunes=[]; body.lunes.push({nom:'Nouvelle Lune',description:'',lunes:[],lieux:[],patrouilles:[],astroports:[]}); sauvegarderDonnees(); renderEditSystem(); },
+      addSub(arrPath,obj){ const s=_sys(); if(!s)return; const r=_resolvePath(s,arrPath); if(!Array.isArray(r.parent[r.key]))r.parent[r.key]=[]; r.parent[r.key].push(JSON.parse(JSON.stringify(obj))); sauvegarderDonnees(); renderEditSystem(); },
+      delSub(arrPath,idx){ const s=_sys(); if(!s)return; const r=_resolvePath(s,arrPath); if(Array.isArray(r.parent[r.key]))r.parent[r.key].splice(idx,1); sauvegarderDonnees(); renderEditSystem(); },
+      delBody(path){ if(!confirm('Supprimer cet astre et ses lunes?'))return; const s=_sys(); if(!s)return; const parts=path.replace(/\[(\w+)\]/g,'.$1').split('.'); if(parts.length<2)return; let p=s; for(let i=0;i<parts.length-2;i++)p=p[parts[i]]; p[parts[parts.length-2]].splice(+parts[parts.length-1],1); sauvegarderDonnees(); renderEditSystem(); },
+      delSystem(){ if(_editCoord==='__new__'){donnees['__new__'].splice(_editSysIdx,1);if(!donnees['__new__'].length)delete donnees['__new__'];closeModal('modal-edit-system');return;} if(!confirm('Supprimer ce système?'))return; donnees[_editCoord].splice(_editSysIdx,1); if(!donnees[_editCoord].length)delete donnees[_editCoord]; sauvegarderDonnees(); closeModal('modal-edit-system'); initCarte(); }
+    };
+
+    // ── MODALS ──
+    function openModal(id){ document.getElementById(id).classList.add('open'); }
+    function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+    window.openModal=openModal; window.closeModal=closeModal;
+
+    function loadParamsToForm(){
+      const p=getParams();
+      document.getElementById('p-ip-spd').value=p.ipSpd;
+      document.getElementById('p-hs-spd').value=p.hsSpd;
+      document.getElementById('p-hs-auto').value=p.hsAuto;
+    }
+
+    // ── EVENTS ──
+    function initEvents(){
+      document.getElementById('btn-params').addEventListener('click',()=>{loadParamsToForm();openModal('modal-params');});
+      document.getElementById('btn-historique').addEventListener('click',()=>{renderHist();openModal('modal-historique');});
+      document.getElementById('btn-admin').addEventListener('click',()=>{renderAdminTabs();openModal('modal-admin');});
+      document.querySelectorAll('.modal-close').forEach(b=>b.addEventListener('click',()=>closeModal(b.dataset.modal)));
+      document.querySelectorAll('.modal-backdrop').forEach(bd=>bd.addEventListener('click',e=>{if(e.target===bd)closeModal(bd.id);}));
+      document.getElementById('btn-save-params').addEventListener('click',()=>{
+        saveParams({ipSpd:+document.getElementById('p-ip-spd').value||100,hsSpd:+document.getElementById('p-hs-spd').value||1000,hsAuto:+document.getElementById('p-hs-auto').value||10000});
+        closeModal('modal-params');
+      });
+      document.getElementById('fab-calculer').addEventListener('click',()=>doCalc(true));
+      const rp=document.getElementById('result-panel');
+      document.getElementById('btn-close-result').addEventListener('click',(e)=>{e.stopPropagation();rp.classList.remove('open','minimized');});
+      document.getElementById('btn-minimize-result').addEventListener('click',(e)=>{e.stopPropagation();rp.classList.toggle('minimized');});
+      rp.addEventListener('click',()=>{if(rp.classList.contains('minimized'))rp.classList.remove('minimized');});
+      document.getElementById('btn-update-mobile').addEventListener('click',()=>doUpdate('mob',true));
+      document.getElementById('btn-save-hist-mobile').addEventListener('click',saveCurrentTrip);
+      document.getElementById('btn-calc-desktop').addEventListener('click',()=>doCalc(false));
+      document.getElementById('btn-update-desktop').addEventListener('click',()=>doUpdate('dsk',false));
+      document.getElementById('btn-save-hist-desktop').addEventListener('click',saveCurrentTrip);
+      document.getElementById('bottom-sheet-handle').addEventListener('click',()=>{document.getElementById('bottom-sheet').classList.remove('open');document.getElementById('fab-calculer').classList.remove('sheet-open');});
+      document.getElementById('carte-zone').addEventListener('click',e=>{if(isDragging)return;if(!e.target.classList.contains('quad')){document.getElementById('bottom-sheet').classList.remove('open');document.getElementById('fab-calculer').classList.remove('sheet-open');}});
+    }
+
+    // ── INIT ──
+    async function init(){
+      await loadData();
+      initCarte();
+      initPanZoom();
+      initEvents();
+      initFactionModal();
+      updateDesktopPointsList();
+      centerMap();
+    }
+    document.addEventListener('DOMContentLoaded',init);
+
+    // ── PERILS DATA ──
+    const PERILS_DEFAULT = {"interplanetaire":{"name":"Périls Interplanétaires","categories":[{"seuilMin":2,"seuilMax":4,"nom":"Rencontre heureuse","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Épave","data":{"description":"Vous détectez à quelques unités spatiales une masse de métal à la dérive...","mobile":false,"senseurs":1,"sciencesStellaires":1,"definition":"Cette rencontre heureuse est l'occasion pour les PJ de remplir un peu leurs soutes.","protocole":"1: Pilote : trace une trajectoire vers l'épave.","resultat":"0: le vaisseau entre en collision avec l'épave."}},{"seuilMin":6,"seuilMax":8,"nom":"Transport léger","data":{"description":"Soudain, un écho apparaît sur vos senseurs...","mobile":true,"senseurs":3,"sciencesStellaires":0,"definition":"Cette rencontre heureuse confronte les PJ à un transport léger de classe Fighter.","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":12,"nom":"Yacht de luxe","data":{"description":"Soudain, un écho apparaît sur vos senseurs. Rapide, d'une masse conséquente...","mobile":true,"senseurs":3,"sciencesStellaires":0,"definition":"Cette rencontre heureuse confronte les PJ à 1 yacht de luxe.","protocole":"","resultat":""}}]},{"seuilMin":5,"seuilMax":5,"nom":"Phénomène astrophysique heureux","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Astéroïde","data":{"description":"Vous détectez à quelques US une masse rocheuse...","mobile":true,"senseurs":3,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique heureux est la bonne occasion de se faire discret.","protocole":"1 : Pilote : trace une trajectoire vers l'astéroïde.","resultat":"0 : le vaisseau entre en collision avec l'astéroïde."}},{"seuilMin":6,"seuilMax":8,"nom":"Comète","data":{"description":"Vous détectez un puissant rayonnement lumineux...","mobile":true,"senseurs":3,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique heureux permet aux PJ de gagner de la vitesse.","protocole":"1 : Pilote : trace une trajectoire d'interception.","resultat":"0 : le pilote ne s'est pas placé correctement."}},{"seuilMin":9,"seuilMax":12,"nom":"Vent solaire","data":{"description":"Soudain, vos senseurs s'illuminent...","mobile":false,"senseurs":1,"sciencesStellaires":3,"definition":"Ce phénomène astrophysique heureux naît d'un flot énergétique stellaire.","protocole":"","resultat":""}}]},{"seuilMin":6,"seuilMax":7,"nom":"Beauté de l'espace","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Nébuleuse boréale","data":{"description":"Une vague diffuse se déploie sur l'écran de vos senseurs...","mobile":false,"senseurs":1,"sciencesStellaires":1,"definition":"Cette beauté de l'espace est une nébuleuse aux propriétés physiques particulières.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Dauphins de l'infini","data":{"description":"Vous repérez à quelques US de vous des sources d'énergie dépourvues de masse...","mobile":true,"senseurs":4,"sciencesStellaires":1,"definition":"Cette beauté de l'espace a été appelée « dauphins de l'infini ».","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":12,"nom":"Mer de miroirs","data":{"description":"Vous détectez devant vous un champ d'astéroïdes...","mobile":false,"senseurs":1,"sciencesStellaires":1,"definition":"Cette beauté de l'espace est née de la rencontre entre des astéroïdes et de l'eau.","protocole":"","resultat":""}}]},{"seuilMin":8,"seuilMax":8,"nom":"Ennui mécanique","perils":[{"seuilMin":2,"seuilMax":2,"nom":"Panne de la gravité artificielle","data":{"description":"Alors que vous filez à travers l'espace, vous avez le sentiment d'être plus léger...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique des plus amusants.","protocole":"","resultat":""}},{"seuilMin":3,"seuilMax":3,"nom":"Panne du recycleur","data":{"description":"A bord d'un vaisseau, l'eau n'est jamais bien propre...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est aussi courant qu'onéreux.","protocole":"","resultat":""}},{"seuilMin":4,"seuilMax":5,"nom":"Panne des senseurs","data":{"description":"Pendant un instant, le tableau de bord s'illumine...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique l'un des plus stressants pour l'équipage.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Panne des contrôles","data":{"description":"Les voyants de votre tableau de bord vous annoncent deux nouvelles...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est extrêmement frustrant pour le navigateur.","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":10,"nom":"Panne de la propulsion","data":{"description":"Soudain, le vrombissement des moteurs se fait plus doux...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est l'une des hantises des navigateurs.","protocole":"","resultat":""}},{"seuilMin":11,"seuilMax":11,"nom":"Panne du navordinateur","data":{"description":"Alors que votre journée s'écoule comme un fleuve tranquille...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est très ennuyeux.","protocole":"","resultat":""}},{"seuilMin":12,"seuilMax":12,"nom":"Panne du générateur","data":{"description":"Vous filez à travers l'espace... et soudain, tout s'arrête.","mobile":true,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est le pire de tous.","protocole":"","resultat":""}}]},{"seuilMin":9,"seuilMax":10,"nom":"Rencontre malheureuse","perils":[{"seuilMin":2,"seuilMax":2,"nom":"Vaisseau fantôme","data":{"description":"Vous détectez une masse de métal à la dérive...","mobile":true,"senseurs":5,"sciencesStellaires":99,"definition":"Cette rencontre malheureuse ne recèle aucun danger... à première vue.","protocole":"","resultat":""}},{"seuilMin":3,"seuilMax":3,"nom":"Cuirassé","data":{"description":"Soudain, un écho apparaît sur vos senseurs. Lent, gros...","mobile":true,"senseurs":3,"sciencesStellaires":0,"definition":"Cette rencontre malheureuse confronte les PJ à 1 cuirassé.","protocole":"","resultat":""}},{"seuilMin":4,"seuilMax":5,"nom":"Frégate","data":{"description":"Soudain, un écho apparaît sur vos senseurs. Rapide, d'une masse conséquente...","mobile":true,"senseurs":3,"sciencesStellaires":0,"definition":"Cette rencontre malheureuse confronte les PJ à 1 frégate.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Corvette","data":{"description":"Soudain, un écho apparaît sur vos senseurs. Rapide, de faible masse...","mobile":true,"senseurs":3,"sciencesStellaires":0,"definition":"Cette rencontre malheureuse confronte les PJ à 1 corvette.","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":10,"nom":"Parasites spatiaux","data":{"description":"Vos senseurs détectent des formes de vie flottant dans l'espace...","mobile":true,"senseurs":5,"sciencesStellaires":2,"definition":"Cette rencontre malheureuse risque de mettre à sec les réserves.","protocole":"","resultat":""}},{"seuilMin":11,"seuilMax":11,"nom":"Ver de l'espace","data":{"description":"Vous continuez votre voyage et croisez la route d'un astéroïde inoffensif...","mobile":true,"senseurs":5,"sciencesStellaires":2,"definition":"Cette rencontre malheureuse confronte les PJ à 1 ver de l'espace.","protocole":"","resultat":""}},{"seuilMin":12,"seuilMax":12,"nom":"Kraken","data":{"description":"Vos senseurs détectent une forme de vie flottant dans l'espace...","mobile":true,"senseurs":5,"sciencesStellaires":2,"definition":"Cette rencontre malheureuse confronte les PJ à 1 Kraken.","protocole":"","resultat":""}}]},{"seuilMin":11,"seuilMax":11,"nom":"Phénomène astrophysique malheureux","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Mini-météorites","data":{"description":"Vous détectez à quelques US devant vous une nuée d'échos...","mobile":true,"senseurs":3,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique malheureux risque d'endommager le vaisseau.","protocole":"1 : Canonnier : déblaye le chemin.","resultat":"0 : 3G\n1 : 1G"}},{"seuilMin":6,"seuilMax":8,"nom":"Champ d'astéroïdes","data":{"description":"Vous détectez devant vous le cauchemar de tous les pilotes...","mobile":false,"senseurs":1,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique malheureux a des allures de catastrophe.","protocole":"1 - Vigie : détecte un couloir.","resultat":"0 : 3G\n1 : 1G"}},{"seuilMin":9,"seuilMax":12,"nom":"Distorsions gravitationnelles","data":{"description":"Soudain, vos senseurs s'affolent...","mobile":false,"senseurs":3,"sciencesStellaires":3,"definition":"Ce phénomène astrophysique malheureux est lié à de puissantes ondes gravitationnelles.","protocole":"1 : Vigie : corrige les dérèglements.","resultat":"0-3 : le vaisseau s'est perdu."}}]},{"seuilMin":12,"seuilMax":99,"nom":"Catastrophe !","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Tempête cosmique","data":{"description":"Avant même que les senseurs n'affichent le relevé...","mobile":true,"senseurs":1,"sciencesStellaires":5,"definition":"C'est la catastrophe ! Une tempête cosmique.","protocole":"1 : Machineries : compense les dérèglements.","resultat":"0 : 3G\n1 : 1G"}},{"seuilMin":6,"seuilMax":8,"nom":"Météorites","data":{"description":"Soudain, l'écran des senseurs s'illumine...","mobile":true,"senseurs":1,"sciencesStellaires":3,"definition":"C'est la catastrophe ! Les PJ ont intérêt à être bons pilotes.","protocole":"1 - Senseurs : Détecte la trajectoire.","resultat":"0: 3G\n1: 1G"}},{"seuilMin":9,"seuilMax":12,"nom":"Patrouille militaire","data":{"description":"Vous détectez la hantise de tous les pirates de l'espace...","mobile":true,"senseurs":2,"sciencesStellaires":0,"definition":"C'est une catastrophe, au sens propre du terme.","protocole":">>Configuration de combat.","resultat":""}}]}]},"hyperspatial":{"name":"Périls Hyperspatiaux","categories":[{"seuilMin":2,"seuilMax":4,"nom":"Phénomène astrophysique heureux","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Rayonnements ioniques","data":{"description":"Au loin, votre vigie détecte d'étranges rayonnements...","mobile":false,"senseurs":2,"sciencesStellaires":2,"definition":"Ce phénomène astrophysique heureux est l'occasion de recharger le générateur.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Déferlante énergétique","data":{"description":"Vos senseurs repèrent de puissantes manifestations énergétiques...","mobile":false,"senseurs":2,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique heureux est un dérèglement des courants hyperspatiaux.","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":12,"nom":"Courant temporel","data":{"description":"L'écran des senseurs reste superbement vide...","mobile":false,"senseurs":5,"sciencesStellaires":5,"definition":"Bien qu'heureux, ce phénomène astrophysique provoque souvent une crise d'angoisse.","protocole":"","resultat":""}}]},{"seuilMin":5,"seuilMax":5,"nom":"Rencontre heureuse","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Ondines de l'espace","data":{"description":"Vos senseurs repèrent derrière vous plusieurs concentrations d'énergie...","mobile":false,"senseurs":3,"sciencesStellaires":3,"definition":"Cette rencontre heureuse est vue comme un bon présage.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Épave","data":{"description":"Vos senseurs sont probablement déréglés...","mobile":false,"senseurs":3,"sciencesStellaires":1,"definition":"Cette rencontre heureuse est une bonne occasion de remplir sa soute.","protocole":">>0: Le vaisseau entre en collision.","resultat":""}},{"seuilMin":9,"seuilMax":12,"nom":"Coquillages galactiques","data":{"description":"Bien que l'écran des senseurs reste absolument vide...","mobile":false,"senseurs":1,"sciencesStellaires":3,"definition":"Cette rencontre heureuse est accueillie avec de grands cris de joie.","protocole":"","resultat":""}}]},{"seuilMin":6,"seuilMax":7,"nom":"Beauté de l'espace","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Horizons lointains","data":{"description":"Vos senseurs relèvent des changements dans la signature énergétique...","mobile":false,"senseurs":1,"sciencesStellaires":3,"definition":"Cette beauté de l'espace est une source intarissable de légendes.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Arabesques énergétiques","data":{"description":"Vos senseurs relèvent des changements dans la signature énergétique...","mobile":false,"senseurs":1,"sciencesStellaires":3,"definition":"Cette beauté de l'espace est une source intarissable de légendes.","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":12,"nom":"Harmonies cosmiques","data":{"description":"Vos senseurs détectent un subtil changement de fréquences...","mobile":false,"senseurs":3,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique est constitué de radiations.","protocole":">>1 - Pilote : maintient le cap.","resultat":"0 : Le vaisseau franchit 1000 PC de moins."}}]},{"seuilMin":8,"seuilMax":8,"nom":"Ennui mécanique","perils":[{"seuilMin":2,"seuilMax":2,"nom":"Panne de la gravité artificielle","data":{"description":"Alors que vous filez à travers l'hyperespace...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique fait l'amusement des enfants.","protocole":"","resultat":""}},{"seuilMin":3,"seuilMax":3,"nom":"Panne du recycleur","data":{"description":"A bord d'un vaisseau, l'eau n'est jamais bien propre...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est aussi courant qu'ennuyeux.","protocole":"","resultat":""}},{"seuilMin":4,"seuilMax":5,"nom":"Panne des senseurs","data":{"description":"Pendant un instant, le tableau de bord s'illumine...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique l'un des plus stressants pour l'équipage.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Panne des contrôles","data":{"description":"Les voyants de votre tableau de bord vous annoncent deux nouvelles...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est extrêmement frustrant pour le navigateur.","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":10,"nom":"Panne du générateur","data":{"description":"Vous filez à travers l'espace... et soudain, tout s'arrête.","mobile":true,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est le pire de tous.","protocole":"","resultat":""}},{"seuilMin":11,"seuilMax":11,"nom":"Panne du navordinateur","data":{"description":"Alors que votre journée s'écoule comme un fleuve tranquille...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est très ennuyeux.","protocole":"","resultat":""}},{"seuilMin":12,"seuilMax":12,"nom":"Panne de l'hyperpropulsion","data":{"description":"Soudain, le doux vrombissement de l'hyperpropulsion s'arrête...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est presque une catastrophe.","protocole":"","resultat":""}}]},{"seuilMin":9,"seuilMax":10,"nom":"Phénomène astrophysique malheureux","perils":[{"seuilMin":2,"seuilMax":2,"nom":"Fluctuations radioactives","data":{"description":"Votre vigie repère devant vous des fluctuations énergétiques radioactives...","mobile":false,"senseurs":3,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique malheureux est constitué de radiations.","protocole":">>1 - Pilote : Maintient le cap.","resultat":"0 : Le vaisseau franchit 1000 PC de moins."}},{"seuilMin":3,"seuilMax":3,"nom":"Nébuleuse","data":{"description":"Vous détectez que les courants énergétiques se ralentissent...","mobile":false,"senseurs":1,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique malheureux est ennuyeux.","protocole":"","resultat":""}},{"seuilMin":4,"seuilMax":5,"nom":"Décharges énergétiques","data":{"description":"Vos senseurs repèrent de puissantes manifestations énergétiques...","mobile":false,"senseurs":2,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique malheureux est un dérèglement des courants.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Ombres gravitationnelles","data":{"description":"Vos senseurs repèrent des ondes gravitationnelles...","mobile":false,"senseurs":3,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique malheureux est la marque des voyages hyperspatiaux.","protocole":"1 - Vigie : Localiser le point d'origine.","resultat":"0: 3G\n1: 1G"}},{"seuilMin":9,"seuilMax":10,"nom":"Débris","data":{"description":"Vos senseurs sont probablement déréglés...","mobile":false,"senseurs":3,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique malheureux est surprenant.","protocole":"1 - Canons : déblaye un chemin.","resultat":"0: 3G\n1: 1G"}},{"seuilMin":11,"seuilMax":11,"nom":"Amas stellaires","data":{"description":"Vos senseurs repèrent un mur...","mobile":false,"senseurs":3,"sciencesStellaires":3,"definition":"Ce phénomène astrophysique malheureux continue de plonger les savants dans la perplexité.","protocole":"1 - Vigie : Analyse correctement.","resultat":"0 : Les senseurs subissent un coup critique."}},{"seuilMin":12,"seuilMax":12,"nom":"Orage hyperspatial","data":{"description":"Derrière vous, votre vigie repère des phénomènes énergétiques anormaux...","mobile":false,"senseurs":3,"sciencesStellaires":3,"definition":"Ce phénomène astrophysique malheureux peut mettre à mal la coque du vaisseau.","protocole":"1 - Vigie : Détermine la charge exacte.","resultat":"0 : 3G\n1 : 1G"}}]},{"seuilMin":11,"seuilMax":11,"nom":"Rencontre malheureuse","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Hypersqualls","data":{"description":"Vos senseurs détectent une perturbation des courants énergétiques...","mobile":false,"senseurs":5,"sciencesStellaires":3,"definition":"Cette rencontre malheureuse confronte les PJ à une forme de vie de l'hyperespace.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Hyperspectres","data":{"description":"Vous repérez des concentrations d'énergie au comportement très étrange...","mobile":false,"senseurs":5,"sciencesStellaires":3,"definition":"Cette rencontre malheureuse confronte les PJ à l'une des formes de vie les plus bizarres.","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":12,"nom":"Fantômes","data":{"description":"Un instant, l'écran des senseurs se brouille...","mobile":false,"senseurs":5,"sciencesStellaires":99,"definition":"Ce phénomène astrophysique malheureux a de quoi donner la chair de poule.","protocole":"","resultat":""}}]},{"seuilMin":12,"seuilMax":99,"nom":"Catastrophe !","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Fluctuations spatio-temporelles","data":{"description":"L'écran des senseurs reste superbement vide...","mobile":false,"senseurs":3,"sciencesStellaires":5,"definition":"Cette catastrophe est la pire qui puisse arriver.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Tourbillons plasmiques","data":{"description":"Vos senseurs repèrent quelque chose d'inhabituel...","mobile":false,"senseurs":2,"sciencesStellaires":3,"definition":"Cette catastrophe est tout aussi dangereuse qu'incompréhensible.","protocole":"1-Vigie : Anticipe le mouvement.","resultat":"0 : 3G\n1 : 1G"}},{"seuilMin":9,"seuilMax":12,"nom":"Trou noir","data":{"description":"Vos senseurs ne détectent rien de particulier...","mobile":false,"senseurs":1,"sciencesStellaires":1,"definition":"Cette catastrophe est souvent la dernière que vit un équipage.","protocole":"1 - Pilote : manoeuvre pour combattre.","resultat":"0: Le vaisseau est aspiré."}}]}]}};
+
+  })();
+  </script>
+</body>
+</html>

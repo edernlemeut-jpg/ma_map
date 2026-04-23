@@ -1,0 +1,284 @@
+/* --- PALETTE DE COULEURS ET POLICES --- */
+:root {
+    --color-background: #1a1a1a;
+    --color-frame: #3a3a3a;
+    --color-frame-border: #888;
+    --color-text-light: #f0f0f0;
+    --color-accent-gold: #c8a464;
+    --color-accent-red: #b94b4b;
+    --color-accent-blue: #6495c8; /* Added from peril.html */
+    --color-parchment: #f5e8c8; /* Added from peril.html */
+    --color-text-parchment: #3a2d1a; /* Added from peril.html */
+
+    --font-main: 'Georgia', 'Times New Roman', serif;
+    --font-ui: 'Helvetica', 'Arial', sans-serif;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-ui);
+    background-color: var(--color-background);
+    color: var(--color-text-light);
+    min-height: 100vh; /* Ensure body takes full viewport height */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Shared Header/Navigation */
+.site-header {
+    background-color: var(--color-frame);
+    border-bottom: 1px solid var(--color-frame-border);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    z-index: 1000; /* Ensure header is on top */
+}
+
+.site-header h1 {
+    margin: 0;
+    color: var(--color-accent-gold);
+    font-size: 2rem;
+}
+
+.site-nav a {
+    color: var(--color-text-light);
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    margin-left: 1rem;
+    border: 1px solid transparent;
+    border-radius: 0.25rem;
+    transition: all 0.2s ease;
+}
+
+.site-nav a:hover,
+.site-nav a.active-nav {
+    background-color: var(--color-accent-gold);
+    color: var(--color-background);
+    border-color: var(--color-accent-gold);
+}
+
+/* Main Content Area for pages */
+.page-content {
+    flex-grow: 1; /* Allow content to take remaining height */
+    display: flex; /* Flexbox for sub-page layouts (e.g., side panels) */
+    position: relative; /* For absolutely positioned panels within */
+    overflow: hidden; /* Prevent content overflow for fixed panels */
+}
+
+/* Common container styling for main frames within pages */
+.container-frame {
+    background-color: var(--color-frame);
+    border-radius: 0.5rem; /* rounded-lg */
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4); /* shadow-2xl */
+    padding: 2.5rem; /* p-10 */
+    border: 1px solid var(--color-frame-border);
+    max-width: 80rem; /* max-w-7xl */
+    margin: 1.5rem auto; /* p-6 equivalent for overall page margin */
+}
+
+/* Common headings */
+h1, h2, h3 {
+    color: var(--color-accent-gold);
+    font-family: var(--font-main); /* Apply main font to headings */
+    text-shadow: 1px 1px 2px black; /* Subtle shadow for headings */
+}
+h1 {
+    font-size: 2.5rem; /* text-4xl sm:text-5xl */
+}
+h2 {
+    font-size: 1.5rem; /* text-2xl */
+}
+h3 {
+     font-size: 1.25rem; /* text-xl */
+}
+
+/* General Input/Button Styles */
+input[type="text"],
+input[type="number"],
+input[type="file"],
+select,
+textarea {
+    width: 100%;
+    background: #2c2c2c;
+    color: var(--color-text-light);
+    border: 1px solid var(--color-frame-border);
+    margin-bottom: 0.625rem;
+    padding: 0.3125rem;
+    border-radius: 0.1875rem;
+    box-sizing: border-box;
+}
+label {
+    margin-top: 0.625rem;
+    display: block;
+    color: var(--color-text-light);
+}
+button {
+    background-color: #5a5a5a;
+    color: var(--color-text-light);
+    border: 1px solid var(--color-accent-gold);
+    padding: 0.625rem;
+    margin-top: 0.625rem;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    border-radius: 0.1875rem;
+    white-space: nowrap;
+}
+button:hover {
+    border-color: #fff;
+    background-color: #6a6a6a;
+}
+
+/* Primary action buttons (gold accent) */
+.btn-primary {
+    background-color: var(--color-accent-gold);
+    color: var(--color-background);
+    border-color: var(--color-accent-gold);
+}
+.btn-primary:hover {
+    background-color: #e0b870;
+    border-color: var(--color-text-light);
+}
+
+/* Secondary/Info buttons (frame color with gold border) */
+.btn-secondary {
+    background-color: var(--color-frame);
+    border-color: var(--color-accent-gold);
+    color: var(--color-text-light);
+}
+.btn-secondary:hover {
+    background-color: #4a4a4a;
+    border-color: var(--color-text-light);
+}
+
+/* Danger/Delete buttons (red accent) */
+.btn-danger {
+    background-color: var(--color-accent-red);
+    border: 1px solid var(--color-accent-red);
+    color: var(--color-text-light);
+}
+.btn-danger:hover {
+    background-color: #d05b5b;
+    border-color: var(--color-text-light);
+}
+
+/* Peril Generator specific button styles */
+.btn-peril {
+    padding: 15px 20px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    border: 2px solid var(--color-accent-gold);
+    background: linear-gradient(145deg, #5a5a5a, #3a3a3a);
+    color: var(--color-text-light);
+    font-family: var(--font-ui);
+    text-shadow: 1px 1px 1px black;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+    transition: all 0.2s ease-in-out;
+}
+.btn-peril:hover {
+    background: linear-gradient(145deg, #6a6a6a, #4a4a4a);
+    border-color: #fff;
+    transform: translateY(-2px);
+}
+.btn-peril-hyperspatial {
+    border-color: var(--color-accent-blue);
+}
+.btn-peril-hyperspatial:hover {
+    border-color: #fff;
+}
+.btn-peril-active {
+    border-color: #ffffff;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.7);
+    cursor: default;
+}
+
+
+/* Custom Message Box */
+.message-box {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.25rem;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+    color: var(--color-text-light);
+    z-index: 10000; /* Highest z-index */
+    transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+    transform: translateX(0);
+    opacity: 1;
+}
+.message-box.success { background-color: #28a745; }
+.message-box.error { background-color: var(--color-accent-red); }
+.message-box.info { background-color: var(--color-frame-border); }
+.message-box.translate-x-full { transform: translateX(100%); }
+.message-box.opacity-0 { opacity: 0; }
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5000; /* Above regular content, below messages */
+}
+.modal-content {
+    background-color: var(--color-frame);
+    border-radius: 0.5rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--color-frame-border);
+    color: var(--color-text-light);
+    padding: 2rem;
+    position: relative;
+    max-height: 90vh; /* For scrollable modals */
+    overflow-y: auto;
+}
+.modal-content .close-button {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: none;
+    border: none;
+    color: var(--color-text-light);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    margin-top: 0;
+    border-radius: 0;
+}
+.modal-content .close-button:hover {
+    color: var(--color-accent-red);
+}
+
+
+/* Responsive adjustments for site-wide elements */
+@media (max-width: 768px) {
+    .site-header {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 1rem;
+    }
+    .site-nav {
+        margin-top: 0.5rem;
+        display: flex;
+        flex-wrap: wrap;
+    }
+    .site-nav a {
+        margin-left: 0;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    .container-frame {
+        padding: 1.5rem;
+        margin: 1rem;
+    }
+
+    .page-content {
+        flex-direction: column;
+        height: auto;
+        overflow-y: auto;
+    }
+}

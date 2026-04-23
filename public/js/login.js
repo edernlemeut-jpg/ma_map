@@ -4,6 +4,8 @@ const showRegister = document.getElementById('show-register');
 const showLogin = document.getElementById('show-login');
 const messageEl = document.getElementById('message');
 
+const redirectUrl = new URLSearchParams(location.search).get('redirect') || '/';
+
 // Toggle between forms
 showRegister.addEventListener('click', (e) => {
   e.preventDefault();
@@ -40,7 +42,7 @@ loginForm.addEventListener('submit', async (e) => {
       return;
     }
 
-    window.location.href = '/';
+    window.location.href = redirectUrl;
   } catch {
     showMessage('Erreur réseau', 'error');
   }
@@ -75,7 +77,7 @@ registerForm.addEventListener('submit', async (e) => {
 
     showMessage(json.data?.message || 'Compte créé !', 'success');
     // Auto-redirect after short delay (cookie is already set)
-    setTimeout(() => { window.location.href = '/'; }, 1500);
+    setTimeout(() => { window.location.href = redirectUrl; }, 1500);
   } catch {
     showMessage('Erreur réseau', 'error');
   }

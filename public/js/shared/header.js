@@ -4,6 +4,10 @@
  *
  * Usage: import { initHeader } from '/js/shared/header.js';
  *        await initHeader();
+ *
+ * Or just the table context part:
+ *        import { loadTableContext } from '/js/shared/header.js';
+ *        await loadTableContext();
  */
 
 import { initAuthUI } from '/js/shared/auth-ui.js';
@@ -23,8 +27,10 @@ export async function initHeader() {
 
 /**
  * Loads the active table info from the server and updates the header display.
+ * Exported so pages can call it independently without the full initHeader().
+ * Returns the table data or null.
  */
-async function loadTableContext() {
+export async function loadTableContext() {
   const tableId = getActiveTableId();
   const tableInfo = document.getElementById('header-table-info');
   const tableName = document.getElementById('header-table-name');
@@ -33,7 +39,7 @@ async function loadTableContext() {
 
   if (!tableId) {
     if (tableInfo) tableInfo.classList.add('hidden');
-    return;
+    return null;
   }
 
   try {
@@ -42,7 +48,7 @@ async function loadTableContext() {
       // Table no longer valid — clear selection
       clearActiveTable();
       if (tableInfo) tableInfo.classList.add('hidden');
-      return;
+      return null;
     }
 
     const json = await res.json();
@@ -51,11 +57,31 @@ async function loadTableContext() {
     if (!table) {
       clearActiveTable();
       if (tableInfo) tableInfo.classList.add('hidden');
-      return;
+      return null;
     }
 
     if (tableInfo) tableInfo.classList.remove('hidden');
-    if (tableName) tableName.textContent = table.name;
+
+    if (tableName) {
+      tableName.textContent = table.name;
+      if (table.is_mj && table.invite_code) {
+        tableName.style.cursor = 'pointer';
+        tableName.title = 'Copier le lien d\'invitation';
+        tableName.classList.add('hover:text-yellow-400', 'transition-colors');
+        tableName.addEventListener('click', async () => {
+          const link = `${location.origin}/rejoindre?code=${table.invite_code}`;
+          try {
+            await navigator.clipboard.writeText(link);
+            const orig = tableName.textContent;
+            tableName.textContent = '✓ Copié !';
+            setTimeout(() => { tableName.textContent = orig; }, 2000);
+          } catch {
+            prompt('Lien d\'invitation :', link);
+          }
+        });
+      }
+    }
+
     if (tableRole) {
       tableRole.textContent = table.is_mj ? '🎲 MJ' : '🎮 Joueur';
     }
@@ -66,7 +92,10 @@ async function loadTableContext() {
         window.location.reload();
       });
     }
+
+    return table;
   } catch {
     if (tableInfo) tableInfo.classList.add('hidden');
+    return null;
   }
 }

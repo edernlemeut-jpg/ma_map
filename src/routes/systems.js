@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { success, validationError, forbidden, notFound } from '../utils/response.js';
-import { getSystems, createSystem, updateSystem } from '../services/compendium.js';
+import { getSystems, createSystem, updateSystem, deleteSystem } from '../services/compendium.js';
 
 const router = Router();
 
@@ -57,6 +57,19 @@ router.patch('/:id', (req, res) => {
   const result = updateSystem(id, fields);
   if (!result) return notFound(res);
   if (result.error) return validationError(res, result.error);
+  success(res, result);
+});
+
+router.delete('/:id', (req, res) => {
+  if (!req.table || req.table.role !== 'mj') {
+    return forbidden(res);
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return notFound(res);
+  }
+  const result = deleteSystem(id);
+  if (!result) return notFound(res);
   success(res, result);
 });
 

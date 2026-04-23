@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bienvenue dans l'Univers Galactique</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            /* Override flex behavior from style.css for the index page if you want a simple landing */
+            display: block;
+        }
+        .landing-content {
+            text-align: center;
+            padding: 5rem 2rem;
+        }
+        .landing-content h2 {
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            color: var(--color-accent-gold);
+        }
+        .landing-content .navigation-links a {
+            display: inline-block;
+            margin: 1rem;
+            padding: 1rem 2rem;
+            text-decoration: none;
+            background-color: var(--color-accent-gold);
+            color: var(--color-background);
+            border-radius: 0.5rem;
+            font-weight: bold;
+            transition: background-color 0.2s ease, transform 0.2s ease;
+        }
+        .landing-content .navigation-links a:hover {
+            background-color: #e0b870;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <h1>Metal Adventures</h1>
+        <nav class="site-nav">
+            <a href="calendrier.html">Calendrier</a>
+            <a href="itineraire.html">Carte Interactive</a>
+            <a href="peril.html">Générateur de Périls</a>
+            <a href="compendium.html">Compendium</a>
+            <a href="personnage.html">Personnage</a>
+            <a href="revolte.html">Révolte</a>
+        </nav>
+    </header>
+
+    <div class="landing-content">
+        <h2>Bienvenue dans votre outil galactique !</h2>
+        <p>Utilisez les liens ci-dessus pour naviguer entre les différentes sections.</p>
+        <div class="navigation-links">
+            <a href="calendrier.html">Accéder au Calendrier</a>
+            <a href="itineraire.html">Accéder à la Carte</a>
+            <a href="compendium.html">Compendium</a>
+            <a href="peril.html">Accéder au Générateur de Périls</a>
+            <a href="personnage.html">Personnage</a>
+            <a href="revolte.html">Révolte</a>
+        </div>
+    </div>
+</body>
+</html>

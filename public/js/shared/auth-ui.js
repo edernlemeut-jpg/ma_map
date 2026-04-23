@@ -56,7 +56,30 @@ export async function initAuthUI() {
 
   if (user) {
     if (userInfo) userInfo.classList.remove('hidden');
-    if (userName) userName.textContent = user.display_name || user.username;
+    if (userName) {
+      userName.textContent = user.display_name || user.username;
+      // If the element is a plain <span>, wrap the text in a profile link
+      if (userName.tagName === 'SPAN') {
+        const link = document.createElement('a');
+        link.href = '/profile.html';
+        link.className = 'hover:text-blue-400 transition-colors cursor-pointer';
+        link.textContent = userName.textContent;
+        userName.textContent = '';
+        userName.appendChild(link);
+      }
+    }
+    // Avatar 25×25 next to username
+    if (userInfo && !userInfo.querySelector('#auth-user-avatar')) {
+      const avatarEl = document.createElement('span');
+      avatarEl.id = 'auth-user-avatar';
+      avatarEl.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#374151;font-size:14px;';
+      if (user.avatar) {
+        avatarEl.innerHTML = `<img src="${user.avatar}" alt="" style="width:25px;height:25px;object-fit:cover;border-radius:50%" onerror="this.parentElement.textContent='👤'">`;
+      } else {
+        avatarEl.textContent = '👤';
+      }
+      userInfo.insertBefore(avatarEl, userInfo.firstChild);
+    }
     if (loginLink) loginLink.classList.add('hidden');
     if (logoutBtn) {
       logoutBtn.addEventListener('click', (e) => {

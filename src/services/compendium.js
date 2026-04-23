@@ -7,8 +7,8 @@ import db from '../database.js';
 import { isVisible } from './visibility.js';
 
 const SYSTEMS_COLS = 'id, quadrant, nom, faction, is_frontiere, route, gouvernement, description, soleil_json, corps_celestes_json, patrouilles_json';
-const FACTIONS_COLS = 'id, name, short, description, icon, color';
-const SHIP_MODELS_COLS = 'id, nom, classe, vitesse_croisiere, vitesse_hyperspatiale, autonomie, manoeuvrabilite, vitesse_tactique, blindage, coque, senseurs, equipage, passagers, soute, prix, origine, image, armement_json, systemes_secondaires_json';
+const FACTIONS_COLS = 'id, name, short, description, icon, icon_url, color';
+const SHIP_MODELS_COLS = 'id, nom, classe, tonnage, longueur, vitesse_croisiere, vitesse_hyperspatiale, vitesse_tactique, autonomie, manoeuvrabilite, blindage, coque, senseurs, senseurs_k, senseurs_us, equipage, passagers, soute, prix, origine, image, armement_json, systemes_secondaires_json, description, history, mj_notes, special_features';
 
 export function getSystems(tableId, role) {
   const all = db.prepare(`SELECT ${SYSTEMS_COLS} FROM systems`).all();
@@ -43,8 +43,8 @@ export function getShipModels(tableId, role) {
 // --- Edit functions (MJ only) ---
 
 const SYSTEM_EDITABLE = ['nom', 'quadrant', 'faction', 'is_frontiere', 'route', 'gouvernement', 'description', 'soleil_json', 'corps_celestes_json', 'patrouilles_json'];
-const FACTION_EDITABLE = ['name', 'short', 'description', 'icon', 'color'];
-const SHIP_MODEL_EDITABLE = ['nom', 'classe', 'origine', 'vitesse_croisiere', 'vitesse_hyperspatiale', 'autonomie', 'manoeuvrabilite', 'vitesse_tactique', 'blindage', 'coque', 'senseurs', 'equipage', 'passagers', 'soute', 'prix', 'image'];
+const FACTION_EDITABLE = ['name', 'short', 'description', 'icon', 'icon_url', 'color'];
+const SHIP_MODEL_EDITABLE = ['nom','classe','origine','tonnage','longueur','vitesse_croisiere','vitesse_hyperspatiale','vitesse_tactique','autonomie','manoeuvrabilite','blindage','coque','senseurs','senseurs_k','senseurs_us','equipage','passagers','soute','prix','image','armement_json','systemes_secondaires_json','description','history','mj_notes','special_features'];
 
 function applyUpdate(table, selectCols, allowedFields, id, fields, hasUpdatedAt = true) {
   const entries = Object.entries(fields).filter(([k]) => allowedFields.includes(k));
@@ -94,9 +94,28 @@ export function updateSystem(id, fields) {
   return applyUpdate('systems', SYSTEMS_COLS, SYSTEM_EDITABLE, id, fields);
 }
 
+export function deleteSystem(id) {
+  const existing = getSystem(id);
+  if (!existing) return null;
+  db.prepare('DELETE FROM visibility WHERE entity_type = ? AND entity_id = ?').run('systems', id);
+  db.prepare('DELETE FROM systems WHERE id = ?').run(id);
+  return { deleted: true, id };
+}
+
 export function updateFaction(id, fields) {
   if (!getFaction(id)) return null;
   return applyUpdate('factions', FACTIONS_COLS, FACTION_EDITABLE, id, fields);
+}
+
+export function createFaction(fields) {
+  const allowed = FACTION_EDITABLE;
+  const entries = Object.entries(fields).filter(([k]) => allowed.includes(k) && fields[k] != null);
+  if (!entries.length) return null;
+  const cols = entries.map(([k]) => k).join(', ');
+  const placeholders = entries.map(() => '?').join(', ');
+  const values = entries.map(([, v]) => v);
+  const result = db.prepare(`INSERT INTO factions (${cols}) VALUES (${placeholders})`).run(...values);
+  return db.prepare(`SELECT ${FACTIONS_COLS} FROM factions WHERE id = ?`).get(result.lastInsertRowid);
 }
 
 export function updateShipModel(id, fields) {

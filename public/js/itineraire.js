@@ -49,10 +49,24 @@ async function loadData() {
     }
   } catch (e) { console.error('perils_data.json:', e); }
 
-  // Tables personnalisées + assignations (localStorage)
-  try { customTables = JSON.parse(localStorage.getItem('customPerilTables') || '[]'); } catch { customTables = []; }
-  try { perilAssignments = JSON.parse(localStorage.getItem('perilAssignments') || '{"systems":{},"quadrants":{}}'); } catch { perilAssignments = { systems: {}, quadrants: {} }; }
-  try { factions = JSON.parse(localStorage.getItem('factions') || '[]'); } catch { factions = []; }
+  // Tables personnalisées + assignations (API si table active)
+  if (tableId) {
+    try {
+      const [ctRes, paRes] = await Promise.all([
+        fetchWithTable('/api/perils/tables', { credentials: 'include' }),
+        fetchWithTable('/api/perils/assignments', { credentials: 'include' }),
+      ]);
+      if (ctRes.ok) customTables = (await ctRes.json()).data || [];
+      if (paRes.ok) perilAssignments = (await paRes.json()).data || { systems: {}, quadrants: {} };
+    } catch { /* keep empty defaults */ }
+  }
+
+  // Load factions from API (falls back to localStorage)
+  try {
+    const fr = await fetch('/api/factions', { credentials: 'include' });
+    if (fr.ok) { const fj = await fr.json(); factions = fj.data || []; }
+    else { factions = JSON.parse(localStorage.getItem('factions') || '[]'); }
+  } catch { try { factions = JSON.parse(localStorage.getItem('factions') || '[]'); } catch { factions = []; } }
 
   if (!tableId) return; // Pas de table → carte vide
 
@@ -106,6 +120,7 @@ function mapSystem(sys) {
     gouvernement: sys.gouvernement || '',
     route: sys.route || '',
     description: sys.description || '',
+    peril_list_id: sys.peril_list_id || '',
     patrouilles: sys.patrouilles_json ? (typeof sys.patrouilles_json === 'string' ? JSON.parse(sys.patrouilles_json) : sys.patrouilles_json) : [],
     soleil: soleil || {},
     corpsCelestes,
@@ -152,9 +167,12 @@ function loadParamsFromStorage() {
 
 function loadParamsToForm() {
   const p = getParams();
-  document.getElementById('p-ip-spd').value = p.ipSpd;
-  document.getElementById('p-hs-spd').value = p.hsSpd;
-  document.getElementById('p-hs-auto').value = p.hsAuto;
+  const ipEl = document.getElementById('p-ip-spd');
+  const hsEl = document.getElementById('p-hs-spd');
+  const auEl = document.getElementById('p-hs-auto');
+  if (ipEl) ipEl.value = p.ipSpd;
+  if (hsEl) hsEl.value = p.hsSpd;
+  if (auEl) auEl.value = p.hsAuto;
   // Afficher info vaisseau si actif
   const info = document.getElementById('params-ship-info');
   if (info) {
@@ -193,8 +211,9 @@ function populateShipSelect() {
   });
   sel.addEventListener('change', async () => {
     await setActiveShip(sel.value || null);
-    // Mettre à jour les params affichés
-    if (document.getElementById('p-ip-spd')) loadParamsToForm();
+    loadParamsToForm();
+    refreshCarte();
+    if (currentTripLegs) renderTrip(currentTripLegs, window.innerWidth < 768);
   });
 }
 
@@ -221,7 +240,7 @@ function initCarte() {
 
   // Légende rangées
   rowLeg.innerHTML = '';
-  for (let r = 1; r <= 40; r++) {
+  for (let r = 40; r >= 1; r--) {
     const d = document.createElement('div');
     d.className = 'row-header';
     d.textContent = r;
@@ -230,7 +249,7 @@ function initCarte() {
 
   // Grille
   carte.innerHTML = '';
-  for (let row = 1; row <= 40; row++) {
+  for (let row = 40; row >= 1; row--) {
     for (let col = 0; col < 40; col++) {
       const coord = `${LETTRES[col]}-${row}`;
       const cell = document.createElement('div');
@@ -247,8 +266,20 @@ function initCarte() {
 function refreshCarte() {
   document.querySelectorAll('.quad').forEach(cell => {
     const coord = cell.dataset.coord;
-    cell.classList.remove('has-system', 'selected-dep', 'selected-arr', 'selected-eta', 'path');
+    cell.classList.remove('has-system', 'selected-dep', 'selected-arr', 'selected-eta', 'path', 'ship-pos', 'active-ship-pos');
     if (donnees[coord]?.length) cell.classList.add('has-system');
+  });
+
+  // Mark ship positions
+  ships.forEach(s => {
+    if (!s.position?.quadrant) return;
+    const cell = document.querySelector(`.quad[data-coord="${s.position.quadrant}"]`);
+    if (!cell) return;
+    if (activeShip && String(s.id) === String(activeShip.id)) {
+      cell.classList.add('active-ship-pos');
+    } else {
+      cell.classList.add('ship-pos');
+    }
   });
 
   const pts = tripState.points;
@@ -352,6 +383,21 @@ function centerMap() {
   applyT();
 }
 
+/** Pan the map to put a quadrant coordinate in the center of the viewport */
+function centerOnCoord(quadrantCoord) {
+  const xy = coordXY(quadrantCoord);
+  if (!xy || xy.x < 0) return;
+  const z = document.getElementById('carte-zone');
+  if (!z) return;
+  const r = z.getBoundingClientRect();
+  // Each cell is 20px; legend offset = 20px
+  const cellX = 20 + xy.x * 20 + 10; // center of cell
+  const cellY = 20 + xy.y * 20 + 10;
+  panX = r.width / 2 - cellX * zoom;
+  panY = r.height / 2 - cellY * zoom;
+  applyT();
+}
+
 // ── BOTTOM SHEET ──────────────────────────────────────────────────────────
 function onCellClick(coord) {
   if (_pickingQuadrant) {
@@ -374,12 +420,14 @@ function onCellClick(coord) {
   renderBSTripState();
   const content = document.getElementById('bottom-sheet-content');
   content.innerHTML = '';
-  // HS peril picker
-  const hsRow = document.createElement('div');
-  hsRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--bg3)';
-  const hsTid = perilAssignments.quadrants[coord] || '';
-  hsRow.innerHTML = `<span style="font-size:0.78rem;color:#aaa;white-space:nowrap">⚠️ Périls HS :</span>${_perilTableSelect('hyperspatial', coord, hsTid)}`;
-  content.appendChild(hsRow);
+  // HS peril picker (MJ only)
+  if (isMJ()) {
+    const hsRow = document.createElement('div');
+    hsRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--bg3)';
+    const hsTid = perilAssignments.quadrants[coord] || '';
+    hsRow.innerHTML = `<span style="font-size:0.78rem;color:#aaa;white-space:nowrap">⚠️ Périls HS :</span>${_perilTableSelect('hyperspatial', coord, hsTid)}`;
+    content.appendChild(hsRow);
+  }
   if (systems.length === 0) {
     const empty = document.createElement('div');
     empty.style.cssText = 'padding:20px;text-align:center;color:#888;font-style:italic';
@@ -429,8 +477,10 @@ function updateDesktopQuadInfo(coord, systems) {
   const qp = JSON.stringify({ quadrant: coord, systemNom: null, astroNom: null, orbit: 0 });
   const addQBtn = `<button onclick='APP.add(${JSON.stringify(qp)})' class="btn-point btn-eta" style="padding:2px 8px;font-size:0.7rem">+</button>`;
   let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><strong style="color:var(--gold)">${coord}</strong>${addQBtn}</div>`;
-  const _hsTid = perilAssignments.quadrants[coord] || '';
-  h += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border)"><span style="font-size:0.72rem;color:#aaa;white-space:nowrap">⚠️ HS :</span>${_perilTableSelect('hyperspatial', coord, _hsTid)}</div>`;
+  if (isMJ()) {
+    const _hsTid = perilAssignments.quadrants[coord] || '';
+    h += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border)"><span style="font-size:0.72rem;color:#aaa;white-space:nowrap">⚠️ HS :</span>${_perilTableSelect('hyperspatial', coord, _hsTid)}</div>`;
+  }
   if (!systems.length) { el.innerHTML = h + `<span style="color:#888;font-size:0.8rem">Quadrant vide</span>`; return; }
   systems.forEach((sys, si) => {
     h += `<div style="margin-top:5px"><span style="font-weight:bold;cursor:pointer;text-decoration:underline dotted" onclick="showDetail('${coord}',${si})">${sys.nom}</span> <span style="color:#888;font-size:0.78rem">${_factionLabel(sys.faction)}</span>`;
@@ -512,7 +562,16 @@ function _perilTableSelect(type, assignKey, currentTableId) {
 window._perilAssign = function(type, key, val) {
   if (type === 'interplanetaire') { if (val) perilAssignments.systems[key] = val; else delete perilAssignments.systems[key]; }
   else { if (val) perilAssignments.quadrants[key] = val; else delete perilAssignments.quadrants[key]; }
-  saveAssignments();
+  // Persist via API
+  const tableId = getActiveTableId();
+  if (tableId) {
+    fetchWithTable('/api/perils/assignments', {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assign_type: type, key, peril_table_id: val || '' })
+    }).catch(console.error);
+  }
 };
 
 function _perilTableSummary(tableId, type) {
@@ -668,6 +727,39 @@ function calcHSDist(a, b) {
   return Math.max(Math.abs(ca.x - cb.x), Math.abs(ca.y - cb.y)) * 1000;
 }
 
+/** Retourne la liste ordonnée de coordonnées quadrant traversées (Bresenham) */
+function getQuadrantPath(a, b) {
+  const ca = coordXY(a), cb = coordXY(b);
+  const path = [];
+  let x = ca.x, y = ca.y;
+  const dx = Math.abs(cb.x - ca.x), dy = Math.abs(cb.y - ca.y);
+  const sx = ca.x < cb.x ? 1 : -1, sy = ca.y < cb.y ? 1 : -1;
+  let err = dx - dy;
+  while (true) {
+    path.push(`${LETTRES[x]}-${y + 1}`);
+    if (x === cb.x && y === cb.y) break;
+    const e2 = 2 * err;
+    if (e2 > -dy) { err -= dy; x += sx; }
+    if (e2 < dx) { err += dx; y += sy; }
+  }
+  return path;
+}
+
+/** Génère les dailyData d'un leg HS en résolvant le quadrant position par jour */
+function genHSDayData(days, hsSpd, path, skill) {
+  return Array.from({ length: days }, (_, i) => {
+    // Position parcourue au début du jour i (en PC)
+    const pcCovered = i * hsSpd;
+    // Index dans path : 1 quadrant = 1000 PC
+    const qi = Math.min(Math.floor(pcCovered / 1000), path.length - 1);
+    const quadrant = path[qi];
+    const tid = perilAssignments.quadrants[quadrant] || null;
+    const tbl = tid ? customTables.find(t => t.id === tid) : null;
+    const r = getPeril('hyperspatial', skill, tbl);
+    return { day: i + 1, peril: r.peril, baseIndex: r.baseIndex, surf: 0, conso: 0, _quadrant: quadrant, _tableId: tid };
+  });
+}
+
 function calculateTrip() {
   if (tripState.points.length < 2) { alert('Ajoutez au moins 2 points.'); return null; }
   const p = getParams();
@@ -682,20 +774,24 @@ function calculateTrip() {
       const dist = Math.abs(jl - cur.orbit);
       const days = Math.max(1, Math.ceil(dist / p.ipSpd));
       const tbl = getTableForLeg('interplanetaire', cur.quadrant, cur.systemNom);
-      legs.push({ name: `Départ de ${cur.systemNom}`, type: 'interplanetaire', from: cur.astroNom, to: `Limite — ${cur.systemNom}`, distance: dist, unit: 'US', days, spd: p.ipSpd, skill: 0, _tableId: tbl?.id || null, dailyData: genDayData('interplanetaire', days, 0, tbl) });
+      const destPos = { quadrant: cur.quadrant, systemNom: cur.systemNom, astroNom: 'Limite de Saut' };
+      legs.push({ name: `Départ de ${cur.systemNom}`, type: 'interplanetaire', from: cur.astroNom, to: `Limite — ${cur.systemNom}`, distance: dist, unit: 'US', days, spd: p.ipSpd, skill: 0, _tableId: tbl?.id || null, _destPosition: destPos, dailyData: genDayData('interplanetaire', days, 0, tbl) });
     }
     if (cur.quadrant !== nxt.quadrant) {
       const dist = calcHSDist(cur.quadrant, nxt.quadrant);
       const days = Math.max(1, Math.ceil(dist / p.hsSpd));
-      const tbl = getTableForLeg('hyperspatial', cur.quadrant, null);
-      legs.push({ name: `Saut ${cur.quadrant} → ${nxt.quadrant}`, type: 'hyperspatial', from: `Q.${cur.quadrant}`, to: `Q.${nxt.quadrant}`, distance: dist, unit: 'PC', days, spd: p.hsSpd, skill: 0, _tableId: tbl?.id || null, dailyData: genDayData('hyperspatial', days, 0, tbl) });
+      const qPath = getQuadrantPath(cur.quadrant, nxt.quadrant);
+      const dailyData = genHSDayData(days, p.hsSpd, qPath, 0);
+      const destPosHS = { quadrant: nxt.quadrant, systemNom: nxt.systemNom || null, astroNom: nxt.systemNom ? 'Limite de Saut' : null };
+      legs.push({ name: `Saut ${cur.quadrant} → ${nxt.quadrant}`, type: 'hyperspatial', from: `Q.${cur.quadrant}`, to: `Q.${nxt.quadrant}`, distance: dist, unit: 'PC', days, spd: p.hsSpd, skill: 0, _tableId: null, _quadrantPath: qPath, _destPosition: destPosHS, dailyData });
     }
     if (nxt.astroNom && nxt.astroNom !== 'Limite de Saut' && nxtSys) {
       const jl = parseFloat(nxtSys.soleil?.distanceSaut) || 0;
       const dist = Math.abs(jl - nxt.orbit);
       const days = Math.max(1, Math.ceil(dist / p.ipSpd));
       const tbl = getTableForLeg('interplanetaire', nxt.quadrant, nxt.systemNom);
-      legs.push({ name: `Arrivée à ${nxt.systemNom}`, type: 'interplanetaire', from: `Limite — ${nxt.systemNom}`, to: nxt.astroNom, distance: dist, unit: 'US', days, spd: p.ipSpd, skill: 0, _tableId: tbl?.id || null, dailyData: genDayData('interplanetaire', days, 0, tbl) });
+      const destPosArr = { quadrant: nxt.quadrant, systemNom: nxt.systemNom, astroNom: nxt.astroNom };
+      legs.push({ name: `Arrivée à ${nxt.systemNom}`, type: 'interplanetaire', from: `Limite — ${nxt.systemNom}`, to: nxt.astroNom, distance: dist, unit: 'US', days, spd: p.ipSpd, skill: 0, _tableId: tbl?.id || null, _destPosition: destPosArr, dailyData: genDayData('interplanetaire', days, 0, tbl) });
     }
   }
   return { legs, autonomy: p.hsAuto, points };
@@ -704,8 +800,17 @@ function calculateTrip() {
 // ── RENDU RÉSULTAT ────────────────────────────────────────────────────────
 function summaryHTML(trip) {
   let days = 0, pc = 0, us = 0, conso = 0;
-  trip.legs.forEach(l => { days += l.days; l.unit === 'PC' ? pc += l.distance : us += l.distance; });
-  trip.legs.filter(l => l.type === 'hyperspatial').forEach(l => l.dailyData.forEach(d => conso += l.spd - d.conso));
+  trip.legs.forEach(l => {
+    const sm = l.type === 'hyperspatial' ? 100 : 1;
+    let cum = 0;
+    for (const d of l.dailyData) {
+      cum += l.spd + (d.surf || 0) * sm;
+      days++;
+      if (l.type === 'hyperspatial') conso += l.spd - (d.conso || 0);
+      if (cum >= l.distance) break;
+    }
+    l.unit === 'PC' ? pc += l.distance : us += l.distance;
+  });
   const over = conso > trip.autonomy;
   return `<strong>${days} jour${days > 1 ? 's' : ''}</strong> · ${Math.round(pc).toLocaleString()} PC · ${us.toFixed(0)} US<br>Conso: <strong>${Math.round(conso).toLocaleString()} / ${trip.autonomy.toLocaleString()} PC</strong>${over ? ' <span style="color:var(--danger)">⚠ Autonomie dépassée!</span>' : ''}`;
 }
@@ -714,13 +819,25 @@ function legsHTML(legs, pfx) {
   return legs.map((leg, li) => {
     const isHS = leg.type === 'hyperspatial';
     const surfMult = isHS ? 100 : 1;
-    let rows = ''; let cum = 0;
+    let rows = ''; let cum = 0; let effectiveDays = 0; let arrived = false;
     leg.dailyData.forEach((d, di) => {
+      if (arrived) return;
+      const cumBefore = cum;
       cum += leg.spd + (d.surf || 0) * surfMult;
+      effectiveDays++;
       const done = cum >= leg.distance;
+      if (done) arrived = true;
+      // Quadrant dynamique basé sur la distance cumulée réelle au début du jour
+      let quadrant = d._quadrant || '';
+      if (isHS && leg._quadrantPath) {
+        const qi = Math.min(Math.floor(cumBefore / 1000), leg._quadrantPath.length - 1);
+        quadrant = leg._quadrantPath[qi] || '';
+      }
+      const qCell = isHS ? `<td style="font-size:0.7rem;color:#aaa">${quadrant}</td>` : '';
       rows += `<tr>
         <td>${d.day}</td>
-        <td><span class="peril-link" data-li="${li}" data-di="${di}" data-pfx="${pfx}">${d.peril.nom}</span></td>
+        ${qCell}
+        ${isMJ() ? `<td><span class="peril-link" data-li="${li}" data-di="${di}" data-pfx="${pfx}">${d.peril.nom}</span></td>` : ''}
         <td><input type="number" id="${pfx}-s-${li}-${di}" value="${d.surf}" step="1" style="width:52px"></td>
         ${isHS ? `<td><input type="number" id="${pfx}-c-${li}-${di}" value="${d.conso}" step="100"></td><td>${(leg.spd - d.conso).toLocaleString()}</td>` : ''}
         <td style="font-size:0.72rem">${Math.min(cum, leg.distance).toFixed(0)}/${leg.distance.toFixed(0)}</td>
@@ -729,7 +846,7 @@ function legsHTML(legs, pfx) {
     });
     return `<div class="result-leg" id="${pfx}-leg-${li}">
       <div class="result-leg-header" onclick="toggleLeg(this)">
-        <div><h3>${leg.name}</h3><div class="leg-info">${leg.from} → ${leg.to} · ${leg.days}j · ${leg.distance.toFixed(0)} ${leg.unit}</div></div>
+        <div><h3>${leg.name}</h3><div class="leg-info">${leg.from} → ${leg.to} · ${effectiveDays}j · ${leg.distance.toFixed(0)} ${leg.unit}</div></div>
         <div style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">
           <label style="font-size:0.72rem;color:#aaa;display:flex;align-items:center;gap:4px;white-space:nowrap">
             Succ. exc. (${isHS ? 'Saut' : 'Cap'})
@@ -741,9 +858,10 @@ function legsHTML(legs, pfx) {
       </div>
       <div class="result-leg-body">
         <table class="trip-table">
-          <thead><tr><th>J</th><th>Péril</th><th>Surf${isHS ? ' (×100&nbsp;PC)' : ' (US)'}</th>${isHS ? '<th>◁Conso</th><th>PC/j</th>' : ''}<th>Dist</th><th></th></tr></thead>
+          <thead><tr><th>J</th>${isHS ? '<th>Quad.</th>' : ''}${isMJ() ? '<th>Péril</th>' : ''}<th>Surf${isHS ? ' (×100&nbsp;PC)' : ' (US)'}</th>${isHS ? '<th>◁Conso</th><th>PC/j</th>' : ''}<th>Dist</th><th></th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
+        ${activeShip && isMJ() ? `<div style="text-align:right;margin-top:8px"><button class="save-pos-btn" data-li="${li}" title="Enregistrer la position du vaisseau après cette étape">📍 Enregistrer Position</button></div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -752,6 +870,9 @@ function legsHTML(legs, pfx) {
 function attachPerilEvents(container, legs) {
   container.querySelectorAll('.peril-link').forEach(lk => {
     lk.addEventListener('click', () => showPeril(legs[+lk.dataset.li].dailyData[+lk.dataset.di].peril));
+  });
+  container.querySelectorAll('.save-pos-btn').forEach(btn => {
+    btn.addEventListener('click', () => saveShipPos(legs[+btn.dataset.li], btn));
   });
 }
 
@@ -773,6 +894,39 @@ function showPeril(peril) {
 
 window.toggleLeg = function(hdr) { hdr.closest('.result-leg').classList.toggle('collapsed'); };
 
+async function saveShipPos(leg, btn) {
+  if (!activeShip) return;
+  const pos = leg._destPosition;
+  if (!pos?.quadrant) { alert('Pas de position de destination disponible pour cette étape.'); return; }
+
+  const shipName = activeShip.name || activeShip.nom || activeShip.id;
+  const label = [pos.systemNom, pos.astroNom].filter(Boolean).join(' — ') || pos.quadrant;
+  if (!confirm(`Enregistrer la position de "${shipName}" à : ${label} (Quadrant ${pos.quadrant}) ?`)) return;
+
+  btn.disabled = true;
+  btn.textContent = '⏳…';
+  try {
+    const r = await fetchWithTable(`/api/ships/${activeShip.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ position_json: JSON.stringify(pos) })
+    });
+    if (!r.ok) { const j = await r.json(); throw new Error(j?.error?.message || `Erreur ${r.status}`); }
+    // Mise à jour locale
+    activeShip.position = pos;
+    const idx = ships.findIndex(s => String(s.id) === String(activeShip.id));
+    if (idx !== -1) ships[idx].position = pos;
+    refreshCarte();
+    btn.textContent = '✅ Enregistré';
+    setTimeout(() => { btn.disabled = false; btn.textContent = '📍 Enregistrer Position'; }, 2000);
+  } catch (e) {
+    alert('Erreur : ' + e.message);
+    btn.disabled = false;
+    btn.textContent = '📍 Enregistrer Position';
+  }
+}
+
 function readInputs(legs, pfx) {
   legs.forEach((leg, li) => {
     const ski = document.getElementById(`${pfx}-sk-${li}`);
@@ -780,8 +934,16 @@ function readInputs(legs, pfx) {
       const newSkill = parseInt(ski.value) || 0;
       if (newSkill !== (leg.skill || 0)) {
         leg.skill = newSkill;
-        const tbl = leg._tableId ? customTables.find(t => t.id === leg._tableId) : null;
-        leg.dailyData.forEach(d => { d.peril = resolvePeril(leg.type, d.baseIndex, newSkill, tbl); });
+        if (leg._quadrantPath) {
+          // HS multi-quadrant : chaque jour a sa propre table
+          leg.dailyData.forEach(d => {
+            const tbl = d._tableId ? customTables.find(t => t.id === d._tableId) : null;
+            d.peril = resolvePeril('hyperspatial', d.baseIndex, newSkill, tbl);
+          });
+        } else {
+          const tbl = leg._tableId ? customTables.find(t => t.id === leg._tableId) : null;
+          leg.dailyData.forEach(d => { d.peril = resolvePeril(leg.type, d.baseIndex, newSkill, tbl); });
+        }
       }
     }
     leg.dailyData.forEach((d, di) => {
@@ -892,236 +1054,11 @@ window.HIST = {
   del(idx) { const h = getHist(); h.splice(idx, 1); setHist(h); renderHist(); }
 };
 
-// ── ADMIN ─────────────────────────────────────────────────────────────────
-function saveCustomTables() { localStorage.setItem('customPerilTables', JSON.stringify(customTables)); }
-function saveAssignments() { localStorage.setItem('perilAssignments', JSON.stringify(perilAssignments)); }
+
+// ── HELPERS UTILITAIRES ──────────────────────────────────────────────────────
 function escH(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
-function renderAdminTabs() {
-  document.querySelectorAll('.admin-tab').forEach(tab => {
-    tab.onclick = () => {
-      document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById(tab.dataset.tab).classList.add('active');
-    };
-  });
-  renderPerilsTab();
-  renderFactionsTab();
-  renderSystemsTab();
-  renderQuadrantsTab();
-}
 
-function saveFactions() { localStorage.setItem('factions', JSON.stringify(factions)); }
-function getFactionsSorted() { return [...factions].sort((a, b) => a.name.localeCompare(b.name)); }
-
-function renderFactionsTab() {
-  const el = document.getElementById('tab-factions');
-  const sorted = getFactionsSorted();
-  let h = '<div style="margin-bottom:8px;font-size:0.78rem;color:#888">Factions (nom, diminutif, icône)</div>';
-  if (!sorted.length) h += '<div style="text-align:center;color:#888;padding:16px;font-style:italic">Aucune faction définie.</div>';
-  sorted.forEach(f => {
-    h += `<div class="faction-item">`;
-    if (f.icon) h += `<img src="${f.icon}" alt="">`;
-    else h += `<div style="width:32px;height:32px;border-radius:4px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#666">${escH(f.short || '?')}</div>`;
-    h += `<div class="fi-info"><div class="fi-name">${escH(f.name)}${f.short ? ' <span style="color:#888;font-weight:normal">(' + escH(f.short) + ')</span>' : ''}</div>`;
-    if (f.description) h += `<div class="fi-desc">${escH(f.description)}</div>`;
-    h += `</div><div style="display:flex;gap:4px"><button style="background:none;border:1px solid var(--border);color:var(--primary);border-radius:3px;padding:3px 8px;cursor:pointer;font-size:0.72rem" onclick="ADMIN.editFaction('${f.id}')">✏️</button><button class="se-btn-del" onclick="ADMIN.delFaction('${f.id}')">✕</button></div></div>`;
-  });
-  h += `<div style="margin-top:10px;text-align:center"><button style="padding:6px 16px;background:var(--primary);color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.82rem" onclick="ADMIN.newFaction()">+ Nouvelle faction</button></div>`;
-  el.innerHTML = h;
-}
-
-function openFactionModal(faction) {
-  document.getElementById('faction-modal-title').textContent = faction ? 'Modifier Faction' : 'Nouvelle Faction';
-  document.getElementById('faction-name').value = faction ? faction.name : '';
-  document.getElementById('faction-short').value = faction ? faction.short || '' : '';
-  document.getElementById('faction-desc').value = faction ? faction.description || '' : '';
-  document.getElementById('faction-icon-data').value = faction ? faction.icon || '' : '';
-  document.getElementById('faction-edit-id').value = faction ? faction.id : '';
-  const prev = document.getElementById('faction-icon-preview');
-  if (faction?.icon) { prev.src = faction.icon; prev.style.display = 'block'; } else { prev.style.display = 'none'; }
-  document.getElementById('faction-icon-input').value = '';
-  openModal('modal-faction');
-}
-
-function initFactionModal() {
-  document.getElementById('faction-icon-input').addEventListener('change', function() {
-    const file = this.files[0]; if (!file) return;
-    if (file.size > 200 * 1024) { alert('Image trop volumineuse (max 200 Ko)'); this.value = ''; return; }
-    const reader = new FileReader();
-    reader.onload = e => {
-      document.getElementById('faction-icon-data').value = e.target.result;
-      const prev = document.getElementById('faction-icon-preview');
-      prev.src = e.target.result; prev.style.display = 'block';
-    };
-    reader.readAsDataURL(file);
-  });
-  document.getElementById('btn-save-faction').addEventListener('click', () => {
-    const name = document.getElementById('faction-name').value.trim();
-    if (!name) { alert('Le nom est requis.'); return; }
-    const short = document.getElementById('faction-short').value.trim();
-    const desc = document.getElementById('faction-desc').value.trim();
-    const icon = document.getElementById('faction-icon-data').value;
-    const editId = document.getElementById('faction-edit-id').value;
-    if (editId) {
-      const f = factions.find(x => x.id === editId);
-      if (f) { f.name = name; f.short = short; f.description = desc; if (icon) f.icon = icon; }
-    } else {
-      factions.push({ id: 'fac-' + Date.now(), name, short, description: desc, icon });
-    }
-    saveFactions(); closeModal('modal-faction'); renderFactionsTab();
-    if (_editCoord !== null) renderEditSystem();
-  });
-}
-
-function renderPerilsTab() {
-  const el = document.getElementById('tab-perils');
-  let h = '<div class="btn-add-table"><button onclick="ADMIN.dupTable(\'interplanetaire\')">+ Dupliquer IP</button><button onclick="ADMIN.dupTable(\'hyperspatial\')">+ Dupliquer HS</button></div>';
-  h += '<div class="admin-table-item"><span class="atname"><strong>Interplanétaire (défaut)</strong></span><span class="attype ip">IP</span><div class="at-actions"><button onclick="ADMIN.editTable(\'default-ip\')">Éditer</button></div></div>';
-  h += '<div class="admin-table-item"><span class="atname"><strong>Hyperspatial (défaut)</strong></span><span class="attype hs">HS</span><div class="at-actions"><button onclick="ADMIN.editTable(\'default-hs\')">Éditer</button></div></div>';
-  customTables.forEach(t => {
-    const isIP = t.type === 'interplanetaire';
-    h += `<div class="admin-table-item"><span class="atname">${escH(t.name)}</span><span class="attype ${isIP ? 'ip' : 'hs'}">${isIP ? 'IP' : 'HS'}</span><div class="at-actions"><button onclick="ADMIN.editTable('${t.id}')">Éditer</button><button onclick="ADMIN.dupCustom('${t.id}')">Dup.</button><button class="btn-del" onclick="ADMIN.delTable('${t.id}')">✕</button></div></div>`;
-  });
-  h += '<div style="margin-top:12px;display:flex;gap:8px;justify-content:center"><button onclick="ADMIN.resetDefaults()" style="padding:5px 12px;background:var(--danger);color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.78rem">Réinit. défaut</button></div>';
-  el.innerHTML = h;
-}
-
-function renderEditTable(tableId) {
-  const el = document.getElementById('tab-perils');
-  let tableData, tableName, isDefault = false;
-  if (tableId === 'default-ip') { tableData = perilsData.interplanetaire; tableName = 'Interplanétaire (défaut)'; isDefault = true; }
-  else if (tableId === 'default-hs') { tableData = perilsData.hyperspatial; tableName = 'Hyperspatial (défaut)'; isDefault = true; }
-  else { const t = customTables.find(t => t.id === tableId); if (!t) { renderPerilsTab(); return; } tableData = t; tableName = t.name; }
-  const cats = tableData.categories || [];
-  let h = '<div class="peril-edit-header"><button onclick="ADMIN.backToList()">← Retour</button>';
-  if (!isDefault) h += `<input type="text" value="${escH(tableName)}" onchange="ADMIN.renameTable('${tableId}',this.value)">`;
-  else h += `<span style="flex:1;color:var(--gold);font-weight:bold;font-size:0.95rem;padding-left:8px">${tableName}</span>`;
-  h += '</div>';
-  cats.forEach((cat, ci) => {
-    h += `<div class="peril-edit-cat"><div class="peril-edit-cat-hdr" onclick="this.closest('.peril-edit-cat').classList.toggle('open')"><span>${escH(cat.nom)} (${cat.seuilMin}–${cat.seuilMax})</span><span>▼</span></div><div class="peril-edit-cat-body">`;
-    (cat.perils || []).forEach((p, pi) => {
-      const d = p.data || {};
-      h += `<div class="peril-edit-item"><div class="peril-edit-item-hdr" onclick="this.closest('.peril-edit-item').classList.toggle('open')"><span class="pe-nom">${escH(p.nom)}</span><span class="pe-range">${p.seuilMin}–${p.seuilMax}</span></div><div class="peril-edit-fields">`;
-      h += `<div class="pe-field"><label>Nom</label><input value="${escH(p.nom)}" onchange="ADMIN.updP('${tableId}',${ci},${pi},'nom',this.value);this.closest('.peril-edit-item').querySelector('.pe-nom').textContent=this.value"></div>`;
-      h += `<div class="pe-field"><label>Description</label><textarea onchange="ADMIN.updP('${tableId}',${ci},${pi},'data.description',this.value)">${escH(d.description || '')}</textarea></div>`;
-      h += `<div class="pe-field-row"><div class="pe-field"><label>Senseurs</label><input type="number" value="${d.senseurs || 0}" onchange="ADMIN.updP('${tableId}',${ci},${pi},'data.senseurs',+this.value)"></div><div class="pe-field"><label>Sc. Stellaires</label><input type="number" value="${d.sciencesStellaires || 0}" onchange="ADMIN.updP('${tableId}',${ci},${pi},'data.sciencesStellaires',+this.value)"></div><div class="pe-field-check"><label><input type="checkbox" ${d.mobile ? 'checked' : ''} onchange="ADMIN.updP('${tableId}',${ci},${pi},'data.mobile',this.checked)"> Mobile</label></div></div>`;
-      h += `<div class="pe-field"><label>Définition</label><textarea onchange="ADMIN.updP('${tableId}',${ci},${pi},'data.definition',this.value)">${escH(d.definition || '')}</textarea></div>`;
-      h += `<div class="pe-field"><label>Protocole</label><textarea onchange="ADMIN.updP('${tableId}',${ci},${pi},'data.protocole',this.value)">${escH(d.protocole || '')}</textarea></div>`;
-      h += `<div class="pe-field"><label>Résultat</label><textarea onchange="ADMIN.updP('${tableId}',${ci},${pi},'data.resultat',this.value)">${escH(d.resultat || '')}</textarea></div>`;
-      h += `<div class="pe-field-row"><div class="pe-field"><label>Seuil min</label><input type="number" value="${p.seuilMin}" onchange="ADMIN.updP('${tableId}',${ci},${pi},'seuilMin',+this.value)"></div><div class="pe-field"><label>Seuil max</label><input type="number" value="${p.seuilMax}" onchange="ADMIN.updP('${tableId}',${ci},${pi},'seuilMax',+this.value)"></div><div style="display:flex;align-items:flex-end"><button onclick="ADMIN.delPeril('${tableId}',${ci},${pi})" style="padding:4px 8px;background:var(--danger);color:white;border:none;border-radius:3px;cursor:pointer;font-size:0.72rem">Suppr.</button></div></div>`;
-      h += `</div></div>`;
-    });
-    h += `<button onclick="ADMIN.addPeril('${tableId}',${ci})" style="display:block;width:100%;padding:5px;border:1px dashed var(--border);background:none;color:var(--primary);border-radius:4px;cursor:pointer;font-size:0.78rem;margin-top:4px">+ Ajouter un péril</button>`;
-    h += `</div></div>`;
-  });
-  if (!isDefault) h += `<button onclick="ADMIN.addCat('${tableId}')" style="display:block;width:100%;padding:8px;border:1px dashed var(--border);background:none;color:var(--gold);border-radius:4px;cursor:pointer;font-size:0.82rem;margin-top:8px">+ Ajouter une catégorie</button>`;
-  el.innerHTML = h;
-}
-
-function renderSystemsTab() {
-  const el = document.getElementById('tab-systemes');
-  const tables = customTables.filter(t => t.type === 'interplanetaire');
-  let h = '<div style="margin-bottom:8px;font-size:0.78rem;color:#888">Table de périls IP par système</div>';
-  const items = [];
-  for (const coord in donnees) (donnees[coord] || []).forEach(sys => items.push({ coord, name: sys.nom || '?' }));
-  items.sort((a, b) => a.name.localeCompare(b.name));
-  if (!items.length) { h += '<div style="text-align:center;color:#888;padding:20px">Aucun système.</div>'; }
-  else items.forEach(s => {
-    const key = `${s.coord}/${s.name}`;
-    const cur = perilAssignments.systems[key] || '';
-    h += `<div class="assign-row"><span class="ar-coord">${s.coord}</span><span class="ar-label">${escH(s.name)}</span><button style="background:none;border:1px solid var(--border);color:var(--primary);border-radius:3px;padding:2px 8px;cursor:pointer;font-size:0.72rem" onclick="closeModal('modal-admin');openEditSystem('${s.coord}',${donnees[s.coord].findIndex(x => x.nom === s.name)})">✏️</button><select onchange="ADMIN.assignSys('${escH(key)}',this.value)"><option value="">Défaut</option>${tables.map(t => `<option value="${t.id}"${cur === t.id ? ' selected' : ''}>${escH(t.name)}</option>`).join('')}</select></div>`;
-  });
-  h += `<div style="margin-top:10px;text-align:center">${isMJ() ? `<button style="padding:6px 16px;background:var(--primary);color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.82rem" onclick="ADMIN.newSystemPrompt()">+ Nouveau système</button>` : `<span style="font-size:0.75rem;color:#888">🔒 Seul le MJ peut ajouter des systèmes</span>`}</div>`;
-  el.innerHTML = h;
-}
-
-function renderQuadrantsTab() {
-  const el = document.getElementById('tab-quadrants');
-  const tables = customTables.filter(t => t.type === 'hyperspatial');
-  let h = '<div style="margin-bottom:8px;font-size:0.78rem;color:#888">Table de périls HS par quadrant</div>';
-  const coords = Object.keys(donnees).filter(k => donnees[k]?.length > 0).sort();
-  if (!coords.length) { h += '<div style="text-align:center;color:#888;padding:20px">Aucun quadrant peuplé.</div>'; }
-  else coords.forEach(coord => {
-    const cur = perilAssignments.quadrants[coord] || '';
-    const names = donnees[coord].map(s => s.nom || '?').join(', ');
-    h += `<div class="assign-row"><span class="ar-coord" style="width:60px;font-weight:bold;color:var(--gold)">${coord}</span><span class="ar-label" style="font-size:0.78rem;color:#aaa">${escH(names)}</span><select onchange="ADMIN.assignQuad('${coord}',this.value)"><option value="">Défaut</option>${tables.map(t => `<option value="${t.id}"${cur === t.id ? ' selected' : ''}>${escH(t.name)}</option>`).join('')}</select></div>`;
-  });
-  el.innerHTML = h;
-}
-
-function _getAdminCats(tableId) {
-  if (tableId === 'default-ip') return perilsData.interplanetaire.categories;
-  if (tableId === 'default-hs') return perilsData.hyperspatial.categories;
-  const t = customTables.find(t => t.id === tableId); return t ? t.categories : null;
-}
-function _saveAdminTable(tableId) {
-  if (tableId === 'default-ip' || tableId === 'default-hs') localStorage.setItem('perilsDataAdmin', JSON.stringify(perilsData));
-  else saveCustomTables();
-}
-
-window.ADMIN = {
-  dupTable(type) {
-    const src = perilsData[type]; if (!src) return;
-    const name = prompt('Nom:', `${type === 'interplanetaire' ? 'IP' : 'HS'} — Copie`); if (!name) return;
-    customTables.push({ id: 'ct_' + Date.now(), name, type, categories: JSON.parse(JSON.stringify(src.categories)) });
-    saveCustomTables(); renderPerilsTab();
-  },
-  dupCustom(id) {
-    const src = customTables.find(t => t.id === id); if (!src) return;
-    const name = prompt('Nom:', `${src.name} — Copie`); if (!name) return;
-    customTables.push({ id: 'ct_' + Date.now(), name, type: src.type, categories: JSON.parse(JSON.stringify(src.categories)) });
-    saveCustomTables(); renderPerilsTab();
-  },
-  delTable(id) {
-    if (!confirm('Supprimer cette table?')) return;
-    customTables = customTables.filter(t => t.id !== id);
-    for (const k in perilAssignments.systems) if (perilAssignments.systems[k] === id) delete perilAssignments.systems[k];
-    for (const k in perilAssignments.quadrants) if (perilAssignments.quadrants[k] === id) delete perilAssignments.quadrants[k];
-    saveCustomTables(); saveAssignments(); renderPerilsTab(); renderSystemsTab(); renderQuadrantsTab();
-  },
-  editTable(id) { renderEditTable(id); },
-  backToList() { renderPerilsTab(); },
-  renameTable(id, v) { const t = customTables.find(t => t.id === id); if (t) { t.name = v; saveCustomTables(); } },
-  updP(tableId, ci, pi, path, value) {
-    const cats = _getAdminCats(tableId); if (!cats) return;
-    const peril = cats[ci]?.perils?.[pi]; if (!peril) return;
-    const parts = path.split('.');
-    if (parts.length === 1) peril[parts[0]] = value;
-    else if (parts.length === 2) { if (!peril[parts[0]]) peril[parts[0]] = {}; peril[parts[0]][parts[1]] = value; }
-    _saveAdminTable(tableId);
-  },
-  addPeril(tableId, ci) {
-    const cats = _getAdminCats(tableId); if (!cats || !cats[ci]) return;
-    const perils = cats[ci].perils || [];
-    const mx = perils.length ? Math.max(...perils.map(p => p.seuilMax)) : 1;
-    perils.push({ seuilMin: mx + 1, seuilMax: mx + 1, nom: 'Nouveau péril', data: { description: '', mobile: false, senseurs: 0, sciencesStellaires: 0, definition: '', protocole: '', resultat: '' } });
-    cats[ci].perils = perils; _saveAdminTable(tableId); renderEditTable(tableId);
-  },
-  delPeril(tableId, ci, pi) {
-    if (!confirm('Supprimer ce péril?')) return;
-    const cats = _getAdminCats(tableId); if (!cats?.[ci]?.perils) return;
-    cats[ci].perils.splice(pi, 1); _saveAdminTable(tableId); renderEditTable(tableId);
-  },
-  addCat(tableId) {
-    const t = customTables.find(t => t.id === tableId); if (!t) return;
-    const mx = t.categories.length ? Math.max(...t.categories.map(c => c.seuilMax)) : 1;
-    t.categories.push({ seuilMin: mx + 1, seuilMax: mx + 1, nom: 'Nouvelle catégorie', perils: [] });
-    saveCustomTables(); renderEditTable(tableId);
-  },
-  assignSys(key, val) { if (val) perilAssignments.systems[key] = val; else delete perilAssignments.systems[key]; saveAssignments(); },
-  assignQuad(coord, val) { if (val) perilAssignments.quadrants[coord] = val; else delete perilAssignments.quadrants[coord]; saveAssignments(); },
-  resetDefaults() { if (confirm('Réinitialiser les tables par défaut?')) { localStorage.removeItem('perilsDataAdmin'); perilsData = JSON.parse(JSON.stringify(PERILS_DEFAULT)); renderPerilsTab(); } },
-  newSystemPrompt() { closeModal('modal-admin'); newSystem(); },
-  newFaction() { openFactionModal(null); },
-  editFaction(id) { const f = factions.find(x => x.id === id); if (f) openFactionModal(f); },
-  delFaction(id) {
-    if (!confirm('Supprimer cette faction?')) return;
-    factions = factions.filter(x => x.id !== id);
-    saveFactions(); renderFactionsTab();
-  }
-};
 
 function sysToPayload(sys, coord) {
   return {
@@ -1132,6 +1069,7 @@ function sysToPayload(sys, coord) {
     route: sys.route || '',
     gouvernement: sys.gouvernement || '',
     description: sys.description || '',
+    peril_list_id: sys.peril_list_id || '',
     soleil_json: JSON.stringify(sys.soleil || {}),
     corps_celestes_json: JSON.stringify(sys.corpsCelestes || []),
     patrouilles_json: JSON.stringify(sys.patrouilles || []),
@@ -1206,21 +1144,27 @@ function _sel(opts, cur) { return opts.map(o => { const v = typeof o === 'string
 
 function _factionPicker(cur) {
   let h = `<span class="faction-chip ${cur === '' ? 'active' : ''}" onclick="SYSEDIT.hdr('faction','');renderEditSystem()">Aucune</span>`;
-  getFactionsSorted().forEach(f => {
+  const sorted = [...factions].sort((a, b) => a.name.localeCompare(b.name));
+  sorted.forEach(f => {
     const act = cur === f.name ? 'active' : '';
     const img = f.icon ? `<img src="${f.icon}" alt="">` : '';
     const lbl = f.short || f.name;
     h += `<span class="faction-chip ${act}" onclick="SYSEDIT.hdr('faction','${_esc(f.name)}');renderEditSystem()" title="${_esc(f.name)}">${img}${_esc(lbl)}</span>`;
   });
-  h += `<span class="faction-chip" style="border-style:dashed;color:var(--primary)" onclick="openFactionModal(null)">+ Nouvelle</span>`;
   return h;
 }
 
 function _factionLabel(name, full) {
   if (!name) return '';
   const f = factions.find(x => x.name === name);
-  if (f && f.icon) return `<img src="${f.icon}" alt="${escH(f.name)}" title="${escH(f.name)}" style="width:20px;height:20px;border-radius:3px;object-fit:cover;vertical-align:middle">`;
-  if (f && f.short && !full) return escH(f.short);
+  const url = f?.icon_url || f?.icon || null;
+  const abbr = f?.short || f?.abbreviation || null;
+  if (url) {
+    const displayAbbr = abbr || name;
+    return '<img src="' + escH(url) + '" alt="' + escH(displayAbbr) + '" title="' + escH(f.name) + '" style="width:20px;height:20px;border-radius:3px;object-fit:contain;vertical-align:middle;flex-shrink:0">'
+         + '<span style="vertical-align:middle;margin-left:3px">' + escH(displayAbbr) + '</span>';
+  }
+  if (abbr && !full) return escH(abbr);
   return escH(name);
 }
 
@@ -1306,6 +1250,7 @@ function renderEditSystem() {
     <div class="se-field full"><label>Faction</label><div class="faction-picker">${_factionPicker(s.faction || '')}</div></div>
     <div class="se-field"><label>Route</label><select onchange="SYSEDIT.hdr('route',this.value)">${_sel(ROUTES, s.route || '')}</select></div>
     <div class="se-field"><label>Gouvernement</label><select onchange="SYSEDIT.hdr('gouvernement',this.value)">${_sel(GOUVERNEMENTS, s.gouvernement || '')}</select></div>
+    <div class="se-field"><label>Péril IS</label><select onchange="SYSEDIT.hdr('peril_list_id',this.value)"><option value="">— aucune —</option>${customTables.filter(t => t.type === 'interplanetaire').map(t => `<option value="${_esc(t.id)}"${s.peril_list_id === t.id ? ' selected' : ''}>${_esc(t.name)}</option>`).join('')}</select></div>
     <div class="se-field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" ${s.isFrontiere ? 'checked' : ''} onchange="SYSEDIT.hdr('isFrontiere',this.checked)" style="width:auto"> Frontière</label></div>
     <div class="se-field full"><label>Description</label><textarea onchange="SYSEDIT.hdr('description',this.value)">${_esc(s.description)}</textarea></div>
   </div>`;
@@ -1419,15 +1364,9 @@ window.closeModal = closeModal;
 
 // ── EVENTS ────────────────────────────────────────────────────────────────
 function initEvents() {
-  document.getElementById('btn-params').addEventListener('click', () => { loadParamsToForm(); openModal('modal-params'); });
   document.getElementById('btn-historique').addEventListener('click', () => { renderHist(); openModal('modal-historique'); });
-  document.getElementById('btn-admin').addEventListener('click', () => { renderAdminTabs(); openModal('modal-admin'); });
   document.querySelectorAll('.modal-close').forEach(b => b.addEventListener('click', () => closeModal(b.dataset.modal)));
   document.querySelectorAll('.modal-backdrop').forEach(bd => bd.addEventListener('click', e => { if (e.target === bd) closeModal(bd.id); }));
-  document.getElementById('btn-save-params').addEventListener('click', () => {
-    const p = { ipSpd: +document.getElementById('p-ip-spd').value || 100, hsSpd: +document.getElementById('p-hs-spd').value || 1000, hsAuto: +document.getElementById('p-hs-auto').value || 10000 };
-    saveParams(p); closeModal('modal-params');
-  });
   document.getElementById('fab-calculer').addEventListener('click', () => doCalc(true));
   const rp = document.getElementById('result-panel');
   document.getElementById('btn-close-result').addEventListener('click', e => { e.stopPropagation(); rp.classList.remove('open', 'minimized'); });
@@ -1524,9 +1463,13 @@ async function init() {
   initCarte();
   initPanZoom();
   initEvents();
-  initFactionModal();
   updateDesktopPointsList();
-  centerMap();
+  // Center on active ship position, or default center
+  if (activeShip?.position?.quadrant) {
+    centerOnCoord(activeShip.position.quadrant);
+  } else {
+    centerMap();
+  }
 }
 
 // Importing poller.js (top-level await) makes this module async, so DOMContentLoaded

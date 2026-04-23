@@ -40,6 +40,8 @@
     .quad.selected-arr { background:rgba(92,184,92,0.7)!important; border-color:var(--success)!important; }
     .quad.selected-eta { background:rgba(255,165,0,0.7)!important; border-color:var(--warning)!important; }
     .quad.path { background:rgba(240,173,78,0.3); border-color:var(--warning); }
+    .quad.ship-pos { outline:1px dotted var(--primary); z-index:1; }
+    .quad.active-ship-pos { background:rgba(200,164,100,0.45)!important; border-color:var(--gold)!important; outline:2px solid var(--gold); box-shadow:0 0 6px var(--gold); z-index:2; }
     #bottom-sheet { position:absolute; bottom:0; left:0; right:0; background:var(--bg2); border-top:2px solid var(--gold); max-height:55vh; overflow-y:auto; transform:translateY(100%); transition:transform 0.3s ease; z-index:20; border-radius:12px 12px 0 0; }
     #bottom-sheet.open { transform:translateY(0); }
     #bottom-sheet-handle { width:40px; height:4px; background:var(--border); border-radius:2px; margin:8px auto; cursor:pointer; }
@@ -80,6 +82,9 @@
     .peril-link { color:var(--gold); cursor:pointer; text-decoration:underline; font-size:0.82rem; }
     .status-ok { color:var(--success); }
     .status-done { color:var(--primary); font-weight:bold; }
+    .save-pos-btn { padding:6px 14px; background:var(--bg3); color:var(--gold); border:1px solid var(--gold); border-radius:6px; font-size:0.8rem; cursor:pointer; transition:background 0.15s; }
+    .save-pos-btn:hover { background:rgba(200,160,0,0.15); }
+    .save-pos-btn:disabled { opacity:0.6; cursor:default; }
     .btn-action { width:100%; padding:11px; border:none; border-radius:8px; font-size:0.95rem; font-weight:bold; cursor:pointer; margin-top:8px; }
     .btn-primary { background:var(--primary); color:white; }
     .btn-gold { background:var(--bg3); color:var(--gold); }
@@ -245,9 +250,7 @@
         <button id="auth-logout-btn">Déco</button>
       </span>
       <a href="/login.html" id="auth-login-link">Connexion</a>
-      <button id="btn-params" title="Paramètres">⚙</button>
       <button id="btn-historique" title="Historique">📋</button>
-      <button id="btn-admin" title="Administration">≡</button>
     </div>
   </header>
 
@@ -308,20 +311,6 @@
     </div>
   </div>
 
-  <!-- Modal Paramètres -->
-  <div id="modal-params" class="modal-backdrop">
-    <div class="modal-sheet">
-      <div class="modal-title">⚙ Paramètres <button class="modal-close" data-modal="modal-params">✕</button></div>
-      <div id="params-ship-info" style="padding:8px;background:var(--bg3);border-radius:4px;font-size:0.8rem;color:#bbb;margin-bottom:10px;display:none"></div>
-      <div class="params-grid">
-        <div class="param-field"><label>Vitesse interplanétaire (US/j)</label><input type="number" id="p-ip-spd" value="100" min="1"></div>
-        <div class="param-field"><label>Vitesse hyperspace (PC/j)</label><input type="number" id="p-hs-spd" value="1000" min="1"></div>
-        <div class="param-field"><label>Autonomie (PC)</label><input type="number" id="p-hs-auto" value="10000" min="0"></div>
-      </div>
-      <button id="btn-save-params" class="btn-action btn-primary" style="margin-top:14px">Enregistrer</button>
-    </div>
-  </div>
-
   <!-- Modal Péril -->
   <div id="modal-peril" class="modal-backdrop">
     <div class="modal-sheet">
@@ -339,26 +328,6 @@
     </div>
   </div>
 
-  <!-- Modal Admin -->
-  <div id="modal-admin" class="modal-backdrop">
-    <div class="modal-sheet">
-      <div class="modal-title">≡ Administration <button class="modal-close" data-modal="modal-admin">✕</button></div>
-      <div class="admin-tabs">
-        <button class="admin-tab active" data-tab="tab-perils">Périls</button>
-        <button class="admin-tab" data-tab="tab-factions">Factions</button>
-        <button class="admin-tab" data-tab="tab-systemes">Systèmes</button>
-        <button class="admin-tab" data-tab="tab-quadrants">Quadrants</button>
-      </div>
-      <div id="tab-perils" class="admin-tab-content active"></div>
-      <div id="tab-factions" class="admin-tab-content"></div>
-      <div id="tab-systemes" class="admin-tab-content"></div>
-      <div id="tab-quadrants" class="admin-tab-content"></div>
-      <div style="padding:12px 0 0;border-top:1px solid var(--border);margin-top:12px">
-        <a href="/vaisseaux.html" style="display:inline-flex;align-items:center;gap:6px;color:var(--primary);font-size:0.88rem;text-decoration:none;">🛸 Gérer les vaisseaux →</a>
-      </div>
-    </div>
-  </div>
-
   <!-- Modal Détail système -->
   <div id="modal-detail" class="modal-backdrop">
     <div class="modal-sheet">
@@ -372,29 +341,6 @@
     <div class="modal-sheet" style="max-width:720px">
       <div class="modal-title"><span id="edit-sys-title">Éditer Système</span><button class="modal-close" data-modal="modal-edit-system">✕</button></div>
       <div id="edit-sys-content"></div>
-    </div>
-  </div>
-
-  <!-- Modal Faction -->
-  <div id="modal-faction" class="modal-backdrop">
-    <div class="modal-sheet" style="max-width:420px">
-      <div class="modal-title"><span id="faction-modal-title">Nouvelle Faction</span><button class="modal-close" data-modal="modal-faction">✕</button></div>
-      <div style="padding:10px">
-        <div class="se-field" style="margin-bottom:8px"><label>Nom</label><input type="text" id="faction-name" style="width:100%"></div>
-        <div class="se-field" style="margin-bottom:8px"><label>Diminutif</label><input type="text" id="faction-short" placeholder="ex: EG, LPL…" style="width:100%"></div>
-        <div class="se-field" style="margin-bottom:8px"><label>Description</label><textarea id="faction-desc" rows="3" style="width:100%;font-family:inherit"></textarea></div>
-        <div class="se-field" style="margin-bottom:8px"><label>Icône (image)</label>
-          <div style="display:flex;align-items:center;gap:8px">
-            <img id="faction-icon-preview" src="" style="width:40px;height:40px;border-radius:4px;object-fit:cover;border:1px solid var(--border);display:none">
-            <input type="file" id="faction-icon-input" accept="image/*" style="font-size:0.78rem;color:var(--text)">
-          </div>
-        </div>
-        <input type="hidden" id="faction-icon-data">
-        <input type="hidden" id="faction-edit-id">
-        <div style="display:flex;gap:8px;margin-top:12px">
-          <button id="btn-save-faction" style="flex:1;padding:8px;background:var(--primary);color:white;border:none;border-radius:4px;cursor:pointer">Enregistrer</button>
-        </div>
-      </div>
     </div>
   </div>
 

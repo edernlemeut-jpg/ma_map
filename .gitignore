@@ -1,0 +1,9 @@
+node_modules/
+db/
+.env
+public/css/tailwind.css
+coverage/
+playwright-results.txt
+test-results/
+public/uploads/
+.claude/

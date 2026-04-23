@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Metal Adventures — Ma Campagne</title>
+  <link rel="stylesheet" href="/css/tailwind.css?v=2.0.0">
+  <link rel="stylesheet" href="/css/ma-theme.css">
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="border-b border-gray-700 bg-gray-800">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="text-xl font-bold">
+        <a href="/" class="hover:text-blue-400 transition-colors">⚙️ Metal Adventures</a>
+      </h1>
+      <nav class="flex items-center gap-4 text-sm">
+        <span id="header-table-info" class="hidden flex items-center gap-2 text-gray-300 border-r border-gray-600 pr-4 mr-2">
+          <span id="header-table-name" class="font-medium"></span>
+          <span id="header-table-role" class="text-xs"></span>
+          <a href="#" id="header-change-table"
+             class="text-blue-400 hover:text-blue-300 text-xs ml-1" title="Changer de table">✕</a>
+        </span>
+        <span id="auth-user-info" class="hidden flex items-center gap-3">
+          <a href="/profile.html" id="auth-user-name" class="text-gray-300 hover:text-blue-400 transition-colors"></a>
+          <a href="#" id="auth-logout-btn" class="text-red-400 hover:text-red-300 hover:underline">Déconnexion</a>
+        </span>
+        <a href="/login.html" id="auth-login-link" class="text-blue-400 hover:underline">Connexion</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-3xl mx-auto w-full px-4 py-6">
+
+    <!-- Access guard -->
+    <div id="access-denied" class="hidden text-center py-16">
+      <p class="text-4xl mb-4">🔒</p>
+      <p class="text-gray-400">Accès réservé au MJ de la table active.</p>
+      <a href="/" class="mt-4 inline-block text-blue-400 hover:underline">Retour à l'accueil</a>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="text-center py-12 text-gray-400">Chargement…</div>
+
+    <!-- Main panel (shown when loaded) -->
+    <div id="campaign-panel" class="hidden space-y-6">
+
+      <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-bold" id="campaign-title">Ma Campagne</h2>
+        <a href="/" class="text-sm text-gray-400 hover:text-gray-200">← Tableau de bord</a>
+      </div>
+
+      <!-- Invite link section -->
+      <section class="bg-gray-800 rounded-xl border border-gray-700 p-6 space-y-4">
+        <h3 class="font-semibold text-lg">🔗 Lien d'invitation</h3>
+        <p class="text-sm text-gray-400">
+          Partagez ce lien avec vos joueurs pour qu'ils rejoignent la table.
+        </p>
+        <div class="flex gap-2">
+          <input id="invite-link-input" type="text" readonly
+                 class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-200 select-all cursor-pointer"
+                 title="Cliquer pour copier" />
+          <button id="btn-copy-invite"
+                  class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm font-medium transition-colors whitespace-nowrap">
+            Copier
+          </button>
+          <button id="btn-regen-invite"
+                  class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-medium transition-colors whitespace-nowrap"
+                  title="Générer un nouveau code (invalide l'ancien)">
+            Régénérer
+          </button>
+        </div>
+        <p id="invite-msg" class="hidden text-xs text-green-400"></p>
+      </section>
+
+      <!-- Members section -->
+      <section class="bg-gray-800 rounded-xl border border-gray-700 p-6 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold text-lg">👥 Membres</h3>
+          <span id="member-count" class="text-sm text-gray-400"></span>
+        </div>
+        <div id="members-list" class="space-y-2">
+          <p class="text-gray-500 text-sm">Chargement des membres…</p>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <script type="module" src="/js/campagne.js?v=2.0.0"></script>
+</body>
+</html>

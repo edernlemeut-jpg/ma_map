@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Carte Galactique - Mobile</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        /* ... styles existants ... */
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none; 
+        }
+        
+        #map-grid {
+            width: 1600px;
+            height: 1600px;
+            display: grid;
+            grid-template-columns: repeat(40, 40px);
+            grid-template-rows: repeat(40, 40px);
+            background-color: #111827; /* bg-gray-900 (couleur de fond de repli) */
+            
+            /* Image de fond alignée sous la grille */
+            background-image: url('carte_interactive_ma.png');
+            background-size: 1600px 1600px; /* Force la taille pour l'alignement */
+            background-repeat: no-repeat;
+            background-position: center;
+            
+            transform-origin: 0 0;
+            will-change: transform; 
+        }
+
+        .quadrant {
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(107, 114, 128, 0.2); /* border-gray-400/20 */
+            box-sizing: border-box;
+            position: relative;
+        }
+        
+        .quadrant.has-system::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+            background-color: #38bdf8; /* sky-400 */
+            border-radius: 50%;
+            opacity: 0.6;
+        }
+        
+        .quadrant.path-point { background-color: rgba(250, 204, 21, 0.3); } /* amber-300 */
+        .quadrant.start-point { background-color: rgba(74, 222, 128, 0.5); } /* green-400 */
+        .quadrant.end-point { background-color: rgba(248, 113, 113, 0.5); } /* red-400 */
+        .quadrant.etape-point { background-color: rgba(250, 204, 21, 0.5); } /* amber-300 */
+        
+        /* Style pour le quadrant sélectionné */
+        .quadrant.selected {
+            outline: 2px solid #fde047; /* yellow-300 */
+            background-color: rgba(253, 224, 71, 0.15);
+            z-index: 10;
+        }
+        
+        .modal-open {
+            overflow: hidden;
+        }
+
+        #modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+            opacity: 0;
+            transition: opacity 0.3s ease-out;
+            pointer-events: none;
+        }
+        #modal-backdrop.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .bottom-sheet {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #1f2937; /* bg-gray-800 */
+            color: #f3f4f6; /* text-gray-100 */
+            border-top-left-radius: 1rem; /* rounded-t-xl */
+            border-top-right-radius: 1rem;
+            z-index: 50;
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+            will-change: transform;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .bottom-sheet.show {
+            transform: translateY(0);
+        }
+        
+        .modal-handle {
+            width: 40px;
+            height: 4px;
+            background-color: #4b5563; /* bg-gray-600 */
+            border-radius: 2px;
+            margin: 0.5rem auto;
+            flex-shrink: 0;
+        }
+        
+        .modal-header {
+            padding: 0 1rem 0.5rem 1rem;
+            flex-shrink: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        
+        .modal-header h2 {
+            text-align: center;
+            flex-grow: 1;
+        }
+        
+        .modal-close-btn {
+            position: absolute;
+            right: 0.5rem;
+            top: -0.25rem;
+            padding: 0.5rem;
+            border-radius: 99px;
+            background-color: #374151; /* bg-gray-700 */
+        }
+        
+        /* Bouton réduire */
+        .modal-minimize-btn {
+            position: absolute;
+            left: 0.5rem;
+            top: -0.25rem;
+            padding: 0.5rem;
+            border-radius: 99px;
+            background-color: #374151; /* bg-gray-700 */
+            color: #9ca3af;
+        }
+        .modal-minimize-btn:hover {
+            color: #fff;
+            background-color: #4b5563;
+        }
+
+        .modal-content {
+            padding: 0 1rem 1rem 1rem;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+        
+        .edit-page-header {
+            background-color: #1f2937; /* bg-gray-800 */
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #374151; /* border-gray-700 */
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 0.875rem; /* text-sm */
+            font-weight: 500;
+            color: #9ca3af; /* text-gray-400 */
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            background-color: #374151; /* bg-gray-700 */
+            border: 1px solid #4b5563; /* border-gray-600 */
+            color: #f3f4f6; /* text-gray-100 */
+            border-radius: 0.5rem; /* rounded-lg */
+            padding: 0.75rem; /* p-3 */
+        }
+        .form-group input[type="file"] {
+            padding: 0.5rem;
+            font-size: 0.875rem;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3b82f6; /* border-blue-500 */
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+        }
+        
+        .editor-card {
+            background-color: #1f2937; /* bg-gray-800 */
+            border-radius: 0.75rem; /* rounded-xl */
+            border: 1px solid #374151; /* border-gray-700 */
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+        .editor-card-header {
+            background-color: #374151; /* bg-gray-700 */
+            padding: 0.75rem 1rem;
+            font-size: 1.125rem; /* text-lg */
+            font-weight: 600; /* semibold */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .editor-card-content {
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .editor-card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+        
+        .editor-card-grid .form-group {
+            margin-bottom: 0; 
+        }
+
+        .dynamic-list-item {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 0.5rem;
+            align-items: center;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            background-color: #374151; /* bg-gray-700 */
+        }
+        
+        .dynamic-list-item-content {
+             display: contents; 
+        }
+        
+        .patrol-item .dynamic-list-item-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            grid-column: 1 / 2;
+        }
+        
+         .armament-item .dynamic-list-item-content {
+            display: grid;
+            grid-template-columns: 80px 1fr;
+            gap: 0.5rem;
+            grid-column: 1 / 2;
+        }
+        
+         .systeme-item .dynamic-list-item-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            grid-column: 1 / 2;
+        }
+        
+        .astroport-item .dynamic-list-item-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            grid-column: 1 / 2;
+        }
+        .lieu-item .dynamic-list-item-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            grid-column: 1 / 2;
+        }
+        .lieu-item textarea {
+             width: 100%;
+             background-color: #4b5563; /* bg-gray-600 */
+             border: 1px solid #374151; /* border-gray-700 */
+             color: #f3f4f6; /* text-gray-100 */
+             border-radius: 0.5rem;
+             padding: 0.5rem;
+             font-size: 0.875rem;
+             min-height: 60px;
+        }
+        
+        /* Styles pour la matrice des distances */
+        .distance-matrix {
+            font-size: 0.75rem; /* text-xs */
+            white-space: nowrap;
+        }
+        .distance-matrix th, .distance-matrix td {
+            padding: 4px 6px;
+        }
+        .distance-matrix .sticky {
+            position: sticky;
+            z-index: 10;
+        }
+        .distance-matrix .left-0 {
+            left: 0;
+        }
+
+
+        /* Style pour la liste des vaisseaux */
+        .ship-list-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background-color: #374151; /* bg-gray-700 */
+            padding: 1rem;
+            border-radius: 0.75rem;
+        }
+        .ship-list-item img {
+            width: 50px;
+            height: 50px;
+            border-radius: 0.5rem;
+            object-fit: cover;
+            flex-shrink: 0;
+            border: 2px solid #4b5563;
+        }
+        .ship-list-item-info {
+            flex-grow: 1;
+        }
+        .ship-list-item-info .nom {
+            font-weight: 600;
+            font-size: 1.125rem;
+            color: #fff;
+        }
+        .ship-list-item-info .modele {
+            font-size: 0.875rem;
+            color: #9ca3af;
+        }
+        
+        /* STYLES POUR LES RÉSULTATS DÉTAILLÉS */
+        .trip-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem; /* text-sm */
+        }
+        .trip-table th, .trip-table td {
+            border: 1px solid #374151; /* border-gray-700 */
+            padding: 6px 4px;
+            text-align: center;
+        }
+        .trip-table th {
+            background-color: #374151; /* bg-gray-700 */
+            font-weight: 600;
+            font-size: 0.75rem; /* text-xs */
+        }
+        .trip-table input {
+            width: 50px;
+            padding: 4px;
+            text-align: center;
+            background-color: #4b5563; /* bg-gray-600 */
+            border: 1px solid #374151; /* border-gray-700 */
+            border-radius: 4px;
+            color: #f3f4f6;
+        }
+        .trip-leg {
+            margin-bottom: 1rem;
+            border-left: 3px solid #3b82f6; /* border-blue-500 */
+            padding-left: 0.75rem;
+        }
+        .trip-leg h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .peril-link {
+            color: #60a5fa; /* text-blue-400 */
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        .status-ok { color: #9ca3af; /* text-gray-400 */ }
+        .status-success { color: #34d399; /* text-green-400 */ font-weight: 600; }
+        .status-danger { color: #f87171; /* text-red-400 */ font-weight: 600; }
+
+        #map-container.selection-mode {
+            outline: 3px solid #3b82f6; /* Ligne bleue */
+            cursor: crosshair;
+        }
+        .quadrant-select-btn {
+            flex-shrink: 0;
+        }
+        
+        /* Styles pour la visionneuse d'image */
+        #image-viewer-modal {
+            display: none; /* Caché par défaut */
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background-color: rgba(0, 0, 0, 0.85);
+            align-items: center;
+            justify-content: center;
+            cursor: pointer; /* Clic pour fermer */
+        }
+        #image-viewer-modal.show {
+            display: flex;
+        }
+        #image-viewer-modal img {
+            max-width: 90vw;
+            max-height: 85vh;
+            object-fit: contain;
+            border-radius: 0.75rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+            cursor: default; /* C curseur normal sur l'image */
+        }
+        #image-viewer-modal .close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            z-index: 110;
+            background-color: #1f2937; /* bg-gray-800 */
+            border-radius: 99px;
+            padding: 0.5rem;
+            color: white;
+            cursor: pointer;
+        }
+
+        /* Style pour les sous-cartes (Lunes, etc.) */
+        .sub-card {
+            background-color: #374151; /* bg-gray-700 */
+            border-radius: 0.5rem;
+            border: 1px solid #4b5563; /* border-gray-600 */
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+        .sub-card-header {
+            background-color: #4b5563; /* bg-gray-600 */
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem; /* text-sm */
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .sub-card-content {
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 h-[100dvh] flex flex-col overflow-hidden">
+
+    <main class="flex-grow overflow-hidden relative">
+        
+        <!-- PAGE 1: CARTE INTERACTIVE (Visible par défaut) -->
+        <div id="map-page" class="page h-full w-full">
+            <div id="map-container" class="h-full w-full overflow-hidden cursor-grab active:cursor-grabbing relative bg-gray-900">
+                <div id="col-legend" class="absolute top-0 left-0 z-10 flex text-gray-500 text-xs pointer-events-none" style="transform: translate(30px, 10px)"></div>
+                <div id="row-legend" class="absolute top-0 left-0 z-10 flex flex-col text-gray-500 text-xs pointer-events-none" style="transform: translate(10px, 30px)"></div>
+                <div id="map-grid"></div>
+            </div>
+            
+            <!-- Bouton flottant pour voir l'itinéraire en cours -->
+            <button id="view-trip-map-btn" class="hidden absolute top-4 right-4 z-20 bg-blue-600/90 hover:bg-blue-500 text-white p-3 rounded-full shadow-lg flex items-center justify-center gap-2 border border-blue-400/50">
+                <i data-lucide="map-pin" class="w-6 h-6"></i>
+                <span class="text-xs font-bold hidden md:inline">Itinéraire</span>
+            </button>
+
+            <div class="absolute bottom-4 right-4 z-20 flex flex-col space-y-2">
+                 <!-- Bouton Paramètres supprimé -->
+                
+                <button id="zoom-in" class="bg-gray-800/80 backdrop-blur-sm text-white p-3 rounded-full shadow-lg h-12 w-12 flex items-center justify-center">
+                    <i data-lucide="zoom-in" class="w-6 h-6"></i>
+                </button>
+                <button id="zoom-out" class="bg-gray-800/80 backdrop-blur-sm text-white p-3 rounded-full shadow-lg h-12 w-12 flex items-center justify-center">
+                    <i data-lucide="zoom-out" class="w-6 h-6"></i>
+                </button>
+                <button id="zoom-reset" class="bg-gray-800/80 backdrop-blur-sm text-white p-3 rounded-full shadow-lg h-12 w-12 flex items-center justify-center">
+                    <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- PAGE 2: CONFIGURATION ITINÉRAIRE -->
+        <div id="itineraire-page" class="page h-full w-full hidden overflow-y-auto bg-gray-900">
+            <div class="p-4 max-w-md mx-auto">
+                <h1 class="text-2xl font-bold mb-4">Calculer un itinéraire</h1>
+                
+                <fieldset class="form-group border border-gray-700 p-3 rounded-lg mb-4">
+                    <legend class="text-lg font-semibold text-green-400 px-2">Départ</legend>
+                    <div class="form-group">
+                        <label for="start-quadrant">Quadrant</label>
+                        <div class="flex gap-2">
+                            <select id="start-quadrant" class="flex-grow"></select>
+                            <button type="button" id="start-quadrant-btn" class="quadrant-select-btn p-3 bg-gray-700 rounded-lg hover:bg-gray-600">
+                                <i data-lucide="crosshair" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group"><label for="start-system">Système</label><select id="start-system"></select></div>
+                    <div class="form-group mb-0"><label for="start-planet">Astre de départ</label><select id="start-planet" disabled></select></div>
+                </fieldset>
+                
+                <fieldset class="form-group border border-gray-700 p-3 rounded-lg mb-4">
+                    <legend class="text-lg font-semibold text-amber-400 px-2">Étapes</legend>
+                    <div id="etapes-list"><p class="text-gray-500 text-sm">Fonctionnalité d'étapes à venir.</p></div>
+                    <button class="w-full mt-2 bg-gray-700 hover:bg-gray-600 p-2 rounded-lg text-sm">+ Ajouter une étape</button>
+                </fieldset>
+
+                <fieldset class="form-group border border-gray-700 p-3 rounded-lg mb-4">
+                    <legend class="text-lg font-semibold text-red-400 px-2">Arrivée</legend>
+                    <div class="form-group">
+                        <label for="end-quadrant">Quadrant</label>
+                        <div class="flex gap-2">
+                            <select id="end-quadrant" class="flex-grow"></select>
+                            <button type="button" id="end-quadrant-btn" class="quadrant-select-btn p-3 bg-gray-700 rounded-lg hover:bg-gray-600">
+                                <i data-lucide="crosshair" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group"><label for="end-system">Système</label><select id="end-system"></select></div>
+                    <div class="form-group mb-0"><label for="end-planet">Astre d'arrivée</label><select id="end-planet" disabled></select></div>
+                </fieldset>
+                
+                <fieldset class="form-group border border-gray-700 p-3 rounded-lg mb-4">
+                    <legend class="text-lg font-semibold text-sky-400 px-2">Vaisseau & Paramètres</legend>
+                    <div class="form-group">
+                        <label for="active-ship-select">Vaisseau Actif</label>
+                        <select id="active-ship-select"></select>
+                    </div>
+                    <div id="active-ship-stats" class="text-sm text-gray-400 space-y-1 mt-2">
+                        <!-- Stats injectées par JS -->
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mt-4">
+                        <div class="form-group mb-0">
+                            <label for="comp-navigation" class="text-xs">Comp. Navigation (Succ. exc.)</label>
+                            <input type="number" id="comp-navigation" value="0" min="0" class="p-2">
+                        </div>
+                        <div class="form-group mb-0">
+                            <label for="comp-saut" class="text-xs">Comp. Saut (Succ. exc.)</label>
+                            <input type="number" id="comp-saut" value="0" min="0" class="p-2">
+                        </div>
+                    </div>
+                </fieldset>
+                
+                <button id="calculate-itineraire-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded-lg text-lg">
+                    Calculer
+                </button>
+                
+                <!-- Bouton pour voir l'itinéraire existant -->
+                <button id="view-trip-form-btn" class="hidden w-full mt-3 bg-green-600 hover:bg-green-500 text-white font-bold p-3 rounded-lg text-lg flex items-center justify-center gap-2">
+                    <i data-lucide="eye" class="w-5 h-5"></i>
+                    Voir les résultats actuels
+                </button>
+            </div>
+        </div>
+        
+        <!-- PAGE 3: ÉDITEUR DE SYSTÈME -->
+        <div id="system-edit-page" class="page h-full w-full hidden flex flex-col">
+            <header class="edit-page-header flex-shrink-0">
+                <button id="system-edit-back-btn" class="p-2 rounded-full hover:bg-gray-700">
+                    <i data-lucide="arrow-left" class="w-6 h-6"></i>
+                </button>
+                <h1 id="system-edit-title" class="text-xl font-semibold truncate px-2">Éditer le système</h1>
+                <button id="system-edit-save-btn" class="p-2 rounded-full hover:bg-gray-700">
+                    <i data-lucide="save" class="w-6 h-6"></i>
+                </button>
+            </header>
+            <div id="system-edit-content" class="flex-grow overflow-y-auto p-4 space-y-4">
+                <!-- Les cartes de l'éditeur seront injectées ici par JS -->
+            </div>
+        </div>
+
+        <!-- PAGE 4: CATALOGUE DE VAISSEAUX -->
+        <div id="ship-catalog-page" class="page h-full w-full hidden flex flex-col">
+            <header class="edit-page-header flex-shrink-0">
+                <div class="w-10"></div> 
+                <h1 class="text-xl font-semibold">Vaisseaux</h1>
+                <button id="add-new-ship-btn" class="p-2 rounded-full hover:bg-gray-700">
+                    <i data-lucide="plus" class="w-6 h-6"></i>
+                </button>
+            </header>
+            <div id="ship-list-container" class="flex-grow overflow-y-auto p-4 space-y-4">
+                <!-- Liste des vaisseaux injectée par JS -->
+            </div>
+        </div>
+
+    </main>
+    
+    <!-- Barre de Navigation Inférieure -->
+    <footer class="flex-shrink-0 w-full bg-gray-800 border-t border-gray-700 grid grid-cols-3">
+        <button id="nav-map-btn" class="nav-btn p-3 flex flex-col items-center text-blue-400">
+            <i data-lucide="map" class="w-6 h-6"></i>
+            <span class="text-xs mt-1">Carte</span>
+        </button>
+        <button id="nav-itineraire-btn" class="nav-btn p-3 flex flex-col items-center text-gray-400">
+            <i data-lucide="milestone" class="w-6 h-6"></i>
+            <span class="text-xs mt-1">Itinéraire</span>
+        </button>
+        <button id="nav-ship-btn" class="nav-btn p-3 flex flex-col items-center text-gray-400">
+            <i data-lucide="rocket" class="w-6 h-6"></i>
+            <span class="text-xs mt-1">Vaisseaux</span>
+        </button>
+    </footer>
+
+    <!-- --- MODALES (Bottom Sheets) --- -->
+    
+    <div id="modal-backdrop" class="hidden"></div>
+    
+    <!-- Modale Paramètres supprimée -->
+    
+    <div id="quadrant-modal" class="bottom-sheet">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 id="quadrant-modal-title" class="text-xl font-bold">Quadrant</h2>
+            <button class="modal-close-btn" onclick="closeModal()">
+                 <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div id="quadrant-modal-content" class="modal-content"></div>
+        <div class="p-4 border-t border-gray-700">
+            <button id="add-system-btn" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold p-3 rounded-lg">
+                Nouveau Système
+            </button>
+        </div>
+    </div>
+    
+    <div id="itineraire-results-modal" class="bottom-sheet">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <!-- Bouton Réduire -->
+            <button class="modal-minimize-btn" onclick="closeModal()" title="Réduire">
+                 <i data-lucide="minus" class="w-5 h-5"></i>
+            </button>
+            
+            <h2 class="text-xl font-bold text-center">Résultats</h2>
+            
+             <button class="modal-close-btn" onclick="closeModal()">
+                 <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <!-- Contenu mis à jour par JS -->
+        <div id="itineraire-results-modal-content" class="modal-content"></div> 
+        <!-- Pied de page pour le résumé et l'actualisation -->
+        <div id="itineraire-results-footer" class="p-4 border-t border-gray-700 flex-shrink-0">
+             <div id="trip-summary-total" class="text-center font-semibold mb-3"></div>
+             <button id="update-trip-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded-lg">
+                Actualiser le Voyage
+            </button>
+        </div>
+    </div>
+
+    <!-- MODALE: DÉTAILS DU PÉRIL -->
+    <div id="peril-detail-modal" class="bottom-sheet" style="z-index: 60; max-height: 60vh;">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 id="peril-detail-title" class="text-xl font-bold">Détail du Péril</h2>
+            <button class="modal-close-btn" onclick="closePerilModal()">
+                 <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div id="peril-detail-modal-content" class="modal-content"></div>
+    </div>
+
+
+    <!-- MODALE ÉDITEUR VAISSEAU -->
+    <div id="ship-edit-modal" class="bottom-sheet">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <h2 id="ship-edit-modal-title" class="text-xl font-bold">Nouveau Vaisseau</h2>
+            <button class="modal-close-btn" onclick="closeModal()">
+                 <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div class="modal-content space-y-4">
+            <input type="hidden" id="ship-edit-index" value="-1">
+            
+            <!-- Sélecteur de Modèle (pour NOUVEAU vaisseau) -->
+            <div class="form-group" id="ship-edit-model-select-group">
+                <label for="ship-edit-model-select">Modèle de Vaisseau (Type)</label>
+                <select id="ship-edit-model-select">
+                    <!-- Options injectées par JS -->
+                </select>
+            </div>
+            
+            <!-- Section Image -->
+            <div class="form-group">
+                <label>Image</label>
+                <div class="flex items-center gap-4">
+                    <img id="ship-edit-image-preview" src="https://placehold.co/100x100/374151/9ca3af?text=SHIP" class="w-16 h-16 rounded-lg object-cover border-2 border-gray-600 flex-shrink-0 cursor-pointer" onclick="showImageModal(this.src)">
+                    <div class="flex-grow">
+                        <input type="file" id="ship-edit-image-input" accept="image/*" class="w-full">
+                        <button type="button" id="ship-edit-image-remove" class="text-xs text-red-400 hover:underline mt-1">Supprimer l'image</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Infos principales -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="form-group" id="ship-edit-nom-group"><label for="ship-edit-nom">Nom</label><input type="text" id="ship-edit-nom" placeholder="Ex: La Guigne"></div>
+                <div class="form-group" id="ship-edit-model-input-group">
+                    <label for="ship-edit-modele">Modèle</label>
+                    <input type="text" id="ship-edit-modele" placeholder="Ex: Bulky 420" class="bg-gray-700"> 
+                </div>
+            </div>
+            <div class="form-group"><label for="ship-edit-classe">Classe</label><input type="text" id="ship-edit-classe" placeholder="Ex: Transport lourd (1000 t/100 m)"></div>
+
+            <!-- Stats de voyage -->
+            <div class="grid grid-cols-3 gap-4">
+                <div class="form-group"><label for="ship-edit-vitessecroisiere" class="text-xs">Croisière (US/j)</label><input type="number" id="ship-edit-vitessecroisiere"></div>
+                <div class="form-group"><label for="ship-edit-vitessehyper" class="text-xs">Hyper. (PC/j)</label><input type="number" id="ship-edit-vitessehyper"></div>
+                <div class="form-group"><label for="ship-edit-autonomie" class="text-xs">Autonomie (PC)</label><input type="number" id="ship-edit-autonomie"></div>
+            </div>
+
+            <!-- Stats de combat -->
+            <div class="grid grid-cols-3 gap-4">
+                <div class="form-group"><label for="ship-edit-blindage">Blindage</label><input type="number" id="ship-edit-blindage"></div>
+                <div class="form-group"><label for="ship-edit-coque">Coque</label><input type="number" id="ship-edit-coque"></div>
+                <div class="form-group"><label for="ship-edit-vitesseTactique">Vit. Tactique</label><input type="text" id="ship-edit-vitesseTactique" placeholder="Ex: 50 K/t"></div>
+            </div>
+            
+            <!-- Autres stats -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="form-group"><label for="ship-edit-manoeuvrabilite">Manœuvrabilité</label><input type="text" id="ship-edit-manoeuvrabilite"></div>
+                <div class="form-group"><label for="ship-edit-senseurs">Senseurs</label><input type="text" id="ship-edit-senseurs" placeholder="Ex: 350 K (3,5 US)"></div>
+                <div class="form-group"><label for="ship-edit-equipage">Équipage</label><input type="text" id="ship-edit-equipage" placeholder="Ex: 5 P + 2 V (7)"></div>
+                <div class="form-group"><label for="ship-edit-passagers">Passagers</label><input type="text" id="ship-edit-passagers" placeholder="Ex: 2 + 30 (50)"></div>
+                <div class="form-group"><label for="ship-edit-soute">Soute</label><input type="number" id="ship-edit-soute"></div>
+                <div class="form-group"><label for="ship-edit-prix">Prix</label><input type="number" id="ship-edit-prix"></div>
+            </div>
+            <div class="form-group"><label for="ship-edit-origine">Origine</label><input type="text" id="ship-edit-origine"></div>
+
+            <!-- Section Armement -->
+            <div class="editor-card" style="margin-bottom: 0;">
+                <div class="editor-card-header" style="padding: 0.5rem 1rem;">
+                    <span>Armement</span>
+                    <button type="button" id="ship-edit-add-arme" class="p-1 bg-blue-600 rounded-full">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div id="ship-edit-armement-list" class="editor-card-content" style="padding: 0.5rem; gap: 0.5rem;">
+                    <!-- Armes injectées par JS -->
+                </div>
+            </div>
+            
+            <!-- Section Systèmes Secondaires -->
+            <div class="editor-card" style="margin-bottom: 0;">
+                <div class="editor-card-header" style="padding: 0.5rem 1rem;">
+                    <span>Systèmes Secondaires</span>
+                    <button type="button" id="ship-edit-add-systeme" class="p-1 bg-blue-600 rounded-full">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div id="ship-edit-systemes-list" class="editor-card-content" style="padding: 0.5rem; gap: 0.5rem;">
+                    <!-- Systèmes injectés par JS -->
+                </div>
+            </div>
+        </div>
+        <div class="p-4 border-t border-gray-700 grid grid-cols-2 gap-4">
+            <button id="ship-edit-delete-btn" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold p-3 rounded-lg hidden">
+                Supprimer
+            </button>
+            <button id="ship-edit-save-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded-lg col-span-2">
+                Sauvegarder
+            </button>
+        </div>
+    </div>
+
+
+    <!-- Visionneuse d'image -->
+    <div id="image-viewer-modal" onclick="closeImageModal()">
+        <button class="close-btn" onclick="closeImageModal()"><i data-lucide="x" class="w-6 h-6"></i></button>
+        <img id="image-viewer-img" src="" alt="Vaisseau en grand" onclick="event.stopPropagation()">
+    </div>
+
+
+    <script>
+        // --- DONNÉES PAR DÉFAUT (Systèmes) ---
+        // ... (Le gros bloc de données reste ici, inchangé pour la lisibilité) ...
+        const defaultSystemsData = {
+            "Π′-37":[],"Ι′-34":[],"Α′-29":[],"Β′-21":[],"Λ′-37":[],"Λ′-35":[],"Λ′-33":[],"Λ′-31":[],"Λ′-29":[],"Λ′-27":[],"Κ′-26":[],"Κ′-25":[],"Μ′-26":[],"Ψ-27":[],"Ω-40":[],"Α′-40":[],"Γ′-40":[],"Π′-40":[],
+            "Κ-8":[{"nom":"Bazaar","faction":"Barrens","isFrontiere":false,"route":"route galactique (+1d)","gouvernement":"aucun","description":"Système le plus civilisé des Barrens...","patrouilles":[{"vaisseaux":"1 Limier","cout":"25d MF"}],"soleil":{"nom":"Darek","classe":"naine jaune","diametre":"1000 K","distanceSaut":"65","description":"Darek brûle d'un éclat rougeoyant...","activiteSolaire":[{"distance":"Passer à proximité","consequence":"15d MF"}]},"corpsCelestes":[{"nom":"Calden","classe":"M","orbite":"4","diametre":"8K","atmosphere":"respirable","gravite":"normale","techno":"C","gouvernement":"aucun","commerce":"planète primitive (TD)","securite":0,"population":1000000,"description":"Planète désertique de sable rouge...","marchandiseA":1.5,"marchandiseB":1.5,"marchandiseC":1.5,"illegal":"aucune","astroports":[],"patrouilles":[],"lieux":[{"nom":"La cité des Tours","description":"Camp de réfugiés..."}],"lunes":[{"nom":"Dalnar","classe":"Satellite","orbite":"175 K","atmosphere":"respirable","description":"Ancien camp de base...","lunes":[]}]},{"nom":"Bazaar","classe":"M","orbite":"13","diametre":"11 K","atmosphere":"respirable","gravite":"normale","techno":"B","gouvernement":"dictature","commerce":"carrefour commercial (+1d)","securite":2,"population":2000000000,"description":"Planète marchande...","marchandiseA":1.5,"marchandiseB":1,"marchandiseC":1,"illegal":"aucune","astroports":[{"type":"rudimentaire (D+1)","nom":"Bazaar City"}],"patrouilles":[{"vaisseaux":"5 pillards","cout":"13d MF"}],"lieux":[{"nom":"Bazaar-01","description":"Station orbitale..."}],"lunes":[{"nom":"Torda","classe":"Satellite","orbite":"75 K","atmosphere":"irrespirable (600 rads)","description":"Désert de cendres...","lunes":[]}]}]}],
+            "Δ′-36":[],
+            "Λ′-24":[{"nom":"Coralia","faction":"Ligue des Planètes Libres","isFrontiere":false,"route":"Route galactique (+1d)","gouvernement":"Collectivisme","description":"Le système Coralia est la capitale culturelle...","patrouilles":[{"vaisseaux":"Ambassadeur","cout":"10d MF"}],"soleil":{"nom":"Noméa","classe":"naine jaune","diametre":"1 000 K","distanceSaut":"72","description":"Ce soleil à la chaleur douce...","activiteSolaire":[{"distance":"Passer à proximité","consequence":"10d MF"}]},"corpsCelestes":[{"nom":"Noélie","classe":"M","orbite":"5","diametre":"5 K","atmosphere":"respirable","gravite":"normale","techno":"A","gouvernement":"collectivisme","commerce":"normal","securite":6,"population":3000000000,"description":"Monde agricole...","marchandiseA":1.5,"marchandiseB":1.5,"marchandiseC":1,"illegal":"armes, drogues, esclaves...","astroports":[{"type":"Première classe (+1d)","nom":"Noélie 00"}],"patrouilles":[{"vaisseaux":"5 miliciens","cout":"9d MF"}],"lieux":[{"nom":"La caverne des Justes","description":"Ancien point de ralliement..."}],"lunes":[{"nom":"Lona","classe":"Satellite","orbite":"100 K","atmosphere":"Aucun","description":"Laboratoires de test...","lunes":[]}]}]}],
+            "Ψ-1":[],"Ω-1":[],"Ω-3":[{"nom":"Darek","faction":"Empire Galactique","corpsCelestes":[],"soleil":{"nom":"Kordat","description":"","diametre":"","activiteSolaire":[],"distanceSaut":"75"}}],"Υ-3":[],"Χ-3":[],"Ψ-3":[],"Α′-3":[],"Ζ-3":[],"Ζ-9":[],"Η-9":[],"Δ′-9":[{"nom":"Δ′-9","faction":"OCG","corpsCelestes":[],"soleil":{}}],"Ε′-9":[],"Ζ′-9":[{"nom":"Dès","faction":"Empire Galactique","corpsCelestes":[],"soleil":{"nom":"Raltyr","description":"","diametre":"","activiteSolaire":[]}}],"Τ-14":[],"Τ-23":[{"nom":"Destria","faction":"Empire de Sol","corpsCelestes":[{"nom":"Nova Supremis","astroports":[],"description":"","lunes":[],"lieux":[],"patrouilles":[],"orbite":"30"}],"soleil":{"distanceSaut":"80"}}],"Ε-21":[{"nom":"Exxalia","faction":"OCG","corpsCelestes":[],"soleil":{"nom":"Losserim","description":"","diametre":"","activiteSolaire":[]}}],"Η-18":[{"nom":"Fortune","faction":"OCG","corpsCelestes":[],"soleil":{}}],"Μ-15":[{"nom":"Palace","faction":"OCG","corpsCelestes":[],"soleil":{}}],"Ε-13":[{"nom":"E-13","faction":"OCG","corpsCelestes":[],"soleil":{}}],"Ξ-10":[{"nom":"Ξ-10","faction":"OCG","corpsCelestes":[],"soleil":{}}],"Ρ-14":[{"nom":"Ρ-14","faction":"OCG","corpsCelestes":[],"soleil":{}}],"Τ-7":[{"nom":"Τ-7","faction":"OCG","corpsCelestes":[],"soleil":{}}],"Ω-7":[{"nom":"Khargall","faction":"Empire Galactique","corpsCelestes":[],"soleil":{}}],"Λ′-17":[{"nom":"Λ′-17","faction":"OCG","corpsCelestes":[],"soleil":{}}],"Μ′-21":[{"nom":"Π","faction":"Ligue des Planètes Libres","corpsCelestes":[],"soleil":{}}],"Ι′-22":[{"nom":"Ι′-22","faction":"OCG","corpsCelestes":[],"soleil":{}}],"Ε′-24":[{"nom":"Ε′-24","faction":"OCG","corpsCelestes":[],"soleil":{}}],"Φ-23":[{"nom":"Sol","faction":"Empire de Sol","corpsCelestes":[],"soleil":{}}],"Χ-28":[{"nom":"Χ-28","faction":"OCG","corpsCelestes":[],"soleil":{}}],"Π-28":[{"nom":"Π-28","faction":"OCG","corpsCelestes":[],"soleil":{}}],"Μ-23":[{"nom":"Μ-23","faction":"OCG","corpsCelestes":[],"soleil":{}}],"Α′-20":[{"nom":"Vardessa","faction":"Empire de Sol","corpsCelestes":[],"soleil":{}}],"Ζ-28":[],"Η-28":[{"nom":"Karokum","faction":"Barrens","corpsCelestes":[],"soleil":{"nom":"Torkana","description":"","diametre":"","activiteSolaire":[]}}],"Ζ-25":[{"nom":"Sulpira","faction":"Barrens","corpsCelestes":[],"soleil":{"nom":"Daltéros","description":"","diametre":"","activiteSolaire":[]}}],"Α′-18":[],"Α′-19":[],"Ν-33":[{"nom":"Havana","faction":"Pirates","corpsCelestes":[{"nom":"Cayo de la muerte","classe":"M","orbite":"7"},{"nom":"Nueva Havana","classe":"M","orbite":"10"},{"nom":"Havana","classe":"M","orbite":"36"},{"nom":"Libertad","classe":"M","orbite":"43"},{"nom":"Porto Stellare","classe":"M","orbite":"63"}],"soleil":{"nom":"Ligero","description":"","distanceSaut":"69","diametre":"1000 K","activiteSolaire":[]}}],"Θ-28":[],"Θ-27":[{"nom":"Tchagaan","faction":"Barrens","isFrontiere":false,"route":"Hors des routes(D+1)","gouvernement":"Dictature","description":"Système sous contrôle impérial","patrouilles":[],"soleil":{"nom":"Nouvelle Étoile","description":"","diametre":"","distanceSaut":"","activiteSolaire":[]},"corpsCelestes":[]}],
+            "Ρ-25":[{"nom":"Rostaria","faction":"Empire de Sol","isFrontiere":false,"route":"Hors des routes(D+1)","gouvernement":"Monarchie","description":"Système déchiré par une guerre civile...","patrouilles":[{"vaisseaux":"Sentinelle","cout":"20d MF"}],"soleil":{"nom":"Dorass","classe":"Naine jaune","diametre":"1000 K","distanceSaut":"53","description":"Naine jaune plutôt âgée...","activiteSolaire":[{"distance":"Passer à proximité","consequence":"10d MF"}]},"corpsCelestes":[{"nom":"Torus","classe":"M","orbite":"3","diametre":"15 K","atmosphere":"Respirable","gravite":"Standard","techno":"B","gouvernement":"aucun","commerce":"Planète pauvre (D+1)","securite":2,"population":2500000000,"description":"Monde de roche désertique...","marchandiseA":2,"marchandiseB":2,"marchandiseC":1,"illegal":"-","astroports":[{"type":"Rudimentaire D+1","nom":"Valnéa (capitale)"}],"patrouilles":[],"lieux":[],"lunes":[]},{"nom":"Rostaria","classe":"M","orbite":"7","diametre":"8K","atmosphere":"Respirable","gravite":"Standard","techno":"B","gouvernement":"monarchie","commerce":"Planète pauvre (D+1)","securite":3,"population":5000000000,"description":"Capitale du système...","marchandiseA":1.5,"marchandiseB":1.5,"marchandiseC":1.5,"illegal":"-","astroports":[{"type":"Rudimentaire D+1","nom":"Astroport Principal (Daw City)"}],"patrouilles":[],"lieux":[{"nom":"Le gouffre","description":"Affaissement où les habitants jettent tous leurs déchets..."}],"lunes":[{"nom":"Étinar","classe":"Satellite","orbite":"250 K","atmosphere":"Non respirable","description":"Bille de roche...","lunes":[],"astroports":[{"type":"Rudimentaire D+1","nom":""}]}]}]}]
+        };
+
+        // --- DONNÉES PAR DÉFAUT (Vaisseaux) ---
+        // (Le bloc de vaisseaux reste identique) ...
+        const initialShipModels = [
+            { id: crypto.randomUUID(), nom: "Bulky 420", modele: "Bulky 420", image: "https://placehold.co/100x100/374151/9ca3af?text=BULKY+420", vitesseCroisiere: 6, vitesseHyperspatiale: 400, autonomie: 10000, classe: "Transport lourd (1000 t/100 m)", manoeuvrabilite: "-", vitesseTactique: "50 K/t", blindage: 0, coque: 15, senseurs: "350 K (3,5 US)", armement: [{ cle: "P", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }, { cle: "V", nom: "Canon plasma léger (tourelle) (1G/CC/O/2C)" }, { cle: "Pr", nom: "Canon laser léger (2L/SA/250/1C)" }, { cle: "Po", nom: "Canon laser léger (2L/SA/250/1C)" }], equipage: "5P+2V+5C+16 Me + 3 Ma (31)", passagers: "2+30 (50)", soute: 250, prix: 82500, origine: "OCG", systemesSecondaires: [] },
+            { id: crypto.randomUUID(), nom: "Bulky 450", modele: "Bulky 450", image: "https://placehold.co/100x100/374151/9ca3af?text=BULKY+450", vitesseCroisiere: 12, vitesseHyperspatiale: 400, autonomie: 20000, classe: "Transport lourd (1000 t/100 m)", manoeuvrabilite: "-", vitesseTactique: "75 K/t", blindage: 0, coque: 15, senseurs: "350 K (3,5 US)", armement: [{ cle: "P", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }, { cle: "V", nom: "Canon plasma léger (tourelle) (1G/CC/O/2C)" }, { cle: "Pr", nom: "Canon laser léger (2L/SA/250/1C)" }, { cle: "Po", nom: "Canon laser léger (2L/SA/250/1C)" }], equipage: "5P+2V+5 C+28 Me + 4 Ma (44)", passagers: "3+45 (50)", soute: 250, prix: 200500, origine: "OCG", systemesSecondaires: [] },
+            { id: crypto.randomUUID(), nom: "Comète", modele: "Comète", image: "https://placehold.co/100x100/374151/9ca3af?text=COMETE", vitesseCroisiere: 18, vitesseHyperspatiale: 1000, autonomie: 20000, classe: "Transport léger (100 t/30 m)", manoeuvrabilite: "-", vitesseTactique: "125 K/t", blindage: 0, coque: 10, senseurs: "500 K (5 US)", armement: [{ cle: "P", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }, { cle: "V", nom: "Canon laser léger (tourelle) (2L/SA/250/1C)" }], equipage: "1P+2V+2C+4 Me+0 Mo (9)", passagers: "1+15 (25)", soute: 25, prix: 45000, origine: "Ligue des Planètes Libres", systemesSecondaires: [] },
+            { id: crypto.randomUUID(), nom: "Galactic Basic", modele: "Basic", image: "https://placehold.co/100x100/374151/9ca3af?text=BASIC", vitesseCroisiere: 12, vitesseHyperspatiale: 500, autonomie: 10000, classe: "Transport léger (100 t/30 m)", manoeuvrabilite: "-", vitesseTactique: "75 K/t", blindage: 0, coque: 10, senseurs: "350 K (3,5 US)", armement: [{ cle: "P", nom: "Canon laser léger (tourelle) (2L/SA/250/1C)" }], equipage: "1P+1V+1C+1 Me (4)", passagers: "0+5 (25)", soute: 25, prix: 10000, origine: "OCG", systemesSecondaires: [] },
+            { id: crypto.randomUUID(), nom: "Galactic Escort", modele: "Escort", image: "https://placehold.co/100x100/374151/9ca3af?text=ESCORT", vitesseCroisiere: 18, vitesseHyperspatiale: 500, autonomie: 10000, classe: "Chasseur spatial (10 t/15 m)", manoeuvrabilite: "(sc)", vitesseTactique: "125 K/t", blindage: 1, coque: 4, senseurs: "250 K (2,5 US)", armement: [{ cle: "V", nom: "Canon blaster léger (1L/RL/100/1C)" }, { cle: "V", nom: "Canon blaster léger (1L/RL/100/1C)" }], equipage: "1P+1C (2)", passagers: "0 (2)", soute: 0.5, prix: 27000, origine: "OCG", systemesSecondaires: [{ nom: "Armes combinées", description: "(Armement)" }] },
+            { id: crypto.randomUUID(), nom: "Galactic Guardian", modele: "Guardian", image: "https://placehold.co/100x100/374151/9ca3af?text=GUARDIAN", vitesseCroisiere: 12, vitesseHyperspatiale: 1000, autonomie: 10000, classe: "Frégate (1000 t/100 m)", manoeuvrabilite: "-", vitesseTactique: "75 K/t", blindage: 1, coque: 15, senseurs: "500 K (5 US)", armement: [{ cle: "B", nom: "10 x Canon laser léger (2L/SA/250/1C)" }, { cle: "T", nom: "10 x Canon laser léger (2L/SA/250/1C)" }], equipage: "5P+2V+20C+25 Me+18 Mc (70)", passagers: "10+150 (175)", soute: 150, prix: 200000, origine: "OCG", systemesSecondaires: [] },
+            { id: crypto.randomUUID(), nom: "Galactic Scout", modele: "Scout", image: "https://placehold.co/100x100/374151/9ca3af?text=SCOUT", vitesseCroisiere: 18, vitesseHyperspatiale: 1000, autonomie: 10000, classe: "Corvette (100 t/30 m)", manoeuvrabilite: "-", vitesseTactique: "125 K/t", blindage: 1, coque: 10, senseurs: "500 K (5 US)", armement: [{ cle: "P", nom: "Canon laser léger (tourelle) (2L/SA/250/1C)" }, { cle: "V", nom: "Canon laser léger (tourelle) (2L/SA/250/1C)" }], equipage: "1P+2V+2C+3 Me (8)", passagers: "0+5 (25)", soute: 5, prix: 21000, origine: "OCG", systemesSecondaires: [] },
+            { id: crypto.randomUUID(), nom: "Romanza 330", modele: "Romanza 330", image: "https://placehold.co/100x100/374151/9ca3af?text=ROMANZA+330", vitesseCroisiere: 18, vitesseHyperspatiale: 1000, autonomie: 10000, classe: "Transport léger (100 t/30 m)", manoeuvrabilite: "-", vitesseTactique: "125 K/t", blindage: 0, coque: 10, senseurs: "500 K (5 US)", armement: [{ cle: "Pr", nom: "Canon laser léger (2L/SA/250/1C)" }, { cle: "P", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }, { cle: "V", nom: "Canon laser léger (tourelle) (2L/SA/250/1C)" }], equipage: "1P+2V+3C+3 Me (9)", passagers: "1+15 (25)", soute: 25, prix: 32000, origine: "Sol", systemesSecondaires: [] },
+            { id: crypto.randomUUID(), nom: "Romanza 360", modele: "Romanza 360", image: "https://placehold.co/100x100/374151/9ca3af?text=ROMANZA+360", vitesseCroisiere: 18, vitesseHyperspatiale: 1000, autonomie: 10000, classe: "Corvette (100 t/30 m)", manoeuvrabilite: "-", vitesseTactique: "125 K/t", blindage: 1, coque: 10, senseurs: "500 K (5 US)", armement: [{ cle: "P", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }, { cle: "V", nom: "Canon laser léger (tourelle) (2L/SA/250/1C)" }], equipage: "1P+2V+2C+3 Me (8)", passagers: "1+15 (25)", soute: 10, prix: 25000, origine: "Sol", systemesSecondaires: [] },
+            { id: crypto.randomUUID(), nom: "Solaria 400", modele: "Solaria 400", image: "https://placehold.co/100x100/374151/9ca3af?text=SOLARIA+400", vitesseCroisiere: 18, vitesseHyperspatiale: 2000, autonomie: 6000, classe: "Yacht de luxe (1000 t/100 m)", manoeuvrabilite: "(sc)", vitesseTactique: "125 K/t", blindage: 0, coque: 15, senseurs: "550 K (5,5 US)", armement: [{ cle: "P", nom: "Canon laser léger (tourelle) (2L/SA/250/1C)" }, { cle: "V", nom: "Canon laser léger (tourelle) (2L/SA/250/1C)" }], equipage: "5P+2V+2C+26 Me + 16 Ma (51)", passagers: "10+150 (125)", soute: 50, prix: 300000, origine: "Sol", systemesSecondaires: [{ nom: "Cabines de luxe", description: "Vous bénéficiez de (sc) sur vos tests de Négociation..." }] },
+            { id: crypto.randomUUID(), nom: "Vorace", modele: "Vorace", image: "https://placehold.co/100x100/374151/9ca3af?text=VORACE", vitesseCroisiere: 12, vitesseHyperspatiale: 600, autonomie: 6000, classe: "Transport lourd (1000 t/100 m)", manoeuvrabilite: "-", vitesseTactique: "75 K/t", blindage: 0, coque: 15, senseurs: "350 K (3,5 US)", armement: [{ cle: "P", nom: "Canon laser moyen (tourelle) (2G/SA/500/2C)" }, { cle: "V", nom: "Canon blaster moyen (tourelle) (1G/RL/250/3C)" }], equipage: "5P+1V+5C+16 Me + 3 Mo (30)", passagers: "5+75 (125)", soute: 250, prix: 100000, origine: "Barrens", systemesSecondaires: [] },
+            { id: crypto.randomUUID(), nom: "VTHS-44 Pointe Noire", modele: "Pointe Noire", image: "https://placehold.co/100x100/374151/9ca3af?text=POINTE+NOIRE", vitesseCroisiere: 18, vitesseHyperspatiale: 1000, autonomie: 6000, classe: "Transport léger (100 t/30 m)", manoeuvrabilite: "-", vitesseTactique: "125 K/t", blindage: 1, coque: 10, senseurs: "500 K (5 US)", armement: [{ cle: "P", nom: "2 x Canons blasters légers (tourelles) (1L/RL/100/10)" }], equipage: "1P+2V+2C+3 Me (8)", passagers: "1+15 (25)", soute: 25, prix: 45000, origine: "Empire galactique", systemesSecondaires: [{ nom: "Blindage supplémentaire", description: "Le vaisseau gagne +1 en Blindage (déjà compté)." }, { nom: "Module d'exploration", description: "Le vaisseau peut se poser n'importe où..." }] },
+            { id: crypto.randomUUID(), nom: "Excelsior", modele: "Excelsior", image: "https://placehold.co/100x100/374151/9ca3af?text=EXCELSIOR", vitesseCroisiere: 18, vitesseHyperspatiale: 2000, autonomie: 10000, classe: "Transport léger (100 t/30 m)", manoeuvrabilite: "-", vitesseTactique: "125 K/t", blindage: 0, coque: 10, senseurs: "350 K (3,5 US)", armement: [{ cle: "P", nom: "Canon laser léger (tourelle) (2L/SA/250/1C)" }, { cle: "V", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }], equipage: "1 P+1V+2C+ 2 Me (6)", passagers: "1 + 15 (25)", soute: 25, prix: 49500, origine: "OCG", systemesSecondaires: [{ nom: "Infirmerie", description: "" }, { nom: "Modules de survie", description: "" }] },
+            { id: crypto.randomUUID(), nom: "Galactic Safety", modele: "Safety", image: "https://placehold.co/100x100/374151/9ca3af?text=SAFETY", vitesseCroisiere: 6, vitesseHyperspatiale: 0, autonomie: 1, classe: "Barge de sauvetage (10 t/15 m)", manoeuvrabilite: "-", vitesseTactique: "50 K/t", blindage: 0, coque: 4, senseurs: "100 K (1 US)", armement: [], equipage: "1 P (1)", passagers: "0+15 (25)", soute: 0.5, prix: 7000, origine: "OCG", systemesSecondaires: [] },
+            { id: crypto.randomUUID(), nom: "Galactic Trader", modele: "Trader", image: "https://placehold.co/100x100/374151/9ca3af?text=TRADER", vitesseCroisiere: 12, vitesseHyperspatiale: 1000, autonomie: 10000, classe: "Transport léger (100 t/30 m)", manoeuvrabilite: "-", vitesseTactique: "75 K/t", blindage: 0, coque: 10, senseurs: "350 K (3,5 US)", armement: [{ cle: "P", nom: "Canon laser léger (tourelle) (2L/SA/250/1C)" }, { cle: "V", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }], equipage: "1 P+1 V+2 C+2 Me (6)", passagers: "1 + 15 (25)", soute: 25, prix: 22500, origine: "OCG", systemesSecondaires: [{ nom: "Haillon amélioré", description: "" }] },
+            { id: crypto.randomUUID(), nom: "Galactic Traveler", modele: "Traveler", image: "https://placehold.co/100x100/374151/9ca3af?text=TRAVELER", vitesseCroisiere: 18, vitesseHyperspatiale: 1000, autonomie: 10000, classe: "Transport lourd (1 000 t/100 m)", manoeuvrabilite: "-", vitesseTactique: "125 K/t", blindage: 0, coque: 15, senseurs: "500 K (5 US)", armement: [{ cle: "P", nom: "5 x Canon laser léger (Tourelle) (2L/SA/250/1C)" }, { cle: "B", nom: "5 x Canon laser léger (2L/SA/250/1C)" }, { cle: "T", nom: "5 x Canon laser léger (2L/SA/250/1C)" }], equipage: "5P+2V+15C+30 Me + 18 Mo (70)", passagers: "10+150 (175)", soute: 250, prix: 280000, origine: "OCG", systemesSecondaires: [] },
+            { id: crypto.randomUUID(), nom: "Destria Nova", modele: "Nova", image: "https://placehold.co/100x100/374151/9ca3af?text=NOVA", vitesseCroisiere: 36, vitesseHyperspatiale: 1000, autonomie: 6000, classe: "Yacht (100 t/30 m)", manoeuvrabilite: "sc/OD", vitesseTactique: "250 K/t", blindage: 0, coque: 10, senseurs: "600 K (6 US)", armement: [{ cle: "P", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }], equipage: "1 P+2 V+1 C+2 Me+1 Mo (7)", passagers: "1+15 (25)", soute: 5, prix: 52000, origine: "Sol", systemesSecondaires: [{ nom: "Cabines de luxe", description: "" }, { nom: "Contrôles personnalisés", description: "" }, { nom: "Fauteuil du capitaine", description: "" }, { nom: "Sas sécurisé", description: "" }] },
+            { id: crypto.randomUUID(), nom: "Destria Sublima", modele: "Sublima", image: "https://placehold.co/100x100/374151/9ca3af?text=SUBLIMA", vitesseCroisiere: 24, vitesseHyperspatiale: 1000, autonomie: 6000, classe: "Yacht de luxe (1 000 t/100 m)", manoeuvrabilite: "sc", vitesseTactique: "150 K/t", blindage: 0, coque: 15, senseurs: "750 K (7,5 US)", armement: [{ cle: "Pr", nom: "Canon laser léger (2L/SA/250/1C)" }, { cle: "P", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }, { cle: "V", nom: "Canon plasma léger (tourelle) (1G/CC/0/2C)" }], equipage: "5 P+2 V+4 C+26 Me + 4 Mo (42)", passagers: "3+45 (125)", soute: 50, prix: 354500, origine: "Sol", systemesSecondaires: [{ nom: "Cabines de luxe", description: "" }, { nom: "Cambuse", description: "" }, { nom: "Fauteuil du capitaine", description: "" }, { nom: "Salle de réception", description: "" }, { nom: "Sas sécurisé", description: "" }] },
+            { id: crypto.randomUUID(), nom: "Romanza 450", modele: "Romanza 450", image: "https://placehold.co/100x100/374151/9ca3af?text=ROMANZA+450", vitesseCroisiere: 18, vitesseHyperspatiale: 1000, autonomie: 10000, classe: "Frégate (1 000 t/100 m)", manoeuvrabilite: "-", vitesseTactique: "125 K/t", blindage: 1, coque: 15, senseurs: "600 K (6 US)", armement: [{ cle: "P", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }, { cle: "V", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }, { cle: "B", nom: "10x Canon laser léger (2L/SA/250/1C)" }, { cle: "T", nom: "10x Canon laser léger (2L/SA/250/1C)" }], equipage: "5 P+2 V+22 C+30 Me+3 Mo (62)", passagers: "5+75 (125)", soute: 75, prix: 265500, origine: "Sol", systemesSecondaires: [{ nom: "Fauteuil du capitaine", description: "" }] },
+            { id: crypto.randomUUID(), nom: "Nomade", modele: "Nomade", image: "https://placehold.co/100x100/374151/9ca3af?text=NOMADE", vitesseCroisiere: 18, vitesseHyperspatiale: 500, autonomie: 6000, classe: "Corvette (100 t/30 m)", manoeuvrabilite: "-", vitesseTactique: "125 K/t", blindage: 1, coque: 10, senseurs: "350 K (3,5 US)", armement: [{ cle: "P", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }, { cle: "V", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }, { cle: "Pr", nom: "Canon laser léger (2L/SA/250/1C)" }, { cle: "Po", nom: "Canon laser léger (2L/SA/250/1C)" }], equipage: "1 P+1V+4C+2 Me (8)", passagers: "1 + 15 (35)", soute: 10, prix: 24500, origine: "Barrens", systemesSecondaires: [] },
+            { id: crypto.randomUUID(), nom: "Raider", modele: "Raider", image: "https://placehold.co/100x100/374151/9ca3af?text=RAIDER", vitesseCroisiere: 18, vitesseHyperspatiale: 500, autonomie: 2000, classe: "Corvette (100 t/30 m)", manoeuvrabilite: "-", vitesseTactique: "125 K/t", blindage: 1, coque: 10, senseurs: "500 K (5 US)", armement: [{ cle: "P", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }, { cle: "V", nom: "Canon plasma léger (tourelle) (1G/CC/0/20)" }, { cle: "Pr", nom: "Canon laser léger (2L/SA/250/1C)" }, { cle: "Po", nom: "Canon laser léger (2L/SA/250/1C)" }], equipage: "1P+2V+5C+1 Me (11)", passagers: "1 + 15 (25)", soute: 10, prix: 21000, origine: "Barrens", systemesSecondaires: [] },
+            { id: crypto.randomUUID(), nom: "Rôdeur", modele: "Rôdeur", image: "https://placehold.co/100x100/374151/9ca3af?text=RODEUR", vitesseCroisiere: 12, vitesseHyperspatiale: 400, autonomie: 3000, classe: "Frégate (1 000 t/100 m)", manoeuvrabilite: "-", vitesseTactique: "100 K/t", blindage: 1, coque: 15, senseurs: "750 K (7,5 US)", armement: [{ cle: "P", nom: "5 x Canon laser moyen (tourelle) (2G/SA/500/2C)" }, { cle: "B", nom: "5 x Canon laser moyen (2G/SA/500/2C)" }, { cle: "T", nom: "5 x Canon laser moyen (2G/SA/500/2C)" }], equipage: "5 P+2 V+22 C+16 Me + 4 Mo (49)", passagers: "5+75 (125)", soute: 100, prix: 96000, origine: "Barrens", systemesSecondaires: [] },
+            { id: crypto.randomUUID(), nom: "Guérillero", modele: "Guérillero", image: "https://placehold.co/100x100/374151/9ca3af?text=GUERILLERO", vitesseCroisiere: 30, vitesseHyperspatiale: 1000, autonomie: 10000, classe: "Chasseur (10 t/15 m)", manoeuvrabilite: "sc", vitesseTactique: "200 K/t", blindage: 1, coque: 4, senseurs: "250 K (2,5 US)", armement: [{ cle: "P", nom: "Canon laser léger (tourelle) (2L/SA/250/1C)" }], equipage: "1 P+1V (2)", passagers: "0 (2)", soute: 0.5, prix: 25500, origine: "Ligue des planètes libres", systemesSecondaires: [{ nom: "AstroCog", description: "(Canon laser léger, programmes non fournis)" }] },
+            { id: crypto.randomUUID(), nom: "Maquisard", modele: "Maquisard", image: "https://placehold.co/100x100/374151/9ca3af?text=MAQUISARD", vitesseCroisiere: 18, vitesseHyperspatiale: 1000, autonomie: 10000, classe: "Corvette (100 t/30 m)", manoeuvrabilite: "-", vitesseTactique: "125 K/t", blindage: 1, coque: 10, senseurs: "550 K (5,5 US)", armement: [{ cle: "P", nom: "Canon laser moyen (tourelle) (2G/SA/500/2C)" }, { cle: "V", nom: "Canon blaster léger (tourelle) (1L/RL/100/10)" }], equipage: "1 P+2V+3C+3 Me (9)", passagers: "1+15 (25)", soute: 10, prix: 37500, origine: "Ligue des planètes libres", systemesSecondaires: [{ nom: "AstroCog", description: "(Canon laser moyen, programmes non fournis)" }, { nom: "Sas électroniques", description: "" }] },
+            { id: crypto.randomUUID(), nom: "Météore", modele: "Météore", image: "https://placehold.co/100x100/374151/9ca3af?text=METEORE", vitesseCroisiere: 14, vitesseHyperspatiale: 1000, autonomie: 22500, classe: "Transport lourd (1 000 t/100 m)", manoeuvrabilite: "-", vitesseTactique: "125 K/t", blindage: 0, coque: 15, senseurs: "750 K (7,5 US)", armement: [{ cle: "P", nom: "Canon laser moyen (tourelle) (2G/SA/500/2C)" }, { cle: "V", nom: "Canon laser moyen (tourelle) (2G/SA/500/2C)" }], equipage: "5P+4V+4C+44Me+5Mo(62)", passagers: "5+ 75 (125)", soute: 250, prix: 490000, origine: "Ligue des planètes libres", systemesSecondaires: [{ nom: "AstroCog", description: "(Machineries, programmes non fournis)" }, { nom: "Convertisseurs haute fiabilité", description: "" }, { nom: "Recycleur atomique", description: "" }, { nom: "Sas électroniques", description: "" }] },
+            { id: crypto.randomUUID(), nom: "Pulsar", modele: "Pulsar", image: "https://placehold.co/100x100/374151/9ca3af?text=PULSAR", vitesseCroisiere: 18, vitesseHyperspatiale: 1000, autonomie: 20000, classe: "Scout (100 t/30 m)", manoeuvrabilite: "-", vitesseTactique: "125 K/t", blindage: 0, coque: 10, senseurs: "550 K (5,5 US)", armement: [{ cle: "Pr", nom: "Canon laser léger (2L/SA/250/1C)" }, { cle: "P", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }], equipage: "1 P+2 V+2 C+4 Me (9)", passagers: "1+ 15 (25)", soute: 5, prix: 50000, origine: "Ligue des planètes libres", systemesSecondaires: [{ nom: "AstroCog", description: "(Senseurs, programmes non fournis)" }, { nom: "Senseurs de recherche", description: "" }, { nom: "Sas électroniques", description: "" }] },
+            { id: crypto.randomUUID(), nom: "VRHS-22 Dague Noire", modele: "Dague Noire", image: "https://placehold.co/100x100/374151/9ca3af?text=DAGUE+NOIRE", vitesseCroisiere: 18, vitesseHyperspatiale: 1000, autonomie: 10000, classe: "Corvette (100 t/30 m)", manoeuvrabilite: "-", vitesseTactique: "125 K/t", blindage: 1, coque: 10, senseurs: "500 K (5 US)", armement: [{ cle: "Pr", nom: "Canon laser moyen (2G/SA/500/2C)" }, { cle: "P", nom: "3 x Canon blaster léger (tourelle) (1L/RL/100/1C)" }], equipage: "1 P+2 V+5C+3 Me (11)", passagers: "1 + 15 (25)", soute: 5, prix: 43750, origine: "Empire galactique", systemesSecondaires: [{ nom: "Lanceur de sondes", description: "" }, { nom: "Senseurs CCME", description: "" }] },
+            { id: crypto.randomUUID(), nom: "VSS-32 Flèche d'Acier", modele: "Flèche d'Acier", image: "https://placehold.co/100x100/374151/9ca3af?text=VSS-32", vitesseCroisiere: 18, vitesseHyperspatiale: 0, autonomie: 1, classe: "Chasseur (10 t/15 m)", manoeuvrabilite: "sc", vitesseTactique: "200 K/t", blindage: 1, coque: 4, senseurs: "350 K (3,5 US)", armement: [{ cle: "Pr", nom: "Canon blaster léger (tourelle) (1L/RL/100/1C)" }], equipage: "1 P + 1 V (2)", passagers: "0 (2)", soute: 0.5, prix: 15250, origine: "Empire galactique", systemesSecondaires: [] },
+            { id: crypto.randomUUID(), nom: "VCHS-71 Prospérité", modele: "Prospérité", image: "https://placehold.co/100x100/374151/9ca3af?text=PROSPERITE", vitesseCroisiere: 6, vitesseHyperspatiale: 600, autonomie: 10000, classe: "Cargo (10 000 t/500 m)", manoeuvrabilite: "e2f", vitesseTactique: "50 K/t", blindage: 1, coque: 20, senseurs: "500 K (5 US)", armement: [{ cle: "Pr", nom: "Canon laser moyen (2G/SA/500/2C)" }, { cle: "Po", nom: "Canon laser moyen (2G/SA/500/2C)" }, { cle: "P1", nom: "5 x Canon blaster moyen (tourelle) (1G/RL/250/3C)" }, { cle: "P2", nom: "5 x Canon laser léger (tourelle) (2L/SA/250/1C)" }, { cle: "P3", nom: "5 x Canon laser léger (tourelle) (2L/SA/250/1C)" }, { cle: "P4", nom: "5 x Canon laser léger (tourelle) (2L/SA/250/1C)" }, { cle: "P5", nom: "5 x Canon laser léger (tourelle) (2L/SA/250/1C)" }], equipage: "50 P 11 V+39C+166 Me + 155 Mo (421)", passagers: "35 + 550 (625)", soute: 5000, prix: 2050000, origine: "Empire galactique", systemesSecondaires: [{ nom: "Hangar", description: "" }] }
+        ];
+        
+        // --- DONNÉES DES PÉRILS ---
+        const perilsData = {"interplanetaire":{"name":"Périls Interplanétaires","categories":[{"seuilMin":2,"seuilMax":4,"nom":"Rencontre heureuse","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Épave","data":{"description":"Vous détectez à quelques unités spatiales une masse de métal à la dérive...","mobile":false,"senseurs":1,"sciencesStellaires":1,"definition":"Cette rencontre heureuse est l'occasion pour les PJ de remplir un peu leurs soutes.","protocole":"1: Pilote : trace une trajectoire...","resultat":"0: le vaisseau entre en collision..."}},{"seuilMin":6,"seuilMax":8,"nom":"Transport léger","data":{"description":"Soudain, un écho apparaît sur vos senseurs...","mobile":true,"senseurs":3,"sciencesStellaires":0,"definition":"Cette rencontre heureuse confronte les PJ à un transport léger de classe Figther.","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":12,"nom":"Yacht de luxe","data":{"description":"Soudain, un écho apparaît sur vos senseurs. Rapide, d'une masse conséquente...","mobile":true,"senseurs":3,"sciencesStellaires":0,"definition":"Cette rencontre heureuse confronte les PJ à 1 yacht de luxe.","protocole":"","resultat":""}}]},{"seuilMin":5,"seuilMax":5,"nom":"Phénomène astrophysique heureux","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Astéroïde","data":{"description":"Vous détectez à quelques US une masse rocheuse...","mobile":true,"senseurs":3,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique heureux est la bonne occasion de se faire discret.","protocole":"1 : Pilote : trace une trajectoire...","resultat":"0 : le vaisseau entre en collision..."}},{"seuilMin":6,"seuilMax":8,"nom":"Comète","data":{"description":"Vous détectez un puissant rayonnement lumineux...","mobile":true,"senseurs":3,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique heureux permet aux PJ de gagner de la vitesse.","protocole":"1 : Pilote : trace une trajectoire...","resultat":"0 : le pilote ne s'est pas placé..."}},{"seuilMin":9,"seuilMax":12,"nom":"Vent solaire","data":{"description":"Soudain, vos senseurs s'illuminent...","mobile":false,"senseurs":1,"sciencesStellaires":3,"definition":"Ce phénomène astrophysique heureux naît d'un flot énergétique...","protocole":"","resultat":""}}]},{"seuilMin":6,"seuilMax":7,"nom":"Beauté de l'espace","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Nébuleuse boréale","data":{"description":"Une vague diffuse se déploie sur l'écran de vos senseurs...","mobile":false,"senseurs":1,"sciencesStellaires":1,"definition":"Cette beauté de l'espace est une nébuleuse aux propriétés physiques un peu particulières.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Dauphins de l'infini","data":{"description":"Vous repérez à quelques US de vous des sources d'énergie dépourvues de masse...","mobile":true,"senseurs":4,"sciencesStellaires":1,"definition":"Cette beauté de l'espace a été appelée « dauphins de l'infini ».","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":12,"nom":"Mer de miroirs","data":{"description":"Vous détectez devant vous un champ d'astéroïdes...","mobile":false,"senseurs":1,"sciencesStellaires":1,"definition":"Cette beauté de l'espace est née de la rencontre entre des astéroïdes et de l'eau.","protocole":"","resultat":""}}]},{"seuilMin":8,"seuilMax":8,"nom":"Ennui mécanique","perils":[{"seuilMin":2,"seuilMax":2,"nom":"Panne de la gravité artificielle","data":{"description":"Alors que vous filez à travers l'espace, vous avez le sentiment d'être plus léger...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique des plus amusants...","protocole":"","resultat":""}},{"seuilMin":3,"seuilMax":3,"nom":"Panne du recycleur","data":{"description":"A bord d'un vaisseau, l'eau n'est jamais bien propre...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est aussi courant qu'onéreux.","protocole":"","resultat":""}},{"seuilMin":4,"seuilMax":5,"nom":"Panne des senseurs","data":{"description":"Pendant un instant, le tableau de bord de la passerelle s'illumine...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique l'un des plus stressants pour l'équipage.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Panne des contrôles","data":{"description":"Les voyants de votre tableau de bord vous annoncent deux nouvelles...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est extrêmement frustrant pour le navigateur.","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":10,"nom":"Panne de la propulsion","data":{"description":"Soudain, le vrombissement des moteurs se fait plus doux...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est l'une des hantises des navigateurs.","protocole":"","resultat":""}},{"seuilMin":11,"seuilMax":11,"nom":"Panne du navordinateur","data":{"description":"Alors que votre journée s'écoule comme un fleuve tranquille...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est très ennuyeux...","protocole":"","resultat":""}},{"seuilMin":12,"seuilMax":12,"nom":"Panne du générateur","data":{"description":"Vous filez à travers l'espace... et soudain, tout s'arrête.","mobile":true,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est le pire de tous.","protocole":"","resultat":""}}]},{"seuilMin":9,"seuilMax":10,"nom":"Rencontre malheureuse","perils":[{"seuilMin":2,"seuilMax":2,"nom":"Vaisseau fantôme","data":{"description":"Vous détectez à quelques unités spatiales une masse de métal à la dérive...","mobile":true,"senseurs":5,"sciencesStellaires":99,"definition":"Cette rencontre malheureuse ne recèle aucun danger... à première vue.","protocole":"","resultat":""}},{"seuilMin":3,"seuilMax":3,"nom":"Cuirassé","data":{"description":"Soudain, un écho apparaît sur vos senseurs. Lent, gros...","mobile":true,"senseurs":3,"sciencesStellaires":0,"definition":"Cette rencontre malheureuse confronte les PJ à 1 cuirassé.","protocole":"","resultat":""}},{"seuilMin":4,"seuilMax":5,"nom":"Frégate","data":{"description":"Soudain, un écho apparaît sur vos senseurs. Rapide, d'une masse conséquente...","mobile":true,"senseurs":3,"sciencesStellaires":0,"definition":"Cette rencontre malheureuse confronte les PJ à 1 frégate.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Corvette","data":{"description":"Soudain, un écho apparaît sur vos senseurs. Rapide, de faible masse...","mobile":true,"senseurs":3,"sciencesStellaires":0,"definition":"Cette rencontre malheureuse confronte les PJ à 1 corvette.","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":10,"nom":"Parasites spatiaux","data":{"description":"Vos senseurs détectent... des formes de vie flottant dans l'espace...","mobile":true,"senseurs":5,"sciencesStellaires":2,"definition":"Cette rencontre malheureuse risque de mettre à sec les réserves...","protocole":"","resultat":""}},{"seuilMin":11,"seuilMax":11,"nom":"Ver de l'espace","data":{"description":"Vous continuez votre voyage et croisez la route d'un astéroïde inoffensif...","mobile":true,"senseurs":5,"sciencesStellaires":2,"definition":"Cette rencontre malheureuse confronte les PJ à 1 ver de l'espace.","protocole":"","resultat":""}},{"seuilMin":12,"seuilMax":12,"nom":"Kraken","data":{"description":"Vos senseurs détectent... d'une forme de vie flottant dans l'espace...","mobile":true,"senseurs":5,"sciencesStellaires":2,"definition":"Cette rencontre malheureuse confronte les PJ à 1 Kraken.","protocole":"","resultat":""}}]},{"seuilMin":11,"seuilMax":11,"nom":"Phénomène astrophysique malheureux","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Mini-météorites","data":{"description":"Vous détectez à quelques US devant vous une nuée d'échos...","mobile":true,"senseurs":3,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique malheureux risque de sérieusement endommager le vaisseau.","protocole":"Protocole :\n1 : Canonnier : déblaye le chemin...","resultat":"0 : 3G\n1 : 1G..."}},{"seuilMin":6,"seuilMax":8,"nom":"Champ d'astéroïdes","data":{"description":"Vous détectez devant vous le cauchemar de tous les pilotes...","mobile":false,"senseurs":1,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique malheureux a des allures de catastrophe.","protocole":"Protocole :\n1 - Vigie : décte un couloir...","resultat":"0 : 3G\n1 : 1G..."}},{"seuilMin":9,"seuilMax":12,"nom":"Distorsions gravitationnelles","data":{"description":"Soudain, vos senseurs s'affolent...","mobile":false,"senseurs":3,"sciencesStellaires":3,"definition":"Ce phénomène astrophysique malheureux est lié à de puissantes ondes gravitationnelles...","protocole":"Protocole :\n1 : Vigie : corrige les dérèglements...","resultat":"0-3 : le vaisseau s'est perdu..."}}]},{"seuilMin":12,"seuilMax":99,"nom":"Catastrophe !","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Tempête cosmique","data":{"description":"Avant même que les senseurs n'affichent le relevé...","mobile":true,"senseurs":1,"sciencesStellaires":5,"definition":"C'est la catastrophe ! Une tempête cosmique...","protocole":"Protocole :\n1 : Machineries : compense les dérèglements...","resultat":"0 : 3G\n1 : 1G..."}},{"seuilMin":6,"seuilMax":8,"nom":"Météorites","data":{"description":"Soudain, l'écran des senseurs s'illumine...","mobile":true,"senseurs":1,"sciencesStellaires":3,"definition":"C'est la catastrophe ! Les PJ sont intérêt à être bons pilotes...","protocole":"1 - Senseurs : Détecte la trajectoire...","resultat":"0: 3G\n1: 1G..."}},{"seuilMin":9,"seuilMax":12,"nom":"Patrouille militaire","data":{"description":"Vous détectez à quelques US la hantise de tous les pirates de l'espace...","mobile":true,"senseurs":2,"sciencesStellaires":0,"definition":"C'est une catastrophe, au sens propre du terme.","protocole":">>Configuration de combat : ...","resultat":""}}]}]},"hyperspatial":{"name":"Périls Hyperspatiaux","categories":[{"seuilMin":2,"seuilMax":4,"nom":"Phénomène astrophysique heureux","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Rayonnements ioniques","data":{"description":"Au loin, votre vigie détecte d'étranges rayonnements...","mobile":false,"senseurs":2,"sciencesStellaires":2,"definition":"Ce phénomène astrophysique heureux est l'occasion pour les PJ de recharger leurs générateur.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Déferlante énergétique","data":{"description":"Vos senseurs repèrent de puissantes manifestations énergétiques...","mobile":false,"senseurs":2,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique heureux est lui aussi un dérèglement des courants hyperspatiaux...","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":12,"nom":"Courant temporel","data":{"description":"L'écran des senseurs reste superbement vide...","mobile":false,"senseurs":5,"sciencesStellaires":5,"definition":"Bien qu'heureux, ce phénomène astrophysique provoque souvent une crise d'angoisse...","protocole":"","resultat":""}}]},{"seuilMin":5,"seuilMax":5,"nom":"Rencontre heureuse","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Ondines de l'espace","data":{"description":"Vos senseurs repèrent derrière vous plusieurs concentrations d'énergie...","mobile":false,"senseurs":3,"sciencesStellaires":3,"definition":"Cette rencontre heureuse est vue comme un bon présage...","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Épave","data":{"description":"Vos senseurs sont probablement déréglés...","mobile":false,"senseurs":3,"sciencesStellaires":1,"definition":"Cette rencontre heureuse est une bonne occasion de remplir sa soute.","protocole":">>0: Le vaisseau entre en collision...","resultat":""}},{"seuilMin":9,"seuilMax":12,"nom":"Coquillages galactiques","data":{"description":"Bien que l'écran des senseurs reste absolument vide...","mobile":false,"senseurs":1,"sciencesStellaires":3,"definition":"Cette rencontre heureuse est accueillie avec de grands cris de joie...","protocole":"","resultat":""}}]},{"seuilMin":6,"seuilMax":7,"nom":"Beauté de l'espace","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Horizons lointains","data":{"description":"Vos senseurs relèvent des changements dans la signature énergétique...","mobile":false,"senseurs":1,"sciencesStellaires":3,"definition":"Cette beauté de l'espace est une source intarissable de légendes...","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Arabesques énergétiques","data":{"description":"Vos senseurs relèvent des changement dans la signature énergétique...","mobile":false,"senseurs":1,"sciencesStellaires":3,"definition":"Cette beauté de l'espace est une source intarissable de légendes...","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":12,"nom":"Harmonies cosmiques","data":{"description":"Vos senseurs détectent un subtil cangement de fréquences...","mobile":false,"senseurs":3,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique malheureux est constitué de radiations...","protocole":">>1 - Pilote : maintient le cap...","resultat":"0 : Le vaisseau franchit 1000 PC de moins..."}}]},{"seuilMin":8,"seuilMax":8,"nom":"Ennui mécanique","perils":[{"seuilMin":2,"seuilMax":2,"nom":"Panne de la gravité artificielle","data":{"description":"Alors que vous filez à travers l'hyperespace...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique fait l'amusement des enfants...","protocole":"","resultat":""}},{"seuilMin":3,"seuilMax":3,"nom":"Panne du recycleur","data":{"description":"A bord d'un vaisseau, l'eau n'est jamais bien propre...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est aussi courant qu'ennuyeux.","protocole":"","resultat":""}},{"seuilMin":4,"seuilMax":5,"nom":"Panne des senseurs","data":{"description":"Pendant un instant, le tableau de bord de la passerelle s'illumine...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique l'un des plus stressants pour l'équipage.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Panne des contrôles","data":{"description":"Les voyants de votre tableau de bord vous annoncent deux nouvelles...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est extrêmement frustrant pour le navigateur.","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":10,"nom":"Panne du générateur","data":{"description":"Vous filez à travers l'espace... et soudain, tout s'arrête.","mobile":true,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est le pire de tous.","protocole":"","resultat":""}},{"seuilMin":11,"seuilMax":11,"nom":"Panne du navordinateur","data":{"description":"Alors que votre journée s'écoule comme un fleuve tranquille...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est très ennuyeux...","protocole":"","resultat":""}},{"seuilMin":12,"seuilMax":12,"nom":"Panne de l'hyperpropulsion","data":{"description":"Soudain, le doux vrombissement de l'hyperpropulsion s'arrête...","mobile":false,"senseurs":0,"sciencesStellaires":0,"definition":"Cet ennui mécanique est presque une catastrophe.","protocole":"","resultat":""}}]},{"seuilMin":9,"seuilMax":10,"nom":"Phénomène astrophysique malheureux","perils":[{"seuilMin":2,"seuilMax":2,"nom":"Fluctuations radioactives","data":{"description":"Votre vigie repère devant vous des fluctuations énergétiques radioactives...","mobile":false,"senseurs":3,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique malheureux est constitué de radiations...","protocole":">>1 - Pilote : Maintient le cap...","resultat":"0 : Le vaisseau franchit 1000 PC de moins..."}},{"seuilMin":3,"seuilMax":3,"nom":"Nébuleuse","data":{"description":"Vous détectez que les courants énergétiques se ralentissent...","mobile":false,"senseurs":1,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique malheureux est ennuyeux...","protocole":"","resultat":""}},{"seuilMin":4,"seuilMax":5,"nom":"Décharges énergétiques","data":{"description":"Vos senseurs repèrent de puissantes manifestations énergétiques...","mobile":false,"senseurs":2,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique malheureux est un dérèglement des courants...","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Ombres gravitationnelles","data":{"description":"A quelques centaines de PC de vous, vos senseurs repèrent des ondes gravitationnelles...","mobile":false,"senseurs":3,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique malheureux est la marque des voyages hyperspatiaux.","protocole":"1 - Vigie : Localiser le point d'origine...","resultat":"0: 3G\n1: 1G..."}},{"seuilMin":9,"seuilMax":10,"nom":"Débris","data":{"description":"Vos senseurs sont probablement déréglés...","mobile":false,"senseurs":3,"sciencesStellaires":1,"definition":"Ce phénomène astrophysique malheureux est surprenant...","protocole":"1 - Canons : déblaye un chemin...","resultat":"0: 3G\n1: 1G..."}},{"seuilMin":11,"seuilMax":11,"nom":"Amas stellaires","data":{"description":"A quelques centaines de PC de vous, vos senseurs repèrent un mur...","mobile":false,"senseurs":3,"sciencesStellaires":3,"definition":"Ce phénomène astrophysique malheureux continue de plonger les savants...","protocole":"1 - Vigie : Analyse correctement...","resultat":"0 : Les senseurs subissent un coup critique..."}},{"seuilMin":12,"seuilMax":12,"nom":"Orage hyperspatial","data":{"description":"Derrière vous, votre vigie repère des phénomènes énergétiques anormaux...","mobile":false,"senseurs":3,"sciencesStellaires":3,"definition":"Ce phénomène astrophysique malheureux peut mettre à mal la coque du vaisseau...","protocole":"1 - Vigie : Détermine la charge exacte...","resultat":"0 : 3G\n1 : 1G..."}}]},{"seuilMin":11,"seuilMax":11,"nom":"Rencontre malheureuse","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Hypersqualls","data":{"description":"Vos senseurs détectent une perturbation des courants énergétiques...","mobile":false,"senseurs":5,"sciencesStellaires":3,"definition":"Cette rencontre malheureuse confronte les PJ à une forme de vie originaire de l'hyperespace.","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Hyperspectres","data":{"description":"Vous repérez devant vous des concentrations dénergie au comportement très étrange...","mobile":false,"senseurs":5,"sciencesStellaires":3,"definition":"Cette rencontre malheureuse confronte les PJ à l'une des formes de vie les plus bizarres...","protocole":"","resultat":""}},{"seuilMin":9,"seuilMax":12,"nom":"Fantômes","data":{"description":"Un instant, l'écran des senseurs se brouille...","mobile":false,"senseurs":5,"sciencesStellaires":99,"definition":"Ce phénomène astrophysique malheureux a de quoi donner la chair de poule...","protocole":"","resultat":""}}]},{"seuilMin":12,"seuilMax":99,"nom":"Catastrophe !","perils":[{"seuilMin":2,"seuilMax":5,"nom":"Fluctuations spatio-temporelles","data":{"description":"L'écran des senseurs reste superbement vide...","mobile":false,"senseurs":3,"sciencesStellaires":5,"definition":"Cette catastrophe est la pire qui puisse arriver...","protocole":"","resultat":""}},{"seuilMin":6,"seuilMax":8,"nom":"Tourbillons plasmiques","data":{"description":"Vos senseurs repèrent quelque chose d'inhabituel...","mobile":false,"senseurs":2,"sciencesStellaires":3,"definition":"Cette catastrophe est tout aussi dangereuse qu'incompréhensible.","protocole":"1-Vigie : Anticipe le mouvement...","resultat":"0 : 3G\n1 : 1G..."}},{"seuilMin":9,"seuilMax":12,"nom":"Trou noir","data":{"description":"Vos senseurs ne détectent rien de particulier...","mobile":false,"senseurs":1,"sciencesStellaires":1,"definition":"Cette catastophe est souvent la dernière que vit un équipage.","protocole":"1 - Pilote : manoeuvre pour combattre...","resultat":"0: Le vaisseau est aspiré..."}}]}]}};
+
+
+        // --- VARIABLES GLOBALES ---
+        let systemsData = {};
+        let shipCatalog = []; 
+        let shipModels = []; 
+        const lettres = ["Α", "Β", "Γ", "Δ", "Ε", "Ζ", "Η", "Θ", "Ι", "Κ", "Λ", "Μ", "Ν", "Ξ", "Ο", "Π", "Ρ", "Σ", "Τ", "Υ", "Φ", "Χ", "Ψ", "Ω", "Α′", "Β′", "Γ′", "Δ′", "Ε′", "Ζ′", "Η′", "Θ′", "Ι′", "Κ′", "Λ′", "Μ′", "Ν′", "Ξ′", "Ο′", "Π′"];
+        
+        let scale = 0.5;
+        let translateX = 0;
+        let translateY = 0;
+        let isPanning = false;
+        let lastX = 0;
+        let lastY = 0;
+        let pinchStartDist = 0;
+        
+        let currentEditCoord = null;
+        let currentEditIndex = -1;
+        let isNewSystem = false;
+        let currentSelectedQuadrantCoord = null; 
+        
+        let currentEditShipIndex = -1;
+        let isEditingModel = false; 
+        const placeholderShipImage = 'https://placehold.co/100x100/374151/9ca3af?text=SHIP';
+        
+        let currentTripData = {}; 
+        let perilDetailModal;
+        let imageViewerModal;
+        let imageViewerImg;
+
+        let isQuadrantSelectionMode = false;
+        let targetQuadrantSelectElement = null;
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- SÉLECTION DES ÉLÉMENTS DU DOM ---
+            const pages = document.querySelectorAll('.page');
+            const mapPage = document.getElementById('map-page');
+            const itinerairePage = document.getElementById('itineraire-page');
+            const systemEditPage = document.getElementById('system-edit-page');
+            const shipCatalogPage = document.getElementById('ship-catalog-page');
+            
+            const mapContainer = document.getElementById('map-container');
+            const mapGrid = document.getElementById('map-grid');
+            const colLegend = document.getElementById('col-legend');
+            const rowLegend = document.getElementById('row-legend');
+            const zoomInBtn = document.getElementById('zoom-in');
+            const zoomOutBtn = document.getElementById('zoom-out');
+            const zoomResetBtn = document.getElementById('zoom-reset');
+            
+            const navMapBtn = document.getElementById('nav-map-btn');
+            const navItineraireBtn = document.getElementById('nav-itineraire-btn');
+            const navShipBtn = document.getElementById('nav-ship-btn');
+            
+            const modalBackdrop = document.getElementById('modal-backdrop');
+            
+            const quadrantModal = document.getElementById('quadrant-modal');
+            const quadrantModalTitle = document.getElementById('quadrant-modal-title');
+            const quadrantModalContent = document.getElementById('quadrant-modal-content');
+            const addSystemBtn = document.getElementById('add-system-btn');
+            
+            const itineraireResultsModal = document.getElementById('itineraire-results-modal');
+            const itineraireResultsModalContent = document.getElementById('itineraire-results-modal-content');
+            const itineraireResultsFooter = document.getElementById('itineraire-results-footer');
+            const tripSummaryTotal = document.getElementById('trip-summary-total');
+            const updateTripBtn = document.getElementById('update-trip-btn'); 
+            
+            // Boutons Itinéraires
+            const viewTripMapBtn = document.getElementById('view-trip-map-btn');
+            const viewTripFormBtn = document.getElementById('view-trip-form-btn');
+            
+            // Éléments Paramètres supprimés
+
+            perilDetailModal = document.getElementById('peril-detail-modal');
+            
+            const startQuadrantSelect = document.getElementById('start-quadrant');
+            const startSystemSelect = document.getElementById('start-system');
+            const startPlanetSelect = document.getElementById('start-planet'); 
+            const endQuadrantSelect = document.getElementById('end-quadrant');
+            const endSystemSelect = document.getElementById('end-system');
+            const endPlanetSelect = document.getElementById('end-planet'); 
+            
+            const startQuadrantBtn = document.getElementById('start-quadrant-btn');
+            const endQuadrantBtn = document.getElementById('end-quadrant-btn');
+
+            const activeShipSelect = document.getElementById('active-ship-select'); 
+            const activeShipStats = document.getElementById('active-ship-stats'); 
+            const calculateItineraireBtn = document.getElementById('calculate-itineraire-btn');
+            
+            const compNavigationInput = document.getElementById('comp-navigation');
+            const compSautInput = document.getElementById('comp-saut');
+            
+            const systemEditBackBtn = document.getElementById('system-edit-back-btn');
+            const systemEditSaveBtn = document.getElementById('system-edit-save-btn');
+            const systemEditTitle = document.getElementById('system-edit-title');
+            const systemEditContent = document.getElementById('system-edit-content');
+
+            const shipListContainer = document.getElementById('ship-list-container'); 
+            const addNewShipBtn = document.getElementById('add-new-ship-btn'); 
+            const shipEditModal = document.getElementById('ship-edit-modal'); 
+            const shipEditModalTitle = document.getElementById('ship-edit-modal-title'); 
+            const shipEditIndexInput = document.getElementById('ship-edit-index'); 
+            
+            // DOM pour sélecteur de modèle
+            const shipEditModelSelectGroup = document.getElementById('ship-edit-model-select-group');
+            const shipEditModelSelect = document.getElementById('ship-edit-model-select');
+            const shipEditModelInputGroup = document.getElementById('ship-edit-model-input-group');
+            const shipEditNomGroup = document.getElementById('ship-edit-nom-group'); 
+            
+            const shipEditNomInput = document.getElementById('ship-edit-nom'); 
+            const shipEditModeleInput = document.getElementById('ship-edit-modele'); 
+            
+            const shipEditImageInput = document.getElementById('ship-edit-image-input');
+            const shipEditImagePreview = document.getElementById('ship-edit-image-preview');
+            const shipEditImageRemove = document.getElementById('ship-edit-image-remove');
+            const shipEditClasseInput = document.getElementById('ship-edit-classe');
+            const shipEditVitesseCroisiereInput = document.getElementById('ship-edit-vitessecroisiere'); 
+            const shipEditVitesseHyperInput = document.getElementById('ship-edit-vitessehyper'); 
+            const shipEditAutonomieInput = document.getElementById('ship-edit-autonomie'); 
+            const shipEditManoeuvrabiliteInput = document.getElementById('ship-edit-manoeuvrabilite');
+            const shipEditVitesseTactiqueInput = document.getElementById('ship-edit-vitesseTactique');
+            const shipEditBlindageInput = document.getElementById('ship-edit-blindage');
+            const shipEditCoqueInput = document.getElementById('ship-edit-coque');
+            const shipEditSenseursInput = document.getElementById('ship-edit-senseurs');
+            const shipEditEquipageInput = document.getElementById('ship-edit-equipage');
+            const shipEditPassagersInput = document.getElementById('ship-edit-passagers');
+            const shipEditSouteInput = document.getElementById('ship-edit-soute');
+            const shipEditPrixInput = document.getElementById('ship-edit-prix');
+            const shipEditOrigineInput = document.getElementById('ship-edit-origine');
+            const shipEditAddArmeBtn = document.getElementById('ship-edit-add-arme');
+            const shipEditArmementList = document.getElementById('ship-edit-armement-list');
+            
+            const shipEditAddSystemeBtn = document.getElementById('ship-edit-add-systeme');
+            const shipEditSystemesList = document.getElementById('ship-edit-systemes-list');
+            
+            const shipEditSaveBtn = document.getElementById('ship-edit-save-btn'); 
+            const shipEditDeleteBtn = document.getElementById('ship-edit-delete-btn'); 
+
+            imageViewerModal = document.getElementById('image-viewer-modal');
+            imageViewerImg = document.getElementById('image-viewer-img');
+
+
+            // --- FONCTIONS DE DONNÉES (inchangées) ---
+            function loadData() {
+                try {
+                    const storedData = localStorage.getItem("galaxyMapData");
+                    if (storedData) {
+                        systemsData = JSON.parse(storedData);
+                    } else {
+                        systemsData = defaultSystemsData;
+                        saveData();
+                    }
+                } catch (e) {
+                    console.error("Erreur de chargement des données Systèmes: ", e);
+                    systemsData = defaultSystemsData;
+                }
+            }
+             function saveData() { try { localStorage.setItem("galaxyMapData", JSON.stringify(systemsData)); } catch (e) { console.error("Erreur", e); } }
+            function loadShipCatalog() { try { const d = localStorage.getItem("galaxyShipCatalog"); shipCatalog = d ? JSON.parse(d) : []; } catch (e) { shipCatalog = []; } }
+            function saveShipCatalog() { try { localStorage.setItem("galaxyShipCatalog", JSON.stringify(shipCatalog)); } catch (e) { console.error("Erreur", e); } }
+            function loadShipModels() { try { const d = localStorage.getItem("galaxyShipModels"); if (d) { shipModels = JSON.parse(d); } else { shipModels = JSON.parse(JSON.stringify(initialShipModels)); saveShipModels(); } } catch (e) { shipModels = JSON.parse(JSON.stringify(initialShipModels)); } }
+            function saveShipModels() { try { localStorage.setItem("galaxyShipModels", JSON.stringify(shipModels)); } catch (e) { console.error("Erreur", e); } }
+
+
+            // --- FONCTIONS UTILITAIRES POUR L'ÉDITEUR (inchangées) ---
+            function getNestedProperty(obj, path) {
+                const properties = path.replace(/\[(\w+)\]/g, '.$1').split('.');
+                let current = obj;
+                for (const prop of properties) {
+                    if (current === null || typeof current === 'undefined' || !current.hasOwnProperty(prop)) return undefined;
+                    current = current[prop];
+                }
+                return current;
+            }
+            function setNestedProperty(obj, path, value) {
+                const properties = path.replace(/\[(\w+)\]/g, '.$1').split('.');
+                let current = obj;
+                for (let i = 0; i < properties.length - 1; i++) {
+                    const prop = properties[i];
+                    if (!current[prop] || typeof current[prop] !== 'object') current[prop] = /^\d+$/.test(properties[i+1]) ? [] : {};
+                    current = current[prop];
+                }
+                current[properties[properties.length - 1]] = value;
+            }
+            window.updateSystemField = (path, value) => { if (currentEditCoord === null || currentEditIndex === -1) return; let system = systemsData[currentEditCoord][currentEditIndex]; setNestedProperty(system, path, value); if (path.includes('orbite') || path === 'soleil.distanceSaut') renderSystemEditor(system); };
+            window.addFieldToArray = (path, template) => { if (currentEditCoord === null || currentEditIndex === -1) return; let system = systemsData[currentEditCoord][currentEditIndex]; let array = getNestedProperty(system, path); if (!Array.isArray(array)) { setNestedProperty(system, path, []); array = getNestedProperty(system, path); } array.push(JSON.parse(JSON.stringify(template))); renderSystemEditor(system); };
+            window.removeFieldFromArray = (path) => { if (currentEditCoord === null || currentEditIndex === -1) return; let system = systemsData[currentEditCoord][currentEditIndex]; const parts = path.replace(/\[(\w+)\]/g, '.$1').split('.'); const index = parseInt(parts.pop(), 10); const arrayPath = parts.join('.'); let array = getNestedProperty(system, arrayPath); if (Array.isArray(array) && index >= 0 && index < array.length) { array.splice(index, 1); renderSystemEditor(system); } };
+            window.handleAtmosphereChange = (selectElement, path) => { const value = selectElement.value; updateSystemField(path + '.atmosphere', value); const detailInputId = `atmo-detail-${path.replace(/\W/g,'')}`; const detailInput = document.getElementById(detailInputId); if (detailInput) { if (value === 'Toxique' || value === 'Dangereux') { detailInput.style.display = 'block'; } else { detailInput.style.display = 'none'; updateSystemField(path + '.atmosphereDetail', ''); } } };
+
+            
+            // --- FONCTIONS DE RENDU DE L'ÉDITEUR ---
+             function renderSystemEditor(system) { systemEditContent.innerHTML = ''; systemEditContent.appendChild(renderSystemHeaderCard(system)); systemEditContent.appendChild(renderSystemPatrolsCard(system.patrouilles || [])); systemEditContent.appendChild(renderSystemSunCard(system.soleil || {})); systemEditContent.appendChild(renderSystemBodiesContainer(system)); lucide.createIcons(); }
+             function renderSystemHeaderCard(system) { const card = document.createElement('div'); card.className = 'editor-card'; card.innerHTML = `<div class="editor-card-header">Informations Générales</div><div class="editor-card-content"><div class="editor-card-grid"><div class="form-group"><label for="edit-nom">Nom du Système</label><input type="text" id="edit-nom" value="${system.nom || ''}" onchange="updateSystemField('nom', this.value)"></div><div class="form-group"><label for="edit-faction">Faction</label><input type="text" id="edit-faction" value="${system.faction || ''}" onchange="updateSystemField('faction', this.value)"></div><div class="form-group"><label for="edit-route">Route</label><input type="text" id="edit-route" value="${system.route || ''}" onchange="updateSystemField('route', this.value)"></div><div class="form-group"><label for="edit-gouvernement">Gouvernement</label><input type="text" id="edit-gouvernement" value="${system.gouvernement || ''}" onchange="updateSystemField('gouvernement', this.value)"></div></div><div class="form-group"><label for="edit-description">Description</label><textarea id="edit-description" rows="4" onchange="updateSystemField('description', this.value)">${system.description || ''}</textarea></div><div class="form-group flex items-center"><input type="checkbox" id="edit-isFrontiere" ${system.isFrontiere ? 'checked' : ''} onchange="updateSystemField('isFrontiere', this.checked)" class="w-4 h-4 mr-2 rounded"><label for="edit-isFrontiere" class="mb-0">Est une Frontière</label></div></div>`; return card; }
+             function renderSystemPatrolsCard(patrols) { const card = document.createElement('div'); card.className = 'editor-card'; let itemsHTML = patrols.map((p, i) => `<div class="dynamic-list-item patrol-item"><div class="dynamic-list-item-content"><input type="text" placeholder="Coût (ex: 20d MF)" value="${p.cout || ''}" onchange="updateSystemField('patrouilles[${i}].cout', this.value)" class="bg-gray-800 border-gray-700 rounded p-2 text-sm"><input type="text" placeholder="Vaisseaux (ex: Sentinelle)" value="${p.vaisseaux || ''}" onchange="updateSystemField('patrouilles[${i}].vaisseaux', this.value)" class="bg-gray-800 border-gray-700 rounded p-2 text-sm"></div><button class="p-2 text-red-400 hover:text-red-300" onclick="removeFieldFromArray('patrouilles[${i}]')"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div>`).join(''); card.innerHTML = `<div class="editor-card-header"><span>Patrouilles Système</span><button class="p-1 bg-blue-600 rounded-full" onclick="addFieldToArray('patrouilles', {vaisseaux:'', cout:''})"><i data-lucide="plus" class="w-5 h-5"></i></button></div><div class="editor-card-content">${itemsHTML || '<p class="text-gray-500 text-sm">Aucune patrouille définie.</p>'}</div>`; return card; }
+             function renderSystemSunCard(sun) { const card = document.createElement('div'); card.className = 'editor-card'; let activityHTML = (sun.activiteSolaire || []).map((a, i) => `<div class="dynamic-list-item patrol-item"><div class="dynamic-list-item-content"><input type="text" placeholder="Distance" value="${a.distance || ''}" onchange="updateSystemField('soleil.activiteSolaire[${i}].distance', this.value)" class="bg-gray-800 border-gray-700 rounded p-2 text-sm"><input type="text" placeholder="Conséquence" value="${a.consequence || ''}" onchange="updateSystemField('soleil.activiteSolaire[${i}].consequence', this.value)" class="bg-gray-800 border-gray-700 rounded p-2 text-sm"></div><button class="p-2 text-red-400 hover:text-red-300" onclick="removeFieldFromArray('soleil.activiteSolaire[${i}]')"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div>`).join(''); card.innerHTML = `<div class="editor-card-header">Soleil</div><div class="editor-card-content"><div class="editor-card-grid"><div class="form-group"><label>Nom</label><input type="text" value="${sun.nom || ''}" onchange="updateSystemField('soleil.nom', this.value)"></div><div class="form-group"><label>Classe</label><input type="text" value="${sun.classe || ''}" onchange="updateSystemField('soleil.classe', this.value)"></div><div class="form-group"><label>Diamètre (K)</label><input type="number" value="${sun.diametre || ''}" onchange="updateSystemField('soleil.diametre', this.value)"></div><div class="form-group"><label>Distance Saut (US)</label><input type="number" value="${sun.distanceSaut || ''}" onchange="updateSystemField('soleil.distanceSaut', this.value)"></div></div><div class="form-group"><label>Description</label><textarea rows="3" onchange="updateSystemField('soleil.description', this.value)">${sun.description || ''}</textarea></div><div class="sub-card"><div class="sub-card-header"><span>Activité Solaire</span><button class="p-1 bg-blue-600 rounded-full" onclick="addFieldToArray('soleil.activiteSolaire', {distance:'', consequence:''})"><i data-lucide="plus" class="w-4 h-4"></i></button></div><div class="sub-card-content">${activityHTML || '<p class="text-gray-400 text-xs">Aucune activité définie.</p>'}</div></div></div>`; return card; }
+
+            function renderSystemBodiesContainer(system) {
+                const container = document.createElement('div');
+                container.className = 'editor-card'; 
+                
+                const bodies = system.corpsCelestes || [];
+                let bodiesHTML = bodies.map((body, i) => {
+                    return renderBodyEditorCard(body, `corpsCelestes[${i}]`, system.soleil, false);
+                }).join('');
+                
+                let matrixHTML = genererMatriceDistance(system); 
+
+                container.innerHTML = `
+                    <div class="editor-card-header">
+                        <span>Corps Célestes</span>
+                        <button class="p-1 bg-blue-600 rounded-full" onclick="addFieldToArray('corpsCelestes', {nom:'Nouveau Corps', orbite:0, lunes:[], astroports:[], lieux:[], patrouilles:[]})">
+                            <i data-lucide="plus" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <div class="editor-card-content">
+                        ${bodiesHTML || '<p class="text-gray-500 text-sm">Aucun corps céleste défini.</p>'}
+                        ${matrixHTML}
+                    </div>
+                `;
+                return container;
+            }
+            
+            function renderBodyEditorCard(bodyData, path, sunData, isMoon = false) {
+                 const card = document.createElement('div');
+                card.className = isMoon ? 'sub-card' : 'editor-card'; 
+                
+                const systemJumpDistance = parseFloat(sunData?.distanceSaut) || 0;
+                const planetOrbit = parseFloat(bodyData.orbite) || 0;
+                const calculatedJumpDistance = systemJumpDistance > 0 ? (systemJumpDistance - planetOrbit).toFixed(2) : "N/A";
+                const calculatedJumpDistanceText = systemJumpDistance > 0 ? `${calculatedJumpDistance} (Calculée)` : "N/A";
+
+                const showAtmoDetail = bodyData.atmosphere === 'Toxique' || bodyData.atmosphere === 'Dangereux';
+                const atmoDetailId = `atmo-detail-${path.replace(/\W/g,'')}`;
+                
+                let astroportsHTML = (bodyData.astroports || []).map((a, i) => `<div class="dynamic-list-item astroport-item"><div class="dynamic-list-item-content"><input type="text" placeholder="Nom" value="${a.nom || ''}" onchange="updateSystemField('${path}.astroports[${i}].nom', this.value)" class="bg-gray-800 border-gray-700 rounded p-2 text-sm"><select onchange="updateSystemField('${path}.astroports[${i}].type', this.value)" class="bg-gray-800 border-gray-700 rounded p-2 text-sm"><option value="Rudimentaire D+1" ${a.type === 'Rudimentaire D+1' ? 'selected':''}>Rudimentaire D+1</option><option value="Standard" ${a.type === 'Standard' ? 'selected':''}>Standard</option><option value="Première classe +1d" ${a.type === 'Première classe +1d' ? 'selected':''}>Première classe +1d</option></select></div><button class="p-2 text-red-400 hover:text-red-300" onclick="removeFieldFromArray('${path}.astroports[${i}]')"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`).join('');
+                let patrouillesHTML = (bodyData.patrouilles || []).map((p, i) => `<div class="dynamic-list-item patrol-item"><div class="dynamic-list-item-content"><input type="text" placeholder="Coût (ex: 10d MF)" value="${p.cout || ''}" onchange="updateSystemField('${path}.patrouilles[${i}].cout', this.value)" class="bg-gray-800 border-gray-700 rounded p-2 text-sm"><input type="text" placeholder="Vaisseaux (ex: 5 miliciens)" value="${p.vaisseaux || ''}" onchange="updateSystemField('${path}.patrouilles[${i}].vaisseaux', this.value)" class="bg-gray-800 border-gray-700 rounded p-2 text-sm"></div><button class="p-2 text-red-400 hover:text-red-300" onclick="removeFieldFromArray('${path}.patrouilles[${i}]')"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`).join('');
+                let lieuxHTML = (bodyData.lieux || []).map((l, i) => `<div class="dynamic-list-item lieu-item"><div class="dynamic-list-item-content"><input type="text" placeholder="Nom du lieu" value="${l.nom || ''}" onchange="updateSystemField('${path}.lieux[${i}].nom', this.value)" class="bg-gray-800 border-gray-700 rounded p-2 text-sm mb-1"><textarea placeholder="Description" onchange="updateSystemField('${path}.lieux[${i}].description', this.value)">${l.description || ''}</textarea></div><button class="p-2 text-red-400 hover:text-red-300" onclick="removeFieldFromArray('${path}.lieux[${i}]')"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`).join('');
+                let lunesHTML = (bodyData.lunes || []).map((lune, i) => { return renderBodyEditorCard(lune, `${path}.lunes[${i}]`, sunData, true); }).join('');
+
+                card.innerHTML = `
+                    <div class="${isMoon ? 'sub-card-header' : 'editor-card-header'}">
+                        <input type="text" value="${bodyData.nom||''}" placeholder="Nom de l'astre" onchange="updateSystemField('${path}.nom', this.value)" class="text-lg font-semibold bg-transparent border-none p-0 focus:ring-0 focus:outline-none w-full">
+                        <button class="p-2 text-red-400 hover:text-red-300 flex-shrink-0" onclick="removeFieldFromArray('${path}')">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="${isMoon ? 'sub-card-content' : 'editor-card-content'}">
+                        <div class="form-group"><label>Description</label><textarea onchange="updateSystemField('${path}.description', this.value)" rows="3">${bodyData.description || ''}</textarea></div>
+                        
+                        <div class="editor-card-grid">
+                            <div class="form-group"><label>Atmosphère</label><select onchange="handleAtmosphereChange(this, '${path}')">
+                                <option value="Respirable" ${bodyData.atmosphere === 'Respirable' ? 'selected':''}>Respirable</option>
+                                <option value="Non respirable" ${bodyData.atmosphere === 'Non respirable' || bodyData.atmosphere === 'Irrespirable' ? 'selected':''}>Non respirable</option>
+                                <option value="Toxique" ${bodyData.atmosphere === 'Toxique' ? 'selected':''}>Toxique</option>
+                                <option value="Dangereux" ${bodyData.atmosphere === 'Dangereux' ? 'selected':''}>Dangereux</option>
+                            </select></div>
+                            <div class="form-group" id="${atmoDetailId}" style="display: ${showAtmoDetail ? 'block' : 'none'};"><label>Détail Atmosphère</label><input type="text" value="${bodyData.atmosphereDetail||''}" onchange="updateSystemField('${path}.atmosphereDetail', this.value)"></div>
+
+                            <div class="form-group"><label>Gravité</label><select onchange="updateSystemField('${path}.gravite', this.value)">
+                                <option value="Ecrasante (TD, 1S par heure)" ${bodyData.gravite === 'Ecrasante (TD, 1S par heure)' ? 'selected':''}>Ecrasante (TD, 1S/h)</option>
+                                <option value="Forte (Survie/Technique D+1)" ${bodyData.gravite === 'Forte (Survie/Technique D+1)' ? 'selected':''}>Forte (D+1)</option>
+                                <option value="Normale" ${bodyData.gravite === 'Normale' ? 'selected':''}>Normale</option>
+                                <option value="Faible (Athlétisme, Acrobatie, Pilotage +1d)" ${bodyData.gravite === 'Faible (Athlétisme, Acrobatie, Pilotage +1d)' ? 'selected':''}>Faible (+1d)</option>
+                                <option value="Très faible (Dist. x5, Vitesses Véhicules x1.5. Porter : TF)" ${bodyData.gravite === 'Très faible (Dist. x5, Vitesses Véhicules x1.5. Porter : TF)' ? 'selected':''}>Très faible (x5 / TF)</option>
+                                <option value="Aucune" ${bodyData.gravite === 'Aucune' ? 'selected':''}>Aucune</option>
+                            </select></div>
+                            
+                            <div class="form-group"><label>Technologie</label><select onchange="updateSystemField('${path}.techno', this.value)">
+                                <option value="A" ${bodyData.techno === 'A' ? 'selected':''}>A (Évoluée)</option>
+                                <option value="B" ${bodyData.techno === 'B' ? 'selected':''}>B (Industrielle)</option>
+                                <option value="C" ${bodyData.techno === 'C' ? 'selected':''}>C (Sauvage)</option>
+                            </select></div>
+                            
+                            <div class="form-group"><label>Gouvernement</label><select onchange="updateSystemField('${path}.gouvernement', this.value)">
+                                <option value="Anarchie" ${bodyData.gouvernement === 'Anarchie' ? 'selected':''}>Anarchie</option><option value="Aucun" ${bodyData.gouvernement === 'Aucun' ? 'selected':''}>Aucun</option><option value="Collectivisme" ${bodyData.gouvernement === 'Collectivisme' ? 'selected':''}>Collectivisme</option>
+                                <option value="Corporatiste" ${bodyData.gouvernement === 'Corporatiste' ? 'selected':''}>Corporatiste</option><option value="Démocratie" ${bodyData.gouvernement === 'Démocratie' ? 'selected':''}>Démocratie</option><option value="Dictature" ${bodyData.gouvernement === 'Dictature' ? 'selected':''}>Dictature</option>
+                                <option value="Monarchie" ${bodyData.gouvernement === 'Monarchie' ? 'selected':''}>Monarchie</option>
+                            </select></div>
+                            
+                            <div class="form-group"><label>Commerce</label><select onchange="updateSystemField('${path}.commerce', this.value)">
+                                <option value="Carrefour galactique (TF)" ${bodyData.commerce === 'Carrefour galactique (TF)' ? 'selected':''}>Galactique (TF)</option><option value="Carrefour commercial (+1d)" ${bodyData.commerce === 'Carrefour commercial (+1d)' ? 'selected':''}>Commercial (+1d)</option>
+                                <option value="Planète normale" ${bodyData.commerce === 'Planète normale' ? 'selected':''}>Normale</option><option value="Planète pauvre (D+1)" ${bodyData.commerce === 'Planète pauvre (D+1)' ? 'selected':''}>Pauvre (D+1)</option>
+                                <option value="Planète primitive (TD)" ${bodyData.commerce === 'Planète primitive (TD)' ? 'selected':''}>Primitive (TD)</option>
+                            </select></div>
+                            
+                            <div class="form-group"><label>Orbite (US)</label><input type="number" value="${bodyData.orbite||''}" onchange="updateSystemField('${path}.orbite', this.value)"></div>
+                            <div class="form-group"><label>Dist. Saut (US)</label><input type="text" value="${calculatedJumpDistanceText}" disabled class="bg-gray-600 text-gray-400"></div>
+                            <div class="form-group"><label>Classe</label><input type="text" value="${bodyData.classe||''}" onchange="updateSystemField('${path}.classe', this.value)"></div>
+                            <div class="form-group"><label>Diamètre (K)</label><input type="number" value="${bodyData.diametre||''}" onchange="updateSystemField('${path}.diametre', this.value)"></div>
+                            <div class="form-group"><label>Population</label><input type="number" value="${bodyData.population||''}" onchange="updateSystemField('${path}.population', this.value)"></div>
+                            <div class="form-group"><label>Sécurité (1-20)</label><input type="number" min="1" max="20" value="${bodyData.securite||''}" onchange="updateSystemField('${path}.securite', this.value)"></div>
+                        </div>
+
+                        <!-- Marchandises -->
+                        <div class="sub-card">
+                            <div class="sub-card-header"><span>Marchandises</span></div>
+                            <div class="sub-card-content editor-card-grid" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
+                                <div class="form-group"><label>A</label><input type="number" value="${bodyData.marchandiseA||''}" onchange="updateSystemField('${path}.marchandiseA', this.value)"></div>
+                                <div class="form-group"><label>B</label><input type="number" value="${bodyData.marchandiseB||''}" onchange="updateSystemField('${path}.marchandiseB', this.value)"></div>
+                                <div class="form-group"><label>C</label><input type="number" value="${bodyData.marchandiseC||''}" onchange="updateSystemField('${path}.marchandiseC', this.value)"></div>
+                                <div class="form-group"><label>Illégale</label><input type="text" value="${bodyData.illegal||''}" onchange="updateSystemField('${path}.illegal', this.value)"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Astroports -->
+                        <div class="sub-card">
+                            <div class="sub-card-header">
+                                <span>Astroports</span>
+                                <button class="p-1 bg-blue-600 rounded-full" onclick="addFieldToArray('${path}.astroports', {nom:'', type:'Standard'})"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                            </div>
+                            <div class="sub-card-content">
+                                ${astroportsHTML || '<p class="text-gray-400 text-xs">Aucun astroport.</p>'}
+                            </div>
+                        </div>
+                        
+                        <!-- Patrouilles Planétaires -->
+                        <div class="sub-card">
+                            <div class="sub-card-header">
+                                <span>Patrouilles Planétaires</span>
+                                <button class="p-1 bg-blue-600 rounded-full" onclick="addFieldToArray('${path}.patrouilles', {cout:'', vaisseaux:''})"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                            </div>
+                            <div class="sub-card-content">
+                                ${patrouillesHTML || '<p class="text-gray-400 text-xs">Aucune patrouille planétaire.</p>'}
+                            </div>
+                        </div>
+                        
+                        <!-- Lieux -->
+                        <div class="sub-card">
+                            <div class="sub-card-header">
+                                <span>Lieux</span>
+                                <button class="p-1 bg-blue-600 rounded-full" onclick="addFieldToArray('${path}.lieux', {nom:'', description:''})"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                            </div>
+                            <div class="sub-card-content">
+                                ${lieuxHTML || '<p class="text-gray-400 text-xs">Aucun lieu.</p>'}
+                            </div>
+                        </div>
+                        
+                        <!-- Lunes (Récursif) -->
+                        <div class="sub-card">
+                            <div class="sub-card-header">
+                                <span>Lunes</span>
+                                <button class="p-1 bg-blue-600 rounded-full" onclick="addFieldToArray('${path}.lunes', {nom:'Nouvelle Lune', orbite:0, lunes:[], astroports:[], lieux:[], patrouilles:[]})"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                            </div>
+                            <div class="sub-card-content">
+                                ${lunesHTML || '<p class="text-gray-400 text-xs">Aucune lune.</p>'}
+                            </div>
+                        </div>
+                        
+                    </div>
+                `;
+                return card.outerHTML;
+            }
+
+            // --- FONCTIONS VAISSEAUX (Identique) ---
+            function renderShipCatalogPage() { 
+                shipListContainer.innerHTML = ''; 
+                let personalShipsHTML = '<h2 class="text-xl font-semibold text-sky-300 mb-2">Mes Vaisseaux</h2>';
+                if (shipCatalog.length === 0) {
+                     personalShipsHTML += '<p class="text-gray-500 text-center p-4">Aucun vaisseau dans votre catalogue personnel.</p>';
+                } else {
+                    shipCatalog.forEach((ship, index) => {
+                        personalShipsHTML += `
+                        <div class="ship-list-item">
+                            <img src="${ship.image || placeholderShipImage}" alt="Image du vaisseau" onerror="this.src='${placeholderShipImage}'" class="cursor-pointer" onclick="showImageModal(this.src)">
+                            <div class="ship-list-item-info">
+                                <div class="nom">${ship.nom || 'Sans Nom'}</div>
+                                <div class="modele">${ship.modele || 'Modèle Inconnu'}</div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="duplicate-ship-btn p-2 bg-green-600 hover:bg-green-500 rounded-full" data-index="${index}" title="Dupliquer"><i data-lucide="copy" class="w-5 h-5"></i></button>
+                                <button class="edit-personal-ship-btn p-2 bg-blue-600 hover:bg-blue-500 rounded-full" data-index="${index}" title="Modifier"><i data-lucide="settings-2" class="w-5 h-5"></i></button>
+                            </div>
+                        </div>`;
+                    });
+                }
+                let modelsShipsHTML = '<hr class="my-6 border-gray-700"><h2 class="text-xl font-semibold text-amber-300 mb-2">Encyclopédie (Modèles)</h2>';
+                if (shipModels.length === 0) {
+                     modelsShipsHTML += '<p class="text-gray-500 text-center p-4">Aucun modèle de vaisseau chargé.</p>';
+                } else {
+                    shipModels.forEach((ship, index) => {
+                        modelsShipsHTML += `
+                        <div class="ship-list-item">
+                            <img src="${ship.image || placeholderShipImage}" alt="Image du vaisseau" onerror="this.src='${placeholderShipImage}'" class="cursor-pointer" onclick="showImageModal(this.src)">
+                            <div class="ship-list-item-info">
+                                <div class="nom">${ship.nom || 'Sans Nom'}</div>
+                                <div class="modele">${ship.classe || 'Classe Inconnue'}</div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="edit-model-ship-btn p-2 bg-purple-600 hover:bg-purple-500 rounded-full" data-index="${index}" title="Modifier le Modèle"><i data-lucide="edit" class="w-5 h-5"></i></button>
+                            </div>
+                        </div>`;
+                    });
+                }
+                shipListContainer.innerHTML = personalShipsHTML + modelsShipsHTML;
+                // ... (Attachement des écouteurs identiques) ...
+                 shipListContainer.querySelectorAll('.edit-personal-ship-btn').forEach(btn => { btn.addEventListener('click', () => { const index = parseInt(btn.dataset.index, 10); openShipEditor(index, false); }); });
+                shipListContainer.querySelectorAll('.duplicate-ship-btn').forEach(btn => { btn.addEventListener('click', (e) => { e.stopPropagation(); const index = parseInt(btn.dataset.index, 10); duplicateShip(index); }); });
+                shipListContainer.querySelectorAll('.edit-model-ship-btn').forEach(btn => { btn.addEventListener('click', () => { const index = parseInt(btn.dataset.index, 10); openShipEditor(index, true); }); });
+                lucide.createIcons();
+            }
+            function renderShipArmament(armement = []) { shipEditArmementList.innerHTML = ''; if (armement.length === 0) { shipEditArmementList.innerHTML = '<p class="text-xs text-gray-500 text-center p-2">Aucune arme.</p>'; return; } armement.forEach((arme, index) => { const item = document.createElement('div'); item.className = 'dynamic-list-item armament-item'; item.innerHTML = `<div class="dynamic-list-item-content"><input type="text" class="ship-arme-cle bg-gray-800 border-gray-700 rounded p-2 text-sm" placeholder="Clé" value="${arme.cle || ''}"><input type="text" class="ship-arme-nom col-span-2 bg-gray-800 border-gray-700 rounded p-2 text-sm" placeholder="Nom/Description" value="${arme.nom || ''}"></div><button type="button" class="remove-arme-btn p-2 text-red-400 hover:text-red-300" data-index="${index}"><i data-lucide="trash-2" class="w-5 h-5"></i></button>`; shipEditArmementList.appendChild(item); }); shipEditArmementList.querySelectorAll('.remove-arme-btn').forEach(btn => { btn.addEventListener('click', (e) => { const indexToRemove = parseInt(e.currentTarget.dataset.index, 10); const currentArmes = readArmamentFromDOM(); currentArmes.splice(indexToRemove, 1); renderShipArmament(currentArmes); }); }); lucide.createIcons(); }
+            function readArmamentFromDOM() { const armementList = []; shipEditArmementList.querySelectorAll('.armament-item').forEach(item => { armementList.push({ cle: item.querySelector('.ship-arme-cle').value, nom: item.querySelector('.ship-arme-nom').value }); }); return armementList; }
+            function renderShipSystemes(systemes = []) { shipEditSystemesList.innerHTML = ''; if (systemes.length === 0) { shipEditSystemesList.innerHTML = '<p class="text-xs text-gray-500 text-center p-2">Aucun système secondaire.</p>'; return; } systemes.forEach((systeme, index) => { const item = document.createElement('div'); item.className = 'dynamic-list-item systeme-item'; item.innerHTML = `<div class="dynamic-list-item-content"><input type="text" class="ship-systeme-nom bg-gray-800 border-gray-700 rounded p-2 text-sm" placeholder="Nom du système" value="${systeme.nom || ''}"><input type="text" class="ship-systeme-desc bg-gray-800 border-gray-700 rounded p-2 text-sm" placeholder="Description" value="${systeme.description || ''}"></div><button type="button" class="remove-systeme-btn p-2 text-red-400 hover:text-red-300" data-index="${index}"><i data-lucide="trash-2" class="w-5 h-5"></i></button>`; shipEditSystemesList.appendChild(item); }); shipEditSystemesList.querySelectorAll('.remove-systeme-btn').forEach(btn => { btn.addEventListener('click', (e) => { const indexToRemove = parseInt(e.currentTarget.dataset.index, 10); const currentSystemes = readSystemesFromDOM(); currentSystemes.splice(indexToRemove, 1); renderShipSystemes(currentSystemes); }); }); lucide.createIcons(); }
+            function readSystemesFromDOM() { const systemesList = []; shipEditSystemesList.querySelectorAll('.systeme-item').forEach(item => { systemesList.push({ nom: item.querySelector('.ship-systeme-nom').value, description: item.querySelector('.ship-systeme-desc').value }); }); return systemesList; }
+            function duplicateShip(index) { if (index < 0 || index >= shipCatalog.length) return; const originalShip = shipCatalog[index]; const newShip = JSON.parse(JSON.stringify(originalShip)); newShip.nom = (originalShip.nom || "Vaisseau") + " (Copie)"; newShip.id = crypto.randomUUID(); shipCatalog.push(newShip); saveShipCatalog(); renderShipCatalogPage(); openShipEditor(shipCatalog.length - 1, false); }
+            function prefillShipEditorFromModel(modelName) { const model = shipModels.find(ship => ship.nom === modelName); if (!model) { shipEditNomInput.value = ""; shipEditModeleInput.value = ""; shipEditClasseInput.value = ""; shipEditImagePreview.src = placeholderShipImage; shipEditVitesseCroisiereInput.value = "0"; shipEditVitesseHyperInput.value = "0"; shipEditAutonomieInput.value = "0"; shipEditManoeuvrabiliteInput.value = ""; shipEditVitesseTactiqueInput.value = ""; shipEditBlindageInput.value = "0"; shipEditCoqueInput.value = "0"; shipEditSenseursInput.value = ""; shipEditEquipageInput.value = ""; shipEditPassagersInput.value = ""; shipEditSouteInput.value = "0"; shipEditPrixInput.value = "0"; shipEditOrigineInput.value = ""; renderShipArmament([]); renderShipSystemes([]); return; } const shipData = JSON.parse(JSON.stringify(model)); shipEditNomInput.value = shipData.nom; shipEditModeleInput.value = shipData.modele; shipEditClasseInput.value = shipData.classe; shipEditImagePreview.src = shipData.image || placeholderShipImage; shipEditVitesseCroisiereInput.value = shipData.vitesseCroisiere; shipEditVitesseHyperInput.value = shipData.vitesseHyperspatiale; shipEditAutonomieInput.value = shipData.autonomie; shipEditManoeuvrabiliteInput.value = shipData.manoeuvrabilite; shipEditVitesseTactiqueInput.value = shipData.vitesseTactique; shipEditBlindageInput.value = shipData.blindage; shipEditCoqueInput.value = shipData.coque; shipEditSenseursInput.value = shipData.senseurs; shipEditEquipageInput.value = shipData.equipage; shipEditPassagersInput.value = shipData.passagers; shipEditSouteInput.value = shipData.soute; shipEditPrixInput.value = shipData.prix; shipEditOrigineInput.value = shipData.origine; renderShipArmament(shipData.armement || []); renderShipSystemes(shipData.systemesSecondaires || []); }
+            function openShipEditor(index, isModel = false) { currentEditShipIndex = index; isEditingModel = isModel; shipEditImagePreview.src = placeholderShipImage; shipEditImageInput.value = ""; if (isModel) { const ship = shipModels[index]; shipEditModalTitle.textContent = `Éditer Modèle: ${ship.nom}`; shipEditIndexInput.value = index; shipEditModelSelectGroup.style.display = 'none'; shipEditNomGroup.style.display = 'none'; shipEditModelInputGroup.style.display = 'block'; shipEditModeleInput.readOnly = false; shipEditModelInputGroup.querySelector('label').textContent = "Nom du Modèle"; shipEditNomInput.value = ship.nom; shipEditModeleInput.value = ship.modele; shipEditClasseInput.value = ship.classe; shipEditImagePreview.src = ship.image || placeholderShipImage; shipEditVitesseCroisiereInput.value = ship.vitesseCroisiere; shipEditVitesseHyperInput.value = ship.vitesseHyperspatiale; shipEditAutonomieInput.value = ship.autonomie; shipEditManoeuvrabiliteInput.value = ship.manoeuvrabilite; shipEditVitesseTactiqueInput.value = ship.vitesseTactique; shipEditBlindageInput.value = ship.blindage; shipEditCoqueInput.value = ship.coque; shipEditSenseursInput.value = ship.senseurs; shipEditEquipageInput.value = ship.equipage; shipEditPassagersInput.value = ship.passagers; shipEditSouteInput.value = ship.soute; shipEditPrixInput.value = ship.prix; shipEditOrigineInput.value = ship.origine; renderShipArmament(ship.armement || []); renderShipSystemes(ship.systemesSecondaires || []); shipEditDeleteBtn.classList.remove('hidden'); shipEditSaveBtn.classList.add('col-span-1'); shipEditSaveBtn.classList.remove('col-span-2'); } else if (index === -1) { shipEditModalTitle.textContent = "Nouveau Vaisseau"; shipEditIndexInput.value = "-1"; shipEditModelSelectGroup.style.display = 'block'; shipEditNomGroup.style.display = 'block'; shipEditModelInputGroup.style.display = 'block'; shipEditModeleInput.readOnly = true; shipEditModelInputGroup.querySelector('label').textContent = "Modèle"; shipEditModelSelect.innerHTML = '<option value="">-- Choisir un modèle --</option>'; shipModels.forEach(ship => { shipEditModelSelect.innerHTML += `<option value="${ship.nom}">${ship.nom}</option>`; }); shipEditModelSelect.onchange = () => prefillShipEditorFromModel(shipEditModelSelect.value); prefillShipEditorFromModel(""); shipEditDeleteBtn.classList.add('hidden'); shipEditSaveBtn.classList.remove('col-span-1'); shipEditSaveBtn.classList.add('col-span-2'); } else { const ship = shipCatalog[index]; shipEditModalTitle.textContent = `Éditer: ${ship.nom}`; shipEditIndexInput.value = index; shipEditModelSelectGroup.style.display = 'none'; shipEditNomGroup.style.display = 'block'; shipEditModelInputGroup.style.display = 'block'; shipEditModeleInput.readOnly = true; shipEditModelInputGroup.querySelector('label').textContent = "Modèle"; shipEditNomInput.value = ship.nom; shipEditModeleInput.value = ship.modele; shipEditClasseInput.value = ship.classe; shipEditImagePreview.src = ship.image || placeholderShipImage; shipEditVitesseCroisiereInput.value = ship.vitesseCroisiere; shipEditVitesseHyperInput.value = ship.vitesseHyperspatiale; shipEditAutonomieInput.value = ship.autonomie; shipEditManoeuvrabiliteInput.value = ship.manoeuvrabilite; shipEditVitesseTactiqueInput.value = ship.vitesseTactique; shipEditBlindageInput.value = ship.blindage; shipEditCoqueInput.value = ship.coque; shipEditSenseursInput.value = ship.senseurs; shipEditEquipageInput.value = ship.equipage; shipEditPassagersInput.value = ship.passagers; shipEditSouteInput.value = ship.soute; shipEditPrixInput.value = ship.prix; shipEditOrigineInput.value = ship.origine; renderShipArmament(ship.armement || []); renderShipSystemes(ship.systemesSecondaires || []); shipEditDeleteBtn.classList.remove('hidden'); shipEditSaveBtn.classList.add('col-span-1'); shipEditSaveBtn.classList.remove('col-span-2'); } openModal(shipEditModal); }
+            function populateActiveShipSelect() { activeShipSelect.innerHTML = ''; if (shipCatalog.length === 0) { activeShipSelect.innerHTML = '<option value="-1">Aucun vaisseau disponible</option>'; updateActiveShipStats(); return; } shipCatalog.forEach((ship, index) => { activeShipSelect.innerHTML += `<option value="${index}">${ship.nom} (${ship.modele})</option>`; }); updateActiveShipStats(); }
+            function updateActiveShipStats() { const selectedIndex = parseInt(activeShipSelect.value, 10); if (selectedIndex === -1 || !shipCatalog[selectedIndex]) { activeShipStats.innerHTML = '<span>Veuillez ajouter un vaisseau à votre catalogue.</span>'; return; } const ship = shipCatalog[selectedIndex]; activeShipStats.innerHTML = `<span>Vitesse Hyper.: <strong>${ship.vitesseHyperspatiale} PC/j</strong></span><span>Autonomie: <strong>${ship.autonomie} PC</strong></span><span>Vitesse Croisière: <strong>${ship.vitesseCroisiere} US/j</strong></span>`; }
+            
+            // --- FONCTIONS (Génération Carte) ---
+            function generateMap() {
+                mapGrid.innerHTML = ''; colLegend.innerHTML = ''; rowLegend.innerHTML = '';
+                for (let x = 0; x < 40; x++) { const l = document.createElement('div'); l.className = 'flex-shrink-0 w-10 text-center'; l.textContent = lettres[x]; l.style.width = '40px'; colLegend.appendChild(l); }
+                for (let y = 0; y < 40; y++) {
+                    const r = document.createElement('div'); r.className = 'flex-shrink-0 h-10 text-right pr-2'; r.textContent = 40 - y; r.style.height = '40px'; rowLegend.appendChild(r);
+                    for (let x = 0; x < 40; x++) {
+                        const quadrant = document.createElement('div'); quadrant.className = 'quadrant'; const coord = `${lettres[x] || '?'}-${40 - y}`; quadrant.dataset.coord = coord;
+                        if (systemsData[coord] && systemsData[coord].length > 0) { quadrant.classList.add('has-system'); }
+                        quadrant.addEventListener('click', () => { if (isQuadrantSelectionMode) { handleQuadrantSelection(coord); } else { openQuadrantModal(coord); } });
+                        mapGrid.appendChild(quadrant);
+                    }
+                }
+            }
+
+             // --- FONCTIONS (Modales & Navigation) ---
+            function openModal(modal) { modalBackdrop.classList.add('show'); modal.classList.add('show'); document.body.classList.add('modal-open'); }
+            window.closeModal = () => {
+                const modal = document.querySelector('.bottom-sheet.show');
+                if (modal) {
+                    if (modal.id === 'itineraire-results-modal' && perilDetailModal && perilDetailModal.classList.contains('show')) closePerilModal();
+                    if (modal.id === 'quadrant-modal' && currentSelectedQuadrantCoord) {
+                        const quadEl = document.querySelector(`.quadrant[data-coord="${currentSelectedQuadrantCoord}"]`);
+                        if (quadEl) quadEl.classList.remove('selected');
+                        currentSelectedQuadrantCoord = null;
+                    }
+                    modal.classList.remove('show');
+                }
+                modalBackdrop.classList.remove('show');
+                document.body.classList.remove('modal-open');
+                if (isNewSystem && currentEditCoord && currentEditIndex !== -1 && systemsData[currentEditCoord]) systemsData[currentEditCoord].splice(currentEditIndex, 1);
+                currentEditCoord = null; currentEditIndex = -1; isNewSystem = false; currentEditShipIndex = -1; isEditingModel = false;
+            }
+            // ... (window.showImageModal, closeImageModal, closePerilModal inchangées) ...
+            window.showImageModal = (imageUrl) => { if (!imageUrl || imageUrl.includes('placehold.co')) return; imageViewerImg.src = imageUrl; imageViewerModal.classList.add('show'); document.body.classList.add('modal-open'); }
+            window.closeImageModal = () => { imageViewerModal.classList.remove('show'); imageViewerImg.src = ""; if (!document.querySelector('.bottom-sheet.show')) document.body.classList.remove('modal-open'); }
+            window.closePerilModal = () => { if (perilDetailModal) perilDetailModal.classList.remove('show'); }
+
+            function openQuadrantModal(coord) {
+                 // ... [Contenu inchangé] ...
+                if (currentSelectedQuadrantCoord) { const oldQuadEl = document.querySelector(`.quadrant[data-coord="${currentSelectedQuadrantCoord}"]`); if (oldQuadEl) oldQuadEl.classList.remove('selected'); }
+                const newQuadEl = document.querySelector(`.quadrant[data-coord="${coord}"]`); if (newQuadEl) newQuadEl.classList.add('selected'); currentSelectedQuadrantCoord = coord;
+                currentEditCoord = coord; currentEditIndex = -1; isNewSystem = false; quadrantModalTitle.textContent = `Quadrant ${coord}`; quadrantModalContent.innerHTML = '';
+                const systems = systemsData[coord] || [];
+                if (systems.length > 0) {
+                    const ul = document.createElement('ul'); ul.className = 'space-y-2';
+                    systems.forEach((system, index) => { const li = document.createElement('li'); li.className = 'flex justify-between items-center bg-gray-700 p-3 rounded-lg'; li.innerHTML = `<div><div class="font-semibold">${system.nom}</div><div class="text-sm text-gray-400">${system.faction}</div></div><button data-coord="${coord}" data-index="${index}" class="edit-system-btn bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-md text-sm">Gérer</button>`; ul.appendChild(li); });
+                    quadrantModalContent.appendChild(ul);
+                    ul.querySelectorAll('.edit-system-btn').forEach(btn => { btn.addEventListener('click', (e) => { const coord = e.currentTarget.dataset.coord; const index = parseInt(e.currentTarget.dataset.index, 10); showSystemEditor(coord, index, false); }); });
+                } else { quadrantModalContent.innerHTML = '<p class="text-gray-400">Aucun système solaire connu dans ce quadrant.</p>'; }
+                openModal(quadrantModal);
+            }
+
+            function showPage(pageId) {
+                pages.forEach(page => page.classList.add('hidden'));
+                const newPage = document.getElementById(pageId);
+                if (newPage) newPage.classList.remove('hidden');
+                
+                // GESTION DU BOUTON FLOTTANT CARTE
+                if (pageId === 'map-page' && currentTripData && currentTripData.legs && currentTripData.legs.length > 0) {
+                    viewTripMapBtn.classList.remove('hidden');
+                } else {
+                    viewTripMapBtn.classList.add('hidden');
+                }
+
+                const navButtons = [navMapBtn, navItineraireBtn, navShipBtn];
+                navButtons.forEach(btn => { btn.classList.remove('text-blue-400'); btn.classList.add('text-gray-400'); });
+                if (pageId === 'map-page') { navMapBtn.classList.add('text-blue-400'); navMapBtn.classList.remove('text-gray-400'); }
+                else if (pageId === 'itineraire-page') { navItineraireBtn.classList.add('text-blue-400'); navItineraireBtn.classList.remove('text-gray-400'); }
+                else if (pageId === 'ship-catalog-page') { navShipBtn.classList.add('text-blue-400'); navShipBtn.classList.remove('text-gray-400'); }
+            }
+
+            function showSystemEditor(coord, index, isNew = false) { currentEditCoord = coord; currentEditIndex = index; isNewSystem = isNew; const system = systemsData[coord][index]; systemEditTitle.textContent = isNew ? "Nouveau Système" : `Éditer: ${system.nom}`; renderSystemEditor(system); closeModal(); showPage('system-edit-page'); }
+            function activateQuadrantSelection(selectElement) { isQuadrantSelectionMode = true; targetQuadrantSelectElement = selectElement; showPage('map-page'); mapContainer.classList.add('selection-mode'); }
+            function handleQuadrantSelection(coord) { if (targetQuadrantSelectElement) { targetQuadrantSelectElement.value = coord; targetQuadrantSelectElement.dispatchEvent(new Event('change')); } isQuadrantSelectionMode = false; targetQuadrantSelectElement = null; mapContainer.classList.remove('selection-mode'); showPage('itineraire-page'); }
+
+            // --- Logique de calcul d'itinéraire (inchangée) ---
+             function populatePlanetSelect(quadrant, systemName, planetSelect) { planetSelect.innerHTML = '<option value="">Choisir astre...</option>'; planetSelect.disabled = true; if (quadrant && systemName && systemsData[quadrant]) { const system = systemsData[quadrant].find(s => s.nom === systemName); if (system) { if (system.soleil && system.soleil.nom) { planetSelect.innerHTML += `<option value="${system.soleil.nom}" data-orbite="0">(Soleil) ${system.soleil.nom}</option>`; } if (system.corpsCelestes) { system.corpsCelestes.forEach(p => { if(p.orbite !== undefined) { planetSelect.innerHTML += `<option value="${p.nom}" data-orbite="${parseFloat(p.orbite)}">${p.nom}</option>`; } }); } if (system.soleil && system.soleil.distanceSaut) { planetSelect.innerHTML += `<option value="limite_saut" data-orbite="${parseFloat(system.soleil.distanceSaut)}">Limite de Saut</option>`; } planetSelect.disabled = false; } } }
+            function populateItineraireSelects() { const knownQuadrants = Object.keys(systemsData).filter(q => systemsData[q] && systemsData[q].length > 0).sort(); startQuadrantSelect.innerHTML = '<option value="">Choisir quadrant...</option>'; endQuadrantSelect.innerHTML = '<option value="">Choisir quadrant...</option>'; knownQuadrants.forEach(coord => { startQuadrantSelect.innerHTML += `<option value="${coord}">${coord}</option>`; endQuadrantSelect.innerHTML += `<option value="${coord}">${coord}</option>`; }); const updateSystems = (quadrantSelect, systemSelect, planetSelect) => { const systems = systemsData[quadrantSelect.value] || []; systemSelect.innerHTML = '<option value="">Choisir système...</option>'; planetSelect.innerHTML = '<option value="">Choisir astre...</option>'; planetSelect.disabled = true; systems.sort((a, b) => a.nom.localeCompare(b.nom)).forEach(sys => { systemSelect.innerHTML += `<option value="${sys.nom}">${sys.nom}</option>`; }); }; startQuadrantSelect.addEventListener('change', () => updateSystems(startQuadrantSelect, startSystemSelect, startPlanetSelect)); startSystemSelect.addEventListener('change', () => populatePlanetSelect(startQuadrantSelect.value, startSystemSelect.value, startPlanetSelect)); endQuadrantSelect.addEventListener('change', () => updateSystems(endQuadrantSelect, endSystemSelect, endPlanetSelect)); endSystemSelect.addEventListener('change', () => populatePlanetSelect(endQuadrantSelect.value, endSystemSelect.value, endPlanetSelect)); }
+            function drawItineraryPath(quadrantList) { document.querySelectorAll('.quadrant.path-point, .quadrant.start-point, .quadrant.end-point, .quadrant.etape-point').forEach(q => { q.classList.remove('path-point', 'start-point', 'end-point', 'etape-point'); }); const allPathQuadrants = new Set(); for (let i = 0; i < quadrantList.length - 1; i++) { const startQuad = quadrantList[i]; const endQuad = quadrantList[i+1]; const p1 = parseQuadrantCoords(startQuad); const p2 = parseQuadrantCoords(endQuad); if (!p1 || !p2) continue; const dx = p2.x - p1.x; const dy = p2.y - p1.y; const steps = Math.max(Math.abs(dx), Math.abs(dy)); for (let j = 0; j <= steps; j++) { const t = steps === 0 ? 0 : j / steps; const currentX = Math.round(p1.x + dx * t); const currentY = Math.round(p1.y + dy * t); if (lettres[currentX] !== undefined) { const quadrantString = `${lettres[currentX]}-${40 - currentY}`; allPathQuadrants.add(quadrantString); } } } allPathQuadrants.forEach(quadStr => { const quadEl = document.querySelector(`.quadrant[data-coord="${quadStr}"]`); if (quadEl) { quadEl.classList.add('path-point'); } }); quadrantList.forEach((quadStr, index) => { const quadEl = document.querySelector(`.quadrant[data-coord="${quadStr}"]`); if(quadEl) { quadEl.classList.remove('path-point'); if (index === 0) { quadEl.classList.add('start-point'); } else if (index === quadrantList.length - 1) { quadEl.classList.add('end-point'); } else { quadEl.classList.add('etape-point'); } } }); }
+            function getPointData(quadrantSelect, systemSelect, planetSelect) { const selectedOption = planetSelect.options[planetSelect.selectedIndex]; if (!quadrantSelect.value || !systemSelect.value || !planetSelect.value) { return { isValid: false }; } return { quadrant: quadrantSelect.value, system: systemSelect.value, name: selectedOption.text, value: planetSelect.value, orbit: parseFloat(selectedOption.dataset.orbite), isValid: true }; }
+            function roll2D6() { return Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1; }
+            const d6 = () => Math.floor(Math.random() * 6) + 1; 
+            function genererMatriceDistance(systeme) { const points = []; if (systeme.soleil) { points.push({ nom: systeme.soleil.nom || "Soleil", orbite: 0, type: 'Soleil' }); } (systeme.corpsCelestes || []).forEach(p => { points.push({ nom: p.nom, orbite: parseFloat(p.orbite) || 0, type: 'Planète' }); }); if (systeme.soleil && systeme.soleil.distanceSaut) { points.push({ nom: "Limite de Saut", orbite: parseFloat(systeme.soleil.distanceSaut) || 0, type: 'Limite' }); } if (points.length <= 1) return ''; function getDistanceModifier(closestOrbit) { let modValue = 0; let modText = "0"; let roll; if (closestOrbit < 1) { roll = d6(); modValue = 0.5 * roll; modText = `0.5d6 (${roll})`; } else if (closestOrbit >= 60) { roll = d6() + d6(); modValue = 10 * roll; modText = `10x2d6 (${roll})`; } else if (closestOrbit >= 30) { roll = d6(); modValue = 10 * roll; modText = `10d6 (${roll})`; } else if (closestOrbit >= 15) { roll = d6(); modValue = 5 * roll; modText = `5d6 (${roll})`; } else if (closestOrbit >= 1) { roll = d6(); modValue = roll; modText = `1d6 (${roll})`; } return { value: Math.round(modValue), text: modText }; } let html = `<div class="sub-card mt-4"><div class="sub-card-header"><span>Matrice des distances (Estimations)</span></div><div class="sub-card-content" style="overflow-x: auto;"><table class="trip-table distance-matrix"><thead><tr><th class="sticky left-0 bg-gray-700 z-10">&nbsp;</th>`; points.forEach(p => html += `<th>${p.nom}</th>`); html += '</tr></thead><tbody>'; points.forEach(p1 => { html += `<tr><th class="sticky left-0 bg-gray-700 z-10">${p1.nom}</th>`; points.forEach(p2 => { let distHTML = '-'; if (p1.nom === p2.nom) { distHTML = `0`; } else { const orbite1 = p1.orbite; const orbite2 = p2.orbite; const type1 = p1.type; const type2 = p2.type; if (type1 === 'Soleil') { distHTML = `${orbite2} US`; } else if (type2 === 'Soleil') { distHTML = `${orbite1} US`; } else if ((type1 === 'Planète' && type2 === 'Limite') || (type1 === 'Limite' && type2 === 'Planète')) { const diff = Math.abs(orbite1 - orbite2); distHTML = `${diff.toFixed(2)} US`; } else if (type1 === 'Planète' && type2 === 'Planète') { const diff = Math.abs(orbite1 - orbite2); const closestOrbit = Math.min(orbite1, orbite2); const modifier = getDistanceModifier(closestOrbit); const totalDist = diff + modifier.value; distHTML = `${diff.toFixed(2)} + ${modifier.text} = <strong>${totalDist}</strong>`; } } html += `<td>${distHTML}</td>`; }); html += '</tr>'; }); html += '</tbody></table></div></div>'; return html; }
+            function getPeril(type) { const perilData = perilsData[type]; if (!perilData || !perilData.categories || perilData.categories.length === 0) return { nom: "Péril non défini", data: { description: "Données de péril non chargées." } }; const categoryRoll = roll2D6(); const category = perilData.categories.find(c => categoryRoll >= c.seuilMin && categoryRoll <= c.seuilMax); if (!category || !category.perils || category.perils.length === 0) return { nom: "Calme plat", data: { description: "Aucun événement notable." } }; const perilRoll = roll2D6(); let peril = category.perils.find(p => perilRoll >= p.seuilMin && perilRoll <= p.seuilMax); if (!peril) peril = category.perils[0]; return peril; }
+            function generateDailyData(type, days, skill, speed) { let dailyData = []; for (let i = 0; i < days; i++) { let surf = 0; let consoMod = 0; if(type === 'interplanetaire') { surf = skill * (speed / 10); } else if (type === 'hyperspatial') { consoMod = skill * (speed / 10); } dailyData.push({ day: i + 1, peril: getPeril(type), surf: surf, consoMod: consoMod, }); } return dailyData; }
+            function parseQuadrantCoords(quadrant) { const parts = quadrant.split('-'); if (parts.length < 2) return null; const letterPart = parts[0]; const numberPart = parseInt(parts[1], 10); const x = lettres.indexOf(letterPart); if (x === -1 || isNaN(numberPart)) return null; return { x: x, y: 40 - numberPart }; }
+            function calculateInterplanetaryLeg(systemData, pointData, legName, direction, ship) { const speed = ship.vitesseCroisiere || 10; const skill = parseInt(compNavigationInput.value, 10) || 0; const jumpLimit = parseFloat(systemData.soleil?.distanceSaut) || 0; const pointOrbit = pointData.orbit; const distance = Math.abs(jumpLimit - pointOrbit); if (speed <= 0) return { name: `Étape Interplanétaire (${legName})`, distance: distance.toFixed(2), days: '∞', dailyData: [] }; const baseDays = Math.max(1, Math.ceil(distance / speed)); const dailyData = generateDailyData('interplanetaire', baseDays, skill, speed); const from = direction === 'departure' ? pointData.name : `Limite de saut de ${systemData.nom}`; const to = direction === 'departure' ? `Limite de saut de ${systemData.nom}` : pointData.name; return { name: `Étape Interplanétaire (${legName})`, type: 'interplanetaire', from: from, to: to, distance: distance.toFixed(2), unit: 'US', days: baseDays, dailyData: dailyData, baseSpeed: speed }; }
+            function calculateHyperspaceLeg(startQuadrant, endQuadrant, ship) { const speed = ship.vitesseHyperspatiale || 1000; const skill = parseInt(compSautInput.value, 10) || 0; const startCoords = parseQuadrantCoords(startQuadrant); const endCoords = parseQuadrantCoords(endQuadrant); if (!startCoords || !endCoords) return { name: 'Erreur Coordonnées', distance: 0, days: 0, dailyData: []}; const dx = Math.abs(startCoords.x - endCoords.x); const dy = Math.abs(startCoords.y - endCoords.y); const quadrantMoves = Math.max(dx, dy); const distance = quadrantMoves * 1000; if (speed <= 0) return { name: 'Étape Hyperspatiale', distance: distance, days: '∞', dailyData: [] }; const baseDays = Math.max(1, Math.ceil(distance / speed)); const dailyData = generateDailyData('hyperspatial', baseDays, skill, speed); return { name: 'Étape Hyperspatiale', type: 'hyperspatial', from: `Quadrant ${startQuadrant}`, to: `Quadrant ${endQuadrant}`, distance: distance, unit: 'PC', days: baseDays, dailyData: dailyData, baseSpeed: speed }; }
+            function displayItineraryResults(isUpdate = false) { itineraireResultsModalContent.innerHTML = ''; let totalDays = 0; let totalDistancePC = 0; let totalDistanceUS = 0; let cumulativeConsumption = 0; let panneSeche = false; currentTripData.legs.forEach((leg, legIndex) => { const legDiv = document.createElement('div'); legDiv.className = 'trip-leg'; let tableHTML = `<table class="trip-table"><thead><tr><th>Jour</th><th>Péril</th><th>Surf</th>`; if (leg.type === 'hyperspatial') { tableHTML += `<th>Mod.Conso</th><th>Conso.</th>`; } tableHTML += `<th>Dist.</th><th>Statut</th></tr></thead><tbody>`; let cumulativeDistance = 0; let destinationReachedDay = -1; for(let dayIndex = 0; dayIndex < leg.dailyData.length; dayIndex++) { const dayData = leg.dailyData[dayIndex]; if (destinationReachedDay === -1) { cumulativeDistance += leg.baseSpeed + dayData.surf; if (cumulativeDistance >= leg.distance) { destinationReachedDay = dayData.day; } } let dailyConsumption = 0; if (leg.type === 'hyperspatial') { dailyConsumption = Math.max(0, 1000 - dayData.consoMod); if (destinationReachedDay === -1 && !panneSeche) { cumulativeConsumption += dailyConsumption; } } let status = '<span class="status-ok">En route</span>'; if (panneSeche) { status = `<span class="status-danger">Panne</span>`; } else if (destinationReachedDay !== -1 && dayData.day >= destinationReachedDay) { status = `<span class="status-success">Arrivé</span>`; } else if (leg.type === 'hyperspatial' && cumulativeConsumption > currentTripData.autonomy) { status = `<span class="status-danger">Panne sèche!</span>`; panneSeche = true; } const distanceProgress = Math.min(cumulativeDistance, leg.distance).toLocaleString(); const distanceTotal = parseFloat(leg.distance).toLocaleString(); tableHTML += `<tr><td>${dayData.day}</td><td><span class="peril-link" onclick="showPerilDetail(${legIndex}, ${dayIndex})">${dayData.peril.nom}</span></td><td><input type="number" id="surf-${legIndex}-${dayIndex}" value="${dayData.surf}" class="p-1 text-sm"></td>`; if (leg.type === 'hyperspatial') { tableHTML += `<td><input type="number" id="conso-${legIndex}-${dayIndex}" value="${dayData.consoMod}" class="p-1 text-sm"></td><td>${dailyConsumption.toLocaleString()}</td>`; } tableHTML += `<td>${distanceProgress} / ${distanceTotal}</td><td>${status}</td></tr>`; if (destinationReachedDay === -1 && !panneSeche) { totalDays++; } }; if (leg.unit === 'PC') totalDistancePC += parseFloat(leg.distance); if (leg.unit === 'US') totalDistanceUS += parseFloat(leg.distance); tableHTML += `</tbody></table>`; legDiv.innerHTML = `<h3>${leg.name}</h3><p class="text-sm text-gray-400 mb-2">De: ${leg.from} &rarr; À: ${leg.to}</p>${tableHTML}`; itineraireResultsModalContent.appendChild(legDiv); }); tripSummaryTotal.innerHTML = `Durée Totale: <strong>${totalDays} j</strong> | Conso: <strong>${cumulativeConsumption.toLocaleString()} / ${currentTripData.autonomy.toLocaleString()} PC</strong>`; }
+            function updateAndDisplayResults() { currentTripData.legs.forEach((leg, legIndex) => { leg.dailyData.forEach((dayData, dayIndex) => { const surfInput = document.getElementById(`surf-${legIndex}-${dayIndex}`); if (surfInput) dayData.surf = parseFloat(surfInput.value) || 0; if (leg.type === 'hyperspatial') { const consoInput = document.getElementById(`conso-${legIndex}-${dayIndex}`); if (consoInput) dayData.consoMod = parseFloat(consoInput.value) || 0; } }); }); displayItineraryResults(true); }
+            window.showPerilDetail = (legIndex, dayIndex) => { const peril = currentTripData.legs[legIndex].dailyData[dayIndex].peril; const perilContent = document.getElementById('peril-detail-modal-content'); const perilTitle = document.getElementById('peril-detail-title'); if (peril) { perilTitle.textContent = peril.nom; const data = peril.data; perilContent.innerHTML = `<div class="p-4 space-y-3"><p class="text-gray-400 italic">${data.description ? data.description.replace(/\\n/g, '<br>') : ''}</p><div class="text-sm"><span class="font-semibold text-sky-300">Senseurs:</span> ${data.senseurs || 'N/A'} | <span class="font-semibold text-sky-300">Sciences:</span> ${data.sciencesStellaires || 'N/A'} | <span class="font-semibold text-sky-300">Mobile:</span> ${data.mobile ? 'Oui' : 'Non'}</div><div><h4 class="font-semibold text-gray-200 mt-2">Définition</h4><p class="text-gray-400 text-sm">${data.definition ? data.definition.replace(/\\n/g, '<br>') : 'Aucune définition.'}</p></div><div><h4 class="font-semibold text-gray-200 mt-2">Protocole</h4><p class="text-gray-400 text-sm whitespace-pre-wrap">${data.protocole ? data.protocole.replace(/\\n/g, '<br>') : 'Aucun protocole.'}</p></div><div><h4 class="font-semibold text-gray-200 mt-2">Résultat</h4><p class="text-gray-400 text-sm whitespace-pre-wrap">${data.resultat ? data.resultat.replace(/\\n/g, '<br>') : 'Aucun résultat.'}</p></div></div>`; perilDetailModal.classList.add('show'); } }
+
+            // MODIFIÉ: Ajout de la gestion des boutons "Voir Itinéraire"
+            function generateTrip() {
+                const selectedShipIndex = parseInt(activeShipSelect.value, 10);
+                if (selectedShipIndex === -1 || !shipCatalog[selectedShipIndex]) { alert("Veuillez sélectionner un vaisseau valide."); return; }
+                const selectedShip = shipCatalog[selectedShipIndex];
+
+                const points = []; const allQuadrants = [];
+                const start = getPointData(startQuadrantSelect, startSystemSelect, startPlanetSelect);
+                if (!start.isValid) { alert("Le point de départ est incomplet."); return; }
+                points.push(start); allQuadrants.push(start.quadrant);
+                
+                const end = getPointData(endQuadrantSelect, endSystemSelect, endPlanetSelect);
+                if (!end.isValid) { alert("Le point d'arrivée est incomplet."); return; }
+                points.push(end);
+                if (!allQuadrants.includes(end.quadrant)) { allQuadrants.push(end.quadrant); }
+
+                currentTripData = { legs: [], allQuadrants: allQuadrants, autonomy: selectedShip.autonomie || 10000 };
+                
+                for (let i = 0; i < points.length - 1; i++) {
+                    const currentPoint = points[i]; const nextPoint = points[i+1];
+                    const currentSystemData = systemsData[currentPoint.quadrant].find(s => s.nom === currentPoint.system);
+                    const nextSystemData = systemsData[nextPoint.quadrant].find(s => s.nom === nextPoint.system);
+
+                    if (currentPoint.value !== 'limite_saut') currentTripData.legs.push(calculateInterplanetaryLeg(currentSystemData, currentPoint, `Départ de ${currentPoint.system}`, 'departure', selectedShip));
+                    if (currentPoint.quadrant !== nextPoint.quadrant) currentTripData.legs.push(calculateHyperspaceLeg(currentPoint.quadrant, nextPoint.quadrant, selectedShip));
+                    if (nextPoint.value !== 'limite_saut') currentTripData.legs.push(calculateInterplanetaryLeg(nextSystemData, nextPoint, `Arrivée à ${nextPoint.system}`, 'arrival', selectedShip));
+                }
+                
+                // Activer les boutons "Voir Itinéraire" car des données existent
+                viewTripFormBtn.classList.remove('hidden');
+                viewTripMapBtn.classList.remove('hidden');
+                
+                showPage('map-page');
+                drawItineraryPath(allQuadrants);
+                displayItineraryResults();
+                openModal(itineraireResultsModal);
+            }
+            
+            // Écouteurs pour les boutons "Voir Itinéraire"
+            viewTripFormBtn.addEventListener('click', () => {
+                if(currentTripData && currentTripData.legs && currentTripData.legs.length > 0) {
+                    displayItineraryResults(false);
+                    openModal(itineraireResultsModal);
+                }
+            });
+            viewTripMapBtn.addEventListener('click', () => {
+                 if(currentTripData && currentTripData.legs && currentTripData.legs.length > 0) {
+                    displayItineraryResults(false);
+                    openModal(itineraireResultsModal);
+                }
+            });
+
+
+            // --- FONCTIONS (Pan & Zoom) ---
+            function updateTransform() {
+                scale = Math.max(0.2, Math.min(scale, 4)); const maxTranslate = 1000; translateX = Math.max(-maxTranslate, Math.min(translateX, maxTranslate)); translateY = Math.max(-maxTranslate, Math.min(translateY, maxTranslate)); mapGrid.style.transformOrigin = '0 0'; colLegend.style.transformOrigin = '0 0'; rowLegend.style.transformOrigin = '0 0'; const legendGutterX = 30; const legendGutterY = 30; mapGrid.style.transform = `translate(${translateX + legendGutterX}px, ${translateY + legendGutterY}px) scale(${scale})`; colLegend.style.transform = `translate(${translateX + legendGutterX}px, ${translateY + 10}px) scale(${scale})`; rowLegend.style.transform = `translate(${translateX + 10}px, ${translateY + legendGutterY}px) scale(${scale})`;
+            }
+
+            // --- GESTION DES ÉVÉNEMENTS (Pan & Zoom) ---
+            zoomInBtn.addEventListener('click', () => { const rect = mapContainer.getBoundingClientRect(); const x = rect.width / 2; const y = rect.height / 2; const scaleRatio = 1.2; const newScale = scale * scaleRatio; translateX = x - (x - translateX) * scaleRatio; translateY = y - (y - translateY) * scaleRatio; scale = newScale; updateTransform(); });
+            zoomOutBtn.addEventListener('click', () => { const rect = mapContainer.getBoundingClientRect(); const x = rect.width / 2; const y = rect.height / 2; const scaleRatio = 1 / 1.2; const newScale = scale * scaleRatio; translateX = x - (x - translateX) * scaleRatio; translateY = y - (y - translateY) * scaleRatio; scale = newScale; updateTransform(); });
+            zoomResetBtn.addEventListener('click', () => { scale = 0.5; translateX = 0; translateY = 0; updateTransform(); });
+            mapContainer.addEventListener('mousedown', (e) => { e.preventDefault(); isPanning = true; lastX = e.clientX; lastY = e.clientY; mapContainer.classList.add('active:cursor-grabbing'); });
+            mapContainer.addEventListener('mousemove', (e) => { if (!isPanning) return; const dx = e.clientX - lastX; const dy = e.clientY - lastY; translateX += dx; translateY += dy; lastX = e.clientX; lastY = e.clientY; updateTransform(); });
+            mapContainer.addEventListener('mouseup', () => { isPanning = false; mapContainer.classList.remove('active:cursor-grabbing'); });
+            mapContainer.addEventListener('mouseleave', () => { isPanning = false; mapContainer.classList.remove('active:cursor-grabbing'); });
+            mapContainer.addEventListener('wheel', (e) => { e.preventDefault(); const rect = mapContainer.getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top; const delta = e.deltaY > 0 ? -1 : 1; const scaleRatio = 1 + delta * 0.1; const newScale = scale * scaleRatio; translateX = x - (x - translateX) * scaleRatio; translateY = y - (y - translateY) * scaleRatio; scale = newScale; updateTransform(); });
+            mapContainer.addEventListener('touchstart', (e) => { if (e.touches.length === 1) { e.preventDefault(); isPanning = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; } else if (e.touches.length === 2) { e.preventDefault(); isPanning = false; const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; pinchStartDist = Math.hypot(dx, dy); } });
+            mapContainer.addEventListener('touchmove', (e) => { if (isPanning && e.touches.length === 1) { e.preventDefault(); const dx = e.touches[0].clientX - lastX; const dy = e.touches[0].clientY - lastY; translateX += dx; translateY += dy; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; updateTransform(); } else if (e.touches.length === 2) { e.preventDefault(); const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; const newPinchDist = Math.hypot(dx, dy); const scaleRatio = newPinchDist / pinchStartDist; const rect = mapContainer.getBoundingClientRect(); const x = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left; const y = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top; const newScale = scale * scaleRatio; translateX = x - (x - translateX) * scaleRatio; translateY = y - (y - translateY) * scaleRatio; scale = newScale; pinchStartDist = newPinchDist; updateTransform(); } });
+            mapContainer.addEventListener('touchend', (e) => { isPanning = false; pinchStartDist = 0; });
+
+
+            // --- GESTION DES ÉVÉNEMENTS (Navigation & Modales) ---
+            modalBackdrop.addEventListener('click', closeModal);
+            navMapBtn.addEventListener('click', () => showPage('map-page'));
+            navItineraireBtn.addEventListener('click', () => showPage('itineraire-page'));
+            navShipBtn.addEventListener('click', () => showPage('ship-catalog-page')); 
+            
+            // Listener Paramètres supprimé
+            
+            addSystemBtn.addEventListener('click', () => { if (!currentEditCoord) return; if (!systemsData[currentEditCoord]) { systemsData[currentEditCoord] = []; } const newSystemTemplate = { nom: "Nouveau Système", faction: "", isFrontiere: false, route: "", gouvernement: "", description: "", patrouilles: [], soleil: { nom: "Nouvelle Étoile", distanceSaut: "50" }, corpsCelestes: [] }; systemsData[currentEditCoord].push(newSystemTemplate); const newIndex = systemsData[currentEditCoord].length - 1; showSystemEditor(currentEditCoord, newIndex, true); });
+            calculateItineraireBtn.addEventListener('click', generateTrip);
+            if (updateTripBtn) updateTripBtn.addEventListener('click', updateAndDisplayResults);
+            startQuadrantBtn.addEventListener('click', () => { activateQuadrantSelection(startQuadrantSelect); });
+            endQuadrantBtn.addEventListener('click', () => { activateQuadrantSelection(endQuadrantSelect); });
+            systemEditBackBtn.addEventListener('click', () => { if (isNewSystem) { if (currentEditCoord && currentEditIndex !== -1 && systemsData[currentEditCoord]) { systemsData[currentEditCoord].splice(currentEditIndex, 1); } } currentEditCoord = null; currentEditIndex = -1; isNewSystem = false; showPage('map-page'); generateMap(); });
+            systemEditSaveBtn.addEventListener('click', () => { saveData(); isNewSystem = false; currentEditCoord = null; currentEditIndex = -1; showPage('map-page'); generateMap(); });
+            addNewShipBtn.addEventListener('click', () => { openShipEditor(-1, false); });
+            shipEditImageInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (event) => { shipEditImagePreview.src = event.target.result; }; reader.readAsDataURL(file); } });
+            shipEditImageRemove.addEventListener('click', () => { shipEditImagePreview.src = placeholderShipImage; shipEditImageInput.value = ''; });
+            
+            // ... (Listeners pour armement et systèmes inchangés, juste recopiés ici) ...
+            shipEditAddArmeBtn.addEventListener('click', () => { if (shipEditArmementList.querySelector('p')) { shipEditArmementList.innerHTML = ''; } const item = document.createElement('div'); item.className = 'dynamic-list-item armament-item'; item.innerHTML = `<div class="dynamic-list-item-content"><input type="text" class="ship-arme-cle bg-gray-800 border-gray-700 rounded p-2 text-sm" placeholder="Clé" value=""><input type="text" class="ship-arme-nom col-span-2 bg-gray-800 border-gray-700 rounded p-2 text-sm" placeholder="Nom/Description" value=""></div><button type="button" class="remove-arme-btn p-2 text-red-400 hover:text-red-300"><i data-lucide="trash-2" class="w-5 h-5"></i></button>`; shipEditArmementList.appendChild(item); item.querySelector('.remove-arme-btn').addEventListener('click', (e) => { e.currentTarget.closest('.armament-item').remove(); }); lucide.createIcons(); });
+            shipEditAddSystemeBtn.addEventListener('click', () => { if (shipEditSystemesList.querySelector('p')) { shipEditSystemesList.innerHTML = ''; } const item = document.createElement('div'); item.className = 'dynamic-list-item systeme-item'; item.innerHTML = `<div class="dynamic-list-item-content"><input type="text" class="ship-systeme-nom bg-gray-800 border-gray-700 rounded p-2 text-sm" placeholder="Nom du système" value=""><input type="text" class="ship-systeme-desc bg-gray-800 border-gray-700 rounded p-2 text-sm" placeholder="Description" value=""></div><button type="button" class="remove-systeme-btn p-2 text-red-400 hover:text-red-300"><i data-lucide="trash-2" class="w-5 h-5"></i></button>`; shipEditSystemesList.appendChild(item); item.querySelector('.remove-systeme-btn').addEventListener('click', (e) => { e.currentTarget.closest('.systeme-item').remove(); }); lucide.createIcons(); });
+
+            // Sauvegarde Vaisseau
+            shipEditSaveBtn.addEventListener('click', () => {
+                const index = parseInt(shipEditIndexInput.value, 10);
+                const armementList = readArmamentFromDOM();
+                const systemesList = readSystemesFromDOM();
+                const imageSrc = shipEditImagePreview.src;
+                let finalImage = "";
+                if (index > -1) { 
+                    if(isEditingModel) { finalImage = shipModels[index].image; } else { finalImage = shipCatalog[index].image; }
+                }
+                if (imageSrc.startsWith('data:image')) { finalImage = imageSrc; } else if (imageSrc.includes('placehold.co')) { finalImage = ""; }
+
+                const shipData = {
+                    id: (index > -1 && !isEditingModel ? shipCatalog[index].id : (index > -1 && isEditingModel ? shipModels[index].id : crypto.randomUUID())),
+                    image: finalImage,
+                    vitesseCroisiere: parseInt(shipEditVitesseCroisiereInput.value, 10) || 0,
+                    vitesseHyperspatiale: parseInt(shipEditVitesseHyperInput.value, 10) || 0,
+                    autonomie: parseInt(shipEditAutonomieInput.value, 10) || 0,
+                    classe: shipEditClasseInput.value,
+                    manoeuvrabilite: shipEditManoeuvrabiliteInput.value,
+                    vitesseTactique: shipEditVitesseTactiqueInput.value,
+                    blindage: parseInt(shipEditBlindageInput.value, 10) || 0,
+                    coque: parseInt(shipEditCoqueInput.value, 10) || 0,
+                    senseurs: shipEditSenseursInput.value,
+                    armement: armementList,
+                    systemesSecondaires: systemesList, 
+                    equipage: shipEditEquipageInput.value,
+                    passagers: shipEditPassagersInput.value,
+                    soute: parseInt(shipEditSouteInput.value, 10) || 0,
+                    prix: parseInt(shipEditPrixInput.value, 10) || 0,
+                    origine: shipEditOrigineInput.value
+                };
+                
+                if (isEditingModel) {
+                    shipData.nom = shipEditModeleInput.value || "Modèle Inconnu";
+                    shipData.modele = shipEditModeleInput.value || "Modèle Inconnu";
+                    shipModels[index] = shipData;
+                    saveShipModels();
+                } else {
+                    shipData.nom = shipEditNomInput.value || "Sans Nom";
+                    if (index === -1) { 
+                        shipData.modele = shipEditModelSelect.options[shipEditModelSelect.selectedIndex].text;
+                        if (shipData.modele === '-- Choisir un modèle --') { shipData.modele = shipEditModeleInput.value || "Inconnu"; }
+                    } else { shipData.modele = shipEditModeleInput.value || "Inconnu"; }
+                    
+                    if (index === -1) { shipCatalog.push(shipData); } else { shipCatalog[index] = shipData; }
+                    saveShipCatalog();
+                }
+                renderShipCatalogPage();
+                populateActiveShipSelect(); 
+                closeModal();
+            });
+            
+            shipEditDeleteBtn.addEventListener('click', () => {
+                const index = parseInt(shipEditIndexInput.value, 10);
+                if (index > -1) {
+                    if (isEditingModel) { shipModels.splice(index, 1); saveShipModels(); } else { shipCatalog.splice(index, 1); saveShipCatalog(); }
+                    renderShipCatalogPage(); populateActiveShipSelect(); closeModal();
+                }
+            });
+            
+            activeShipSelect.addEventListener('change', updateActiveShipStats);
+
+            // --- INITIALISATION ---
+            loadData(); loadShipCatalog(); loadShipModels(); 
+            generateMap(); populateItineraireSelects(); populateActiveShipSelect(); renderShipCatalogPage(); 
+            updateTransform(); lucide.createIcons(); 
+        }); 
+    </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+# Deferred Work
+
+## Deferred from: code review of compendium de règles (2026-04-23)
+
+- Whitelist auth `prefix: true` sur `/api/rules` — pattern fragile si une future route `/api/rules-something` est créée sans auth. À revoir si les routes publiques se multiplient.
+- `rules-service.js` : pas de try/catch autour des appels DB — même pattern pré-existant que visibility.js, poller.js. Documenté dans deferred-work.md 2026-04-20.
+- Pas de validation longueur max sur `name`, `description`, `extra` — SQLite TEXT illimité, même pattern que ship_models, systems.
+- `seedRulesEntries` garde `COUNT(*) > 0` trop agressive — impossible de re-seeder si données corrompues sans vider la table manuellement.
+- `extra` en DB contient les champs `id`, `name`, `description` en doublon avec les colonnes dédiées — fonctionne, cosmétique, à nettoyer si le schéma évolue.
+- `listRules` : SELECT sans LIMIT — acceptable à 225 entrées, à surveiller.
+
+## Deferred from: code review of story 2-2-compendium-api-routes-lecture-filtrees (2026-04-20)
+
+- `armement_json`/`systemes_secondaires_json` retournés comme TEXT brut — colonnes TEXT SQLite, l'API les retourne comme chaînes (double-encodage JSON). À traiter Story 3.2 (fiche détail) pour parser côté service ou frontend.
+- `is_frontiere` retourné comme integer 0/1 au lieu de boolean — inconsistance cosmétique avec le champ `visible: true/false`. À harmoniser Story 2.3 (frontend) si le frontend en a besoin.
+
+## Deferred from: code review of story 2-3-compendium-frontend (2026-04-20)
+
+- `getVisibleIds()` dans `visibility.js` : exceptions DB non capturées — remontent comme 500 non formaté
+- `poller.js` : callbacks `onData`/`onError`/`onReconnect` non wrappées en try-catch — exception dans callback laisse le poller dans un état incohérent
+- `poller.js` : `fetchFn` potentiellement null si l'import dynamique échoue — `TypeError: fetchFn is not a function`
+- `routes/sync.js` : pas de try-catch autour de `getSyncPayload()` — crash Express si erreur DB
+
+## Deferred from: code review of story 2-4-recherche-compendium-plausible-deniability (2026-04-20)
+
+- Race condition stale response : `performSearch` n'utilise pas d'AbortController — si réponse lente arrive après une réponse rapide, résultats écrasés. Pattern absent du projet entier.
+- Pas de LIMIT SQL dans `searchEntities()` — acceptable à ~200 entités, mais potentiellement coûteux si le jeu de données grandit.
+- DB sync bloque event loop — better-sqlite3 est synchrone par design, 3 LIKE scans séquentiels sur 1 requête HTTP. Tout le codebase fait pareil.
+- LIKE ASCII-only pour accents français — `"systeme"` ne matche pas `"Système"`. Limitation SQLite sans extension ICU.
+- Pas de max query length sur `q` — un client peut envoyer 10K+ caractères, provoquant des LIKE lourds.
+- `isVisible()` exception tue toute la recherche — pas de try-catch par row, une erreur sur 1 entité avorte tous les résultats (pattern pré-existant depuis story 2.3).
+- Pas de rate limiting sur `/api/search` — endpoint le plus coûteux, concern cross-cutting.
+- `ship_models` description dans `renderShipModelCard` est dead code — la colonne `description` n'est pas dans le `SELECT` de `SEARCH_CONFIG.ship_models`.
+
+## Deferred from: code review of story 2-5-edition-compendium-par-le-mj
+
+- SQL injection dans cleanup tests (TEST_PREFIX constant, risque faible — paramétrer si copié)
+- Visibilité stale après édition frontale — le poller rafraîchit, même pattern que vis toggle
+- `esc()` dans tests incomplet vs production (test régression cosmétique)
+- Pas de validation longueur max sur champs TEXT — SQLite TEXT illimité
+- Pas de validation numérique côté frontend (browser type=number suffit)
+- ship_models n'a pas de colonne `updated_at` — incohérence API avec systems/factions
+- ship_models.id pas de validation longueur (TEXT PK, risque faible)

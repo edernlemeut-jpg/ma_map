@@ -6,10 +6,18 @@ const WHITELIST = [
   { method: 'POST', path: '/api/auth/register' },
   { method: 'POST', path: '/api/auth/login' },
   { method: 'GET', path: '/api/health' },
+  // Rules compendium — public read access
+  { method: 'GET', path: '/api/rules', prefix: true },
+  // Legacy redirect pages — accessible sans auth (bookmarks anciens)
+  { method: 'GET', path: '/compendium.html' },
+  { method: 'GET', path: '/peril.html' },
+  { method: 'GET', path: '/personnage.html' },
+  { method: 'GET', path: '/revolte.html' },
+  { method: 'GET', path: '/calendrier.html' },
 ];
 
 export default function authMiddleware(req, res, next) {
-  if (WHITELIST.some(w => w.method === req.method && req.path === w.path)) {
+  if (WHITELIST.some(w => w.method === req.method && (w.prefix ? req.path.startsWith(w.path) : req.path === w.path))) {
     return next();
   }
 
@@ -24,7 +32,7 @@ export default function authMiddleware(req, res, next) {
   }
 
   // Attach full user from DB for /me route and downstream use
-  const user = db.prepare('SELECT id, username, display_name, is_admin FROM users WHERE id = ?').get(payload.sub);
+  const user = db.prepare('SELECT id, username, display_name, is_admin, avatar, profile_role FROM users WHERE id = ?').get(payload.sub);
   if (!user) {
     return authRequired(res, 'Utilisateur introuvable');
   }
@@ -33,7 +41,9 @@ export default function authMiddleware(req, res, next) {
     id: user.id,
     username: user.username,
     display_name: user.display_name,
-    is_admin: user.is_admin === 1
+    is_admin: user.is_admin === 1,
+    avatar: user.avatar || null,
+    profile_role: user.profile_role || null
   };
   next();
 }

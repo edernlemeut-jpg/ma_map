@@ -240,7 +240,10 @@
       renderRouteOverlay();
     }
     window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
+    // Size canvas from container dimensions (map not yet initialized)
+    const _initContainer = $('canvas-container');
+    canvas.width = _initContainer.clientWidth;
+    canvas.height = _initContainer.clientHeight;
 
     // Load data
     const systems = await loadSystems();
@@ -263,6 +266,9 @@
 
     const SESSION_ACTIVE_INTERVAL = 4000;
     const SESSION_INACTIVE_INTERVAL = 30000;
+
+    // Initial render now that map and all state variables are ready
+    resizeCanvas();
 
     // Setup connection indicator
     const header = $('auth-user-info')?.parentElement || document.querySelector('header');

@@ -5,8 +5,9 @@ const router = Router();
 // Pages legacy supprimées — répondent avec une page gracieuse (200, pas 404)
 // Format: [chemin, titre, cible, libellé lien]
 const LEGACY_PAGES = [
-  ['/peril.html',      'Tables de Périls',   '/compendium.html', 'le Compendium'],
-  ['/personnage.html', 'Personnages',         '/compendium.html', 'le Compendium'],
+  ['/compendium.html', 'Compendium',          '/univers.html',    "l'Univers"],
+  ['/peril.html',      'Tables de Périls',    '/univers.html',    "l'Univers"],
+  ['/personnage.html', 'Personnages',          '/univers.html',    "l'Univers"],
   ['/revolte.html',    'Révolte',             '/',                "l'accueil"],
   ['/calendrier.html', 'Calendrier',          '/',                "l'accueil"],
 ];

@@ -1,7 +1,10 @@
 import Database from 'better-sqlite3';
 import { DB_PATH } from './config/index.js';
-import { mkdirSync } from 'fs';
-import { dirname } from 'path';
+import { mkdirSync, readFileSync, existsSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Ensure db directory exists
 mkdirSync(dirname(DB_PATH), { recursive: true });
@@ -76,5 +79,108 @@ function ensureRoutePerilsTable() {
 }
 
 ensureRoutePerilsTable();
+
+// ── Seed admin_peril_tables from perils_data.json if empty ────────────────────
+function seedAdminPerilTemplates() {
+  const cnt = db.prepare('SELECT COUNT(*) as c FROM admin_peril_tables').get();
+  if (cnt.c > 0) return; // already seeded
+
+  const perilsPath = resolve(__dirname, '../perils_data.json');
+  if (!existsSync(perilsPath)) return;
+
+  try {
+    const raw = JSON.parse(readFileSync(perilsPath, 'utf8'));
+    // Keys are the types: 'interplanetaire', 'hyperspatial'
+    const typeOrder = { interplanetaire: 0, hyperspatial: 1 };
+    const insert = db.prepare(
+      'INSERT OR IGNORE INTO admin_peril_tables (id, name, type, data_json) VALUES (?, ?, ?, ?)'
+    );
+    const seed = db.transaction(() => {
+      for (const [typeKey, entry] of Object.entries(raw)) {
+        if (!['interplanetaire', 'hyperspatial'].includes(typeKey)) continue;
+        const id = `apt_default_${typeKey}`;
+        const name = entry.name || (typeKey === 'interplanetaire' ? 'Périls Interplanétaires' : 'Périls Hyperspatiaux');
+        const cats = entry.categories || [];
+        insert.run(id, name, typeKey, JSON.stringify({ categories: cats }));
+      }
+    });
+    seed();
+  } catch (e) {
+    console.error('[DB] Seed admin_peril_tables failed:', e.message);
+  }
+}
+
+seedAdminPerilTemplates();
+
+function ensureUserProfileRole() {
+  const cols = db.prepare("PRAGMA table_info('users')").all();
+  if (cols.find(c => c.name === 'profile_role')) return;
+
+  db.exec("ALTER TABLE users ADD COLUMN profile_role TEXT");
+
+  // Backfill from existing memberships:
+  //   - MJ of any table → 'mj'
+  //   - Only joueur memberships → 'joueur'
+  db.exec(`UPDATE users SET profile_role = 'mj'
+    WHERE id IN (SELECT mj_id FROM game_tables)`);
+  db.exec(`UPDATE users SET profile_role = 'joueur'
+    WHERE profile_role IS NULL
+      AND id IN (SELECT user_id FROM table_members WHERE role = 'joueur')`);
+}
+
+ensureUserProfileRole();
+
+// ── Rules Entries (Compendium de règles) ─────────────────────────────────────
+function ensureRulesEntriesTable() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS rules_entries (
+      id         TEXT PRIMARY KEY,
+      category   TEXT NOT NULL,
+      name       TEXT NOT NULL,
+      description TEXT,
+      extra      TEXT,
+      table_id   TEXT REFERENCES game_tables(id) ON DELETE CASCADE,
+      created_by TEXT NOT NULL DEFAULT 'system',
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+    CREATE INDEX IF NOT EXISTS idx_rules_category ON rules_entries(category);
+    CREATE INDEX IF NOT EXISTS idx_rules_table    ON rules_entries(table_id);
+  `);
+}
+
+ensureRulesEntriesTable();
+
+function seedRulesEntries() {
+  const cnt = db.prepare('SELECT COUNT(*) as c FROM rules_entries WHERE table_id IS NULL').get();
+  if (cnt.c > 0) return;
+
+  const seedPath = resolve(__dirname, 'seeds/rules-data.json');
+  if (!existsSync(seedPath)) return;
+
+  try {
+    const raw = JSON.parse(readFileSync(seedPath, 'utf8'));
+    const insert = db.prepare(
+      `INSERT OR IGNORE INTO rules_entries (id, category, name, description, extra, table_id, created_by)
+       VALUES (?, ?, ?, ?, ?, NULL, 'system')`
+    );
+    const now = Math.floor(Date.now() / 1000);
+    const seed = db.transaction(() => {
+      for (const [cat, entries] of Object.entries(raw)) {
+        for (const e of entries) {
+          const desc = e.description || e.effect || null;
+          const extra = JSON.stringify(e);
+          insert.run(e.id, cat, e.name, desc, extra);
+        }
+      }
+    });
+    seed();
+    console.log('[DB] Rules entries seeded.');
+  } catch (err) {
+    console.error('[DB] Seed rules_entries failed:', err.message);
+  }
+}
+
+seedRulesEntries();
 
 export default db;

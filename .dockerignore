@@ -1,6 +1,7 @@
 node_modules/
 .env
 db/
+public/css/tailwind.css
 .git/
 .gitignore
 *.md

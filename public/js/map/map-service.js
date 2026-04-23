@@ -33,28 +33,20 @@ export async function loadQuadrants() {
 }
 
 /**
- * Parse quadrant name to coordinates
- * Format: "A-1" → [0, 0]
- * Pattern: Letter(s)-Number
+ * Parse quadrant name in Greek-letter grid format to [colIndex, rowIndex]
+ * Format: "Κ-8" → [9, 32], "Α′-29" → [24, 11]
+ * Uses the same 40-letter Greek array as itineraire.js
  */
+const _LETTRES_MA = ["Α","Β","Γ","Δ","Ε","Ζ","Η","Θ","Ι","Κ","Λ","Μ","Ν","Ξ","Ο","Π","Ρ","Σ","Τ","Υ","Φ","Χ","Ψ","Ω","Α′","Β′","Γ′","Δ′","Ε′","Ζ′","Η′","Θ′","Ι′","Κ′","Λ′","Μ′","Ν′","Ξ′","Ο′","Π′"];
+
 export function parseQuadrantCoords(quadrantName) {
-  const match = quadrantName.match(/([A-Z]+)-(\d+)/);
-  if (!match) return [0, 0];
-  
-  const letters = match[1];
-  const number = parseInt(match[2], 10);
-  
-  // Convert letters to column index (A=0, B=1, ..., Z=25, AA=26, etc.)
-  let colIndex = 0;
-  for (let i = 0; i < letters.length; i++) {
-    colIndex = colIndex * 26 + (letters.charCodeAt(i) - 'A'.charCodeAt(0)) + 1;
-  }
-  colIndex--; // Back to 0-indexed
-  
-  // Row index from number
-  const rowIndex = number - 1;
-  
-  return [colIndex, rowIndex];
+  const dashIdx = quadrantName.lastIndexOf('-');
+  if (dashIdx === -1) return [0, 0];
+  const letter = quadrantName.slice(0, dashIdx);
+  const number = parseInt(quadrantName.slice(dashIdx + 1), 10);
+  const colIndex = _LETTRES_MA.indexOf(letter);
+  if (colIndex === -1) return [0, 0];
+  return [colIndex, 40 - number];
 }
 
 /**

@@ -1,0 +1,2595 @@
+{
+  "competences": [
+    {
+      "id": "competence-acrobaties",
+      "type": "Compétence",
+      "name": "Acrobaties",
+      "domain": "Techniques",
+      "description": "Permet d'accomplir des prouesses physiques liées à la souplesse, la coordination et le sens de l'équilibre.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-analyse",
+      "type": "Compétence",
+      "name": "Analyse",
+      "domain": "Sciences",
+      "description": "Permet de trier les informations, de déterminer leur véritable sens, y compris lorsqu'il a été volontairement dissimulé.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-armes-de-jet",
+      "type": "Compétence",
+      "name": "Armes de jet",
+      "domain": "Survie",
+      "description": "Permet de se servir efficacement des armes qu'il faut jeter soi-même sur la cible.",
+      "is_closed": false,
+      "is_violent": true
+    },
+    {
+      "id": "competence-armes-de-poing",
+      "type": "Compétence",
+      "name": "Armes de poing",
+      "domain": "Techniques",
+      "description": "Permet de se servir efficacement des armes à distance technologiques ne requérant qu'une main.",
+      "is_closed": false,
+      "is_violent": true
+    },
+    {
+      "id": "competence-armes-d-epaule",
+      "type": "Compétence",
+      "name": "Armes d'épaule",
+      "domain": "Techniques",
+      "description": "Permet de se servir efficacement des armes à distance technologiques requérant l'usage des deux mains.",
+      "is_closed": false,
+      "is_violent": true
+    },
+    {
+      "id": "competence-armes-de-traits",
+      "type": "Compétence",
+      "name": "Armes de traits (G&D)",
+      "domain": "Techniques",
+      "description": "Permet de se servir efficacement des arcs et des arbalètes.",
+      "is_closed": false,
+      "is_violent": true
+    },
+    {
+      "id": "competence-armes-embarquees",
+      "type": "Compétence",
+      "name": "Armes embarquées",
+      "domain": "Techniques",
+      "description": "Permet de se servir efficacement des armes conçues pour les véhicules et les vaisseaux spatiaux.",
+      "is_closed": false,
+      "is_violent": true
+    },
+    {
+      "id": "competence-armes-lourdes",
+      "type": "Compétence",
+      "name": "Armes lourdes",
+      "domain": "Survie",
+      "description": "Permet de se servir efficacement des armes technologiques utilisées par les fantassins contre les véhicules.",
+      "is_closed": false,
+      "is_violent": true
+    },
+    {
+      "id": "competence-artisanat",
+      "type": "Compétence",
+      "name": "Artisanat (Au choix)",
+      "domain": "Techniques",
+      "description": "Permet de confectionner, d'entretenir et de réparer des objets primitifs.",
+      "is_closed": true,
+      "is_violent": false
+    },
+    {
+      "id": "competence-arts",
+      "type": "Compétence",
+      "name": "Arts (Au choix)",
+      "domain": "Sciences",
+      "description": "Regroupe la connaissance des techniques, de l'histoire et la pratique d'une expression artistique particulière.",
+      "is_closed": true,
+      "is_violent": false
+    },
+    {
+      "id": "competence-athletisme",
+      "type": "Compétence",
+      "name": "Athlétisme",
+      "domain": "Survie",
+      "description": "Permet d'accomplir des prouesses physiques requérant de la puissance ou de l'endurance.",
+      "is_closed": false,
+      "is_violent": true
+    },
+    {
+      "id": "competence-baratin",
+      "type": "Compétence",
+      "name": "Baratin",
+      "domain": "Négociation",
+      "description": "Permet de convaincre (et de mentir) par l'habileté des arguments et la ruse.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-bureaucratie",
+      "type": "Compétence",
+      "name": "Bureaucratie",
+      "domain": "Négociation",
+      "description": "Permet de comprendre le fonctionnement d'une administration et d'en obtenir des renseignements, des autorisations ou une quelconque décision.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-cartographie",
+      "type": "Compétence",
+      "name": "Cartographie (P&P)",
+      "domain": "Sciences",
+      "description": "Permet d'effectuer les relevés nécessaires à l'établissement de cartes précises, et la réalisation de celles-ci.",
+      "is_closed": true,
+      "is_violent": false
+    },
+    {
+      "id": "competence-comedie",
+      "type": "Compétence",
+      "name": "Comédie",
+      "domain": "Négociation",
+      "description": "Permet de simuler ou de dissimuler des émotions ou un état d'esprit.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-commandement",
+      "type": "Compétence",
+      "name": "Commandement",
+      "domain": "Trempe",
+      "description": "Permet de donner des ordres à des subordonnés avec l'assurance qu'ils seront compris et exécutés.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-commerce",
+      "type": "Compétence",
+      "name": "Commerce",
+      "domain": "Négociation",
+      "description": "Permet de déterminer le juste prix d'un article ou de conclure une vente quel que soit celui-ci.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-connaissance",
+      "type": "Compétence",
+      "name": "Connaissance (au choix)",
+      "domain": "Sciences",
+      "description": "Permet de tout savoir sur un sujet déterminé librement.",
+      "is_closed": true,
+      "is_violent": false
+    },
+    {
+      "id": "competence-danse",
+      "type": "Compétence",
+      "name": "Danse",
+      "domain": "Négociation",
+      "description": "Permet d'effectuer des pas de danse plaisants à regarder ou à suivre, et sensuels.",
+      "is_closed": false,
+      "is_violent": true
+    },
+    {
+      "id": "competence-deguisement",
+      "type": "Compétence",
+      "name": "Déguisement",
+      "domain": "Espionnage",
+      "description": "Permet de changer son apparence et de dissimuler son identité.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-demolition",
+      "type": "Compétence",
+      "name": "Démolition",
+      "domain": "Trempe",
+      "description": "Permet de placer, manipuler ou désamorcer des explosifs.",
+      "is_closed": false,
+      "is_violent": true
+    },
+    {
+      "id": "competence-determination",
+      "type": "Compétence",
+      "name": "Détermination",
+      "domain": "Trempe",
+      "description": "Permet de garder la tête froide, de résister à la peur et aux tentatives d'intimidation.",
+      "is_closed": false,
+      "is_violent": true
+    },
+    {
+      "id": "competence-discretion",
+      "type": "Compétence",
+      "name": "Discrétion",
+      "domain": "Espionnage",
+      "description": "Permet de se cacher, d'agir sans être repéré, de s'infiltrer dans un lieu surveillé ou de prendre quelqu'un en filature.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-dressage",
+      "type": "Compétence",
+      "name": "Dressage",
+      "domain": "Trempe",
+      "description": "Permet d'apprivoiser des animaux sauvages et de leur apprendre des tours.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-eloquence",
+      "type": "Compétence",
+      "name": "Eloquence",
+      "domain": "Négociation",
+      "description": "Permet de convaincre (et d'émouvoir) par la force de conviction et son charisme personnel.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-empathie",
+      "type": "Compétence",
+      "name": "Empathie",
+      "domain": "Espionnage",
+      "description": "Permet de discerner les émotions des individus et de comprendre l'âme humaine.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-environnement",
+      "type": "Compétence",
+      "name": "Environnement (Au choix)",
+      "domain": "Survie",
+      "description": "Permet de survivre dans un environnement hostile (Arctique, Désert, Espace, Jungle, etc.).",
+      "is_closed": true,
+      "is_violent": false
+    },
+    {
+      "id": "competence-equitation",
+      "type": "Compétence",
+      "name": "Equitation",
+      "domain": "Survie",
+      "description": "Permet de monter et de diriger un animal.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-esoterisme",
+      "type": "Compétence",
+      "name": "Esotérisme",
+      "domain": "Sciences",
+      "description": "Offre une lecture symbolique et métaphysique de la réalité, ainsi que la connaissance des symboles occultes et de leur signification.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-etiquette",
+      "type": "Compétence",
+      "name": "Etiquette",
+      "domain": "Négociation",
+      "description": "Permet de respecter les conventions sociales de la haute société.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-falsification",
+      "type": "Compétence",
+      "name": "Falsification",
+      "domain": "Espionnage",
+      "description": "Permet de reproduire frauduleusement des documents officiels ou d'en créer de toutes pièces.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-histoire",
+      "type": "Compétence",
+      "name": "Histoire",
+      "domain": "Sciences",
+      "description": "Représente les connaissances du personnage concernant le passé de toute la Galaxie.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-illegalites",
+      "type": "Compétence",
+      "name": "Illégalités",
+      "domain": "Trempe",
+      "description": "Permet à un personnage de côtoyer les criminels comme s'il était l'un des leurs.",
+      "is_closed": false,
+      "is_violent": true
+    },
+    {
+      "id": "competence-ingenierie",
+      "type": "Compétence",
+      "name": "Ingénierie",
+      "domain": "Sciences",
+      "description": "Permet d'analyser, d'entretenir, de réparer, de modifier ou de fabriquer des objets de haute technologie.",
+      "is_closed": true,
+      "is_violent": false
+    },
+    {
+      "id": "competence-intimidation",
+      "type": "Compétence",
+      "name": "Intimidation",
+      "domain": "Trempe",
+      "description": "Permet de faire peur, par la parole ou la violence.",
+      "is_closed": false,
+      "is_violent": true
+    },
+    {
+      "id": "competence-jeux",
+      "type": "Compétence",
+      "name": "Jeux",
+      "domain": "Négociation",
+      "description": "Permet de pratiquer un jeu conformément à ses règles... ou pas!",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-langue",
+      "type": "Compétence",
+      "name": "Langue (Au choix) (R&P)",
+      "domain": "Sciences",
+      "description": "Permet de comprendre et de s'exprimer dans la langue choisie, tant à l'écrit qu'à l'oral.",
+      "is_closed": true,
+      "is_violent": false
+    },
+    {
+      "id": "competence-medecine",
+      "type": "Compétence",
+      "name": "Médecine",
+      "domain": "Sciences",
+      "description": "Regroupe toutes les sciences médicales: Traitement des maladies, opérations chirurgicales et connaissance des pathologies.",
+      "is_closed": true,
+      "is_violent": false
+    },
+    {
+      "id": "competence-melee",
+      "type": "Compétence",
+      "name": "Mêlée",
+      "domain": "Survie",
+      "description": "Permet de se servir efficacement des armes blanches, contondantes et de ses armes naturelles.",
+      "is_closed": false,
+      "is_violent": true
+    },
+    {
+      "id": "competence-navigation",
+      "type": "Compétence",
+      "name": "Navigation",
+      "domain": "Sciences",
+      "description": "Permet de lire une carte, de se repérer grâce au paysage alentour et, globalement, de trouver son chemin.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-pilotage",
+      "type": "Compétence",
+      "name": "Pilotage (Au choix)",
+      "domain": "Techniques",
+      "description": "Permet de diriger un type de véhicule et de réaliser des cascades aux commandes de celui-ci.",
+      "is_closed": true,
+      "is_violent": true
+    },
+    {
+      "id": "competence-premiers-soins",
+      "type": "Compétence",
+      "name": "Premiers soins",
+      "domain": "Trempe",
+      "description": "Permet d'effectuer les gestes qui sauvent et de soigner les blessures en plein combat sans perdre son calme.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-propagande",
+      "type": "Compétence",
+      "name": "Propagande",
+      "domain": "Négociation",
+      "description": "Permet d'influencer durablement un grand nombre d'individus.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-recherche",
+      "type": "Compétence",
+      "name": "Recherche",
+      "domain": "Espionnage",
+      "description": "Confère un ensemble de méthodes pour obtenir des informations et des indices, ainsi que la capacité de suivre des traces.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-sciences-solaires",
+      "type": "Compétence",
+      "name": "Sciences solaires",
+      "domain": "Sciences",
+      "description": "Regroupe les disciplines scientifiques concernant la société et l'âme humaine.",
+      "is_closed": true,
+      "is_violent": false
+    },
+    {
+      "id": "competence-sciences-stellaires",
+      "type": "Compétence",
+      "name": "Sciences stellaires",
+      "domain": "Sciences",
+      "description": "Regroupe toutes les disciplines scientifiques concernant les phénomènes physiques, chimiques et l'étude des mathématiques.",
+      "is_closed": true,
+      "is_violent": false
+    },
+    {
+      "id": "competence-seduction",
+      "type": "Compétence",
+      "name": "Séduction",
+      "domain": "Négociation",
+      "description": "Permet de plaire à autrui, soit juste pour s'attirer ses bonnes grâces soit pour lier une relation romantique ou sexuelle.",
+      "is_closed": false,
+      "is_violent": true
+    },
+    {
+      "id": "competence-senseurs",
+      "type": "Compétence",
+      "name": "Senseurs",
+      "domain": "Espionnage",
+      "description": "Permet de se servir efficacement des moyens de détection et des contre-mesures électroniques (CME).",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-strategie",
+      "type": "Compétence",
+      "name": "Stratégie",
+      "domain": "Sciences",
+      "description": "Permet de planifier une opération, militaire ou non, à grande échelle et d'analyser les plans adverses.",
+      "is_closed": true,
+      "is_violent": false
+    },
+    {
+      "id": "competence-sorcellerie",
+      "type": "Compétence",
+      "name": "Sorcellerie (Au choix) (B&B)",
+      "domain": "Sciences",
+      "description": "Permet de pratiquer la forme de magie spécifiée et, si les légendes sont vraies, de jeter des sorts.",
+      "is_closed": true,
+      "is_violent": true
+    },
+    {
+      "id": "competence-systeme-de-securite",
+      "type": "Compétence",
+      "name": "Système de sécurité",
+      "domain": "Espionnage",
+      "description": "Permet de contourner ou de désamorcer les serrures, les alarmes et les pièges, technologiques ou non.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-tactiques",
+      "type": "Compétence",
+      "name": "Tactiques",
+      "domain": "Trempe",
+      "description": "Permet d'analyser ou de préparer un combat et de déterminer le meilleur moyen pour gagner sur le terrain.",
+      "is_closed": false,
+      "is_violent": true
+    },
+    {
+      "id": "competence-technocog",
+      "type": "Compétence",
+      "name": "TechnoCog (S&I)",
+      "domain": "Sciences",
+      "description": "Permet d'utiliser et de comprendre les programmes, voire de les modifier.",
+      "is_closed": true,
+      "is_violent": false
+    },
+    {
+      "id": "competence-technologie",
+      "type": "Compétence",
+      "name": "Technologie",
+      "domain": "Techniques",
+      "description": "Permet d'entretenir, de réparer, de modifier ou de fabriquer des mécanismes et des appareils électroniques simples.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-vigilance",
+      "type": "Compétence",
+      "name": "Vigilance",
+      "domain": "Espionnage",
+      "description": "Permet de remarquer les mouvements et les détails dans son environnement immédiat.",
+      "is_closed": false,
+      "is_violent": false
+    }
+  ],
+  "qualites": [
+    {
+      "id": "qualite-ambidextre",
+      "type": "Qualité",
+      "name": "Ambidextre",
+      "cost": "+5",
+      "description": "Que cela soit inné ou le fruit d’un entraînement poussé, toutes les mains du personnage sont directrices. Mieux, il peut tenir un objet dans l’une et l’autre à la fois sans que cela le rende maladroit.",
+      "effects": "Le personnage ne souffre jamais du malus de main non directrice, puisqu’il en est dépourvu. Il peut tenir des objets ou des armes dans chaque main et se servir de l’une ou l’autre indifféremment. Il bénéficie de (pmf) pour touts les tests de Mêlée, sauf lorsqu’il se bat contre un gaucher ou un ambidextre. Cette qualité est incompatible avec Gaucher.",
+      "prerequisites": "Incompatible avec Gaucher.",
+      "references": [],
+      "nation": "Aucune",
+      "restriction": "Interdit : Gaucher"
+    },
+    {
+      "id": "qualite-ambitieux",
+      "type": "Qualité",
+      "name": "Ambitieux",
+      "cost": "+3",
+      "description": "Le personnage ne se contente jamais de ce qu’il a. Que ce soit l’argent, la gloire ou le statut social, il le veut tout de suite, maintenant, et autant qu’il peut !",
+      "effects": "Le personnage peut utiliser des dés MF lorsqu’il effectue une action impliquant Commerce.",
+      "prerequisites": null,
+      "references": [
+        "P&P p.10"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-armes-fatale",
+      "type": "Qualité",
+      "name": "Armes fatale",
+      "cost": "+5",
+      "description": "Lorsque le personnage frappe à mains nues, il est particulièrement meurtrier. Dans certains cas, cela est dû à une férocité bestiale. Parfois, il s’agit d’un entraînement martial éprouvant : Le personnage dispose d’une couche de corne hors du commun sur ses phalanges. Enfin, certains mutants apprennent à se servir avec une efficacité meurtrière de leurs armes corporelles.",
+      "effects": "Les dégâts à mains nues du personnage augmentent d’un niveau (MdJ p.175).",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-arnaqueur",
+      "type": "Qualité",
+      "name": "Arnaqueur",
+      "cost": "+3",
+      "description": "Pour certains, l’arnaque est un crime. Pour d’autres, c’est un moyen de gagner sa vie. Pour le personnage, c’est un art. Chaque mensonge est savamment préparé et orchestré. L’arnaque devient un système de demi-vérités et de fausses preuves. Au final, il devient impossible de dissocier le vrai du faux !",
+      "effects": "Quand le personnage tente de mentir, chaque preuve (fausse ou vraie) lui octroie deux dés bonus au lieu d’un seul (MdJ p.176).",
+      "prerequisites": null,
+      "references": [
+        "P&P p.10"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-attirant",
+      "type": "Qualité",
+      "name": "Attirant",
+      "cost": "+3",
+      "description": "Le personnage dégage une sensualité hors du commun. Elle peut se manifester par un charme discret, voire mignon, ou au contraire par un érotisme torride et des attitudes aguicheuses, comme vous préférez. Cette Qualité est celle des beaux parleurs au torse nu et au froc moulant, ou des séductrices au balconnet pigeonnant et à la poitrine opulente.",
+      "effects": "Le personnage bénéficie de (pmf) pour les tests de Négociation. Ce bonus n’est valable que si la cible de l’action considère le personnage comme un partenaire sexuel potentiel. Cette Qualité est incompatible avec Cicatrices et Sale gueule.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-aventurier-mystique",
+      "type": "Qualité",
+      "name": "Aventurier mystique",
+      "cost": "+3",
+      "description": "Le personnage est un baroudeur endurci qui a déjà vu son lot de fantômes, de monstres mutants et de momies aliens. Il a accepté que l’univers ne puisse pas être compris que par les sciences, et cela ne le gêne pas tant que ça. Les morts-vivants n’ont qu’à bien se tenir !",
+      "effects": "Le personnage bénéficie de (pmf) pour les tests de Détermination, Empathie, Esotérisme et Sorcellerie.",
+      "prerequisites": null,
+      "references": [
+        "B&B p.10"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-beni",
+      "type": "Qualité",
+      "name": "Béni",
+      "cost": "+3",
+      "description": "Dans une Galaxie où l’humanité attend son autodestruction, le personnage a toujours été un rayon de lumière. Heureux, touché par la grâce, il est probablement né sous une bonne étoile, ou en orbite autour de celle-ci ! Ce qui est sûr, c’est qu’il a quelque chose en plus.",
+      "effects": "Le personnage peut choisir une bénédiction dans le chapitre « Les mystères du cosmos ».",
+      "prerequisites": null,
+      "references": [
+        "B&B p.11"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-beni-par-la-nature",
+      "type": "Qualité",
+      "name": "Béni par la nature",
+      "cost": "+1",
+      "description": "Les mutants ont la réputation d’être favorisés par la nature d’un point de vue… intime. En ce qui concerne le personnage, la réputation est méritée ! Si c’est un homme, il est doté d’un organe vigoureux. Si c’est une femme, elle est gratifiée d’une intimité provoquant de douces et inédites sensations.",
+      "effects": "Le personnage bénéficie de pmf pour ses tests de Séduction, mais après les préléminaires.",
+      "prerequisites": "Réservé: Mutant",
+      "references": [
+        "B&B p.20"
+      ],
+      "nation": "Aucune",
+      "restriction": "Mutant"
+    },
+    {
+      "id": "qualite-bon-payeur",
+      "type": "Qualité",
+      "name": "Bon payeur",
+      "cost": "+1",
+      "description": "Le personnage n’a pas de mal à mettre la main à la poche. Lorsqu’il paye son équipage, c’est le sourire aux lèvres et une petite tape sur l’épaule en prime. Il considère que toute peine mérite salaire, et ça se voit !",
+      "effects": "Quand les membres de son équipage récupèrent des PS grâce à la répartition du trésor, ils en récupèrent un autre, d’un niveau de Satisfaction moins grave (situé plus haut sur le tableau).",
+      "prerequisites": null,
+      "references": [
+        "P&P p.10"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-buveur-emerite",
+      "type": "Qualité",
+      "name": "Buveur émérite",
+      "cost": "+3",
+      "description": "Le personnage a passé un nombre d’heures incroyable dans les bars et tavernes du Dernier Millénaire. Il est capable d’engloutir de telles quantités d’alcool que les aubergistes songent à fermer prématurément leur commerce lorsqu’ils le voient arriver.",
+      "effects": "Le personnage ne subit jamais les effets de l’alcool (MdJ p.216).",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-comptable",
+      "type": "Qualité",
+      "name": "Comptable",
+      "cost": "+1",
+      "description": "Le personnage aime compter l’argent, et il le lui rend bien. Là, où la plupart ne verraient que 10 000 ₡, lui voit 10 002 ₡. Il est capable de traque la moindre pièce dans un coffre, la moindre irrégularité dans un compte, la plus petite imprécision dans une division !",
+      "effects": "Quand la répartition du trésor aboutit à un arrondi, chaque part est arrondie au crédit supérieur.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-chanceux",
+      "type": "Qualité",
+      "name": "Chanceux",
+      "cost": "+5",
+      "description": "Au sein du contexte tragique du Dernier Millénaire, le personnage est né sous une bonne étoile. Tout petit déjà, il bénéficiait d’une chance insolente. Cela lui a sauvé la vie bien des fois, et nul doute que ce sera encore souvent le cas maintenant qu’il est pirate.",
+      "effects": "Une fois par séance de jeu, vous pouvez demander au MJ qu’un jet de dé soit refait, que vous y participiez ou pas.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-chromosomes-hyperdenses",
+      "type": "Qualité",
+      "name": "Chromosomes hyperdenses",
+      "cost": "+5",
+      "description": "Le code génétique du personnage est particulier, même pour un mutant. La portion de ses chromosomes qui contient les informations relatives à ses mutations n’est pas suffisamment complexe pour développer des mutations puissantes, mais elle est en revanche si dense qu’elle peut contenir beaucoup d’informations !",
+      "effects": "A la création, le personnage est doté de 3 mutations basiques. S’il choisit « Gêne adaptables », il ne peut changer qu’une seule mutation entre séance.",
+      "prerequisites": "Réservé: Mutant",
+      "references": [
+        "B&B p.20"
+      ],
+      "nation": "Aucune",
+      "restriction": "Mutant"
+    },
+    {
+      "id": "qualite-contact",
+      "type": "Qualité",
+      "name": "Contact",
+      "cost": "+X",
+      "description": "Le personnage a eu l’occasion de forger une relation durable avec un personnage fait du même métal que lui. Bien que depuis, il soit devenu pirate de l’espace, ce contact est toujours prêt à répondre présent et à aider le personnage dans ses aventures. Il peut s’agir d’un ami d’enfance, d’un frère d’armes ou d’une relation partageant des intérêts communs avec le personnage.",
+      "effects": "Le personnage débute le jeu en disposant déjà d’un contact (R&P p.18). Le coût de la qualité dépend du niveau de ce PNJ. L’identité du contact doit être approuvée par le MJ.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-combattant-des-rues",
+      "type": "Qualité",
+      "name": "Combattant des rues",
+      "cost": "+1",
+      "description": "Le personnage a appris à se battre dans la rue, et à utiliser tout ce qui passe comme une arme. Adepte des bagarres de bar, il n’a pas son pareil pour faire d’une bouteille (vide) une arme mortelle !",
+      "effects": "Effet : Le personnage peut utiliser une arme improvisée ou de fortune (cf G&D p.17) comme une arme militaire.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-combattant-flamboyant",
+      "type": "Qualité",
+      "name": "Combattant flamboyant",
+      "cost": "+3",
+      "description": "Tous les pirates aiment partir à l’abordage avec un pistolet laser dans une main et un sabre dans l’autre. Chez certains, c’est devenu un véritable style de combat, transmis de génération en génération dans les familles pirates et certains équipages. Dynamique et toujours en mouvement, le pirate alterne les coups de sabre et les tirs de pistolet, si bien que l’adversaire ne peut jamais savoir s’il doit parer ou baisser la tête !",
+      "effects": "Effet : Lorsque le personnage a une arme de poing dans une main et une arme de mêlée dans une autre, il peut utiliser l’une des deux avec la compétence qui correspond à l’autre pour attaquer un adversaire au corps à corps.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-combattant-virevoltant",
+      "type": "Qualité",
+      "name": "Combattant virevoltant",
+      "cost": "+3",
+      "description": "Le personnage est un combattant au jeu de jambes dynamique, voire explosif. Toujours en mouvement, il est difficile de lui asséner un coup de plein fouet et il semble toujours ne s’en tirer qu’avec une égratignure !",
+      "effects": "Lorsque le personnage subit des dégâts à la suite d’une attaque de corps à corps, s’il a obtenu au moins un succès sur son test de Mêlée, il bénéficie d’un point de Protection supplémentaire qui ne peut être ignoré.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-courageux",
+      "type": "Qualité",
+      "name": "Courageux",
+      "cost": "+3",
+      "description": "Le personnage est un vrai dur. Non pas qu’il ne connaisse pas la peur ; au contraire, il la connaît si bien qu’il a appris à la maîtriser. Il sait garder son sang-froid et sa tête quand tous les autres les perdent.",
+      "effects": "Effets : Le personnage bénéficie de (pmf) pour tous les tests de Trempe dans le cadre d’un combat",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-danse-havanaise",
+      "type": "Qualité",
+      "name": "Danse havanaise",
+      "cost": "+3",
+      "description": "La danse havanaise est connue dans toute la Galaxie, mais bien peu en connaissent réellement les pas ou le tempo. Issue de nombreux styles ramenés sur Havana par les pirates, la danse havanaise se caractérise par ses rythmes langoureux qui succèdent à des accords saccadés, ainsi que par la sensualité des mouvements. Son seul défaut, c’est que la passion des danseurs est parfois si communicative qu’elle déclenche des bagarres de bar !",
+      "effects": "Le personnage peut utilise des dés MF lorsqu’il effectue une action impliquant Danse.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Havana",
+      "restriction": null
+    },
+    {
+      "id": "qualite-defenseur-de-lhumanite-*",
+      "type": "Qualité",
+      "name": "Défenseur de l’humanité *",
+      "cost": "+1",
+      "description": "Le personnage est convaincu que l’humanité est menacée par les mutants et les aliens, et il est prêt à donner sa vie pour contrer cette menace. Qu’il soit soldat ou simple civil, il a fait de sa vie une suite de batailles pour éviter à l’humanité de disparaître dans le dernier millénaire. La plupart des défenseurs de l’humanité sont également racistes, mais certains savent qu’on ne peut pas faire de généralités",
+      "effects": "Le personnage bénéficie de pmf pour ses tests de Détermination face aux mutants, aux monstres et aux aliens.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Empire Galactique",
+      "restriction": null
+    },
+    {
+      "id": "qualite-discipline",
+      "type": "Qualité",
+      "name": "Discipliné",
+      "cost": "+1",
+      "description": "Le personnage a appris à travailler en harmonie avec le reste du groupe. Il sait obéir aux ordres, organiser le travail et coordonner l’action. Sa discipline va même au-delà: il est capable de laisser sa personnalité s’effacer pour mettre en avant le groupe tout entier.",
+      "effects": "Effet : Quand il appartient à une unité dont tous les membres sont disciplinés et qu’il bénéficie de la règle Tous ensemble!, le nombre de dés bonus dont il peut bénéficier n’est pas limité. Cependant, si cela lui fait dépasser la limite habituelle de Tous ensemble!, il ne peut recevoir d’autres bonus. Cette qualité est sans effets sur les tirs de batteries. Elle ne modifie pas le nombre de personnages qui peuvent aider.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Empire Galactique",
+      "restriction": null
+    },
+    {
+      "id": "qualite-double-detente",
+      "type": "Qualité",
+      "name": "Double détente",
+      "cost": "+3",
+      "description": "Certaines personnes ont la chance d’être ambidextre. Votre personnage, lui, est une « double détente » : non seulement il sait se servir de ses deux mains, mais en plus, il sait s’en servir en même temps ! Bien sûr, il aurait pu utiliser ce don pour devenir un jongleur hors pair, mais il a préféré le mettre à profit pour tuer des gens !",
+      "effects": "Lorsque le personnage a une arme dans chaque main, il bénéficie de +1d pour chaque arme en plus de la première. Pour bénéficier de ce bonus, il doit tirer avec des armes qui satisfont aux conditions énoncées dans l’encart « Coordination » du Manuel des joueurs, à la page 146. Les mutants qui disposent de quatre bras et de cette Qualité peuvent obtenir un bonus de +3d au titre de celle-ci. N’oubliez pas de compter les munitions !",
+      "prerequisites": "Réservé aux personnages disposant déjà d'[[qualite-ambidextre]].",
+      "references": [
+        "P&P p11"
+      ],
+      "nation": "Barrens",
+      "restriction": null
+    },
+    {
+      "id": "qualite-dur-en-affaire",
+      "type": "Qualité",
+      "name": "Dur en affaire",
+      "cost": "+1",
+      "description": "Le personnage ne se laisse pas faire, il dispose d’un terrible pouvoir ; il sait dire : « Non ! ». Lorsqu’une transaction s’engage sur une voie qui ne lui plaît pas, il est capable de résister à l’appel du crédit ou à l’envie de s’offrir un cadeau. Son sang-froid lui permet souvent de ne pas se faire avoir…",
+      "effects": "Une fois les tests résolus, un personnage peut refuser de conclure une transaction commerciale. Le temps passé à trouver l’interlocuteur et à négocier est tout de même perdu.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "OCG",
+      "restriction": null
+    },
+    {
+      "id": "qualite-empathe",
+      "type": "Qualité",
+      "name": "Empathe",
+      "cost": "+3",
+      "description": "Le personnage se sent concerné par les émotions des autres. Il les ressent avec une acuité particulière et les éprouve lui-même avec une intensité rare. Certains pensent que cela le rend trop faible pour survivre dans le Dernier Millénaire, mais lui pense qu’il s’agit d’une force.",
+      "effects": "Le personnage bénéficie de (pmf) pour tous les tests impliquant les compétences suivantes : Arts (Au choix), Eloquence, Empathie et Séduction.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-entraînement",
+      "type": "Qualité",
+      "name": "Entraînement",
+      "cost": "+X",
+      "description": "Le personnage n’a jamais compté ses efforts. Depuis son adolescence, il est motivé et travailleur, tant et si bien qu’il a appris au cours de son existence bien plus de choses que ne le laisse supposer son âge.",
+      "effects": "Le personnage dispose de X points à répartir dans ses compétences. Chacun de ces points permet d’ajouter +1 à la valeur de la compétence. Vous ne pouvez pas attribuer de point à une compétence supérieure ou égale à 3 ou plusieurs fois à la même. En outre, X ne peut être supérieur à 5.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-escrimeur",
+      "type": "Qualité",
+      "name": "Escrimeur",
+      "cost": "+3",
+      "description": "Le personnage a reçu les enseignements d’un authentique maître d’armes solaire. Il cultive donc le style flamboyant et meurtrier des escrimeurs solaires, qui ne laisse que peu de chances à son adversaire. Une fois la rapière en main, une lueur mortelle éclaire son regard, et il semble habité par l’art du combat !",
+      "effects": "Le personnage bénéficie d’une Overdrive lorsqu’il effectue un test de Mêlée à l’aide d’une arme d’escrime (épée, fleuret, rapière).",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Empire de Sol",
+      "restriction": null
+    },
+    {
+      "id": "qualite-et-une-bouteille-de-rhum-",
+      "type": "Qualité",
+      "name": "Et une bouteille de rhum !",
+      "cost": "+1",
+      "description": "Lorsque le personnage a quitté Havana, il a pris des provisions ! Il a pris soin de respecter les consignes de l’amiral Blood en n’emportant qu’une unique bouteille. Peu importe, ce qui compte, ce n'est pas la quantité, mais la qualité !",
+      "effects": "Effet : Le personnage débute le jeu avec une bouteille de rhum, dont le type est choisi librement (cf. p.166).",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Havana",
+      "restriction": null
+    },
+    {
+      "id": "qualite-explorateur",
+      "type": "Qualité",
+      "name": "Explorateur",
+      "cost": "+3",
+      "description": "Le personnage a exploré d’innombrables planètes ; Il a appris à camper dans les jungles les plus hostiles, a bivouaquer dans les pires conditions, et à se nourrir de plantes aliens qui feraient vomir un commando de l’armée impériale. Aujourd’hui, il est à l’aise partout !",
+      "effects": "Effet : Le personnage bénéficie de pmf pour tous les tests d’Environnement (Au choix).",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-extralucide",
+      "type": "Qualité",
+      "name": "Extralucide",
+      "cost": "+3",
+      "description": "Grâce à un don inné ou un entraînement mystique, le personnage est capable de percevoir l’invisible. Cela requiert un effort de concentration, mais celui-ci lui ouvre les portes d’un autre niveau de conscience. Parfois, il n’en retire qu’une vague sensation de picotement, parfois il voit des lueurs là où l’énergie X se manifeste.",
+      "effects": "Au titre d’une action complexe, le personnage résout un test d’Empathie (10-EX). Si le test est réussi, il repère la présence ou l’utilisation d’énergie X. Cela lui permet également de « voir » les personnages et l",
+      "prerequisites": null,
+      "references": [
+        "B&B p.11"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-fêtard",
+      "type": "Qualité",
+      "name": "Fêtard",
+      "cost": "+1",
+      "description": "La fête est aussi essentielle au mode de vie pirate que les abordages et les trésors. Pour tous, c’est l’occasion de se retrouver entre amis et de souffler un grand coup. Certains pirates aiment tellement faire la fête qu’ils sont capables de s’enivrer complètement de son ambiance, oubliant tous leurs tracas… au moins jusqu’à ce qu’ils décuvent !",
+      "effects": "Effet : Lorsque le personnage fait la fête (cf. MdJ p.192), il récupère 1 PP en plus.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Havana",
+      "restriction": null
+    },
+    {
+      "id": "qualite-fourbe",
+      "type": "Qualité",
+      "name": "Fourbe",
+      "cost": "+3",
+      "description": "Parce qu’on lui a appris ou parce qu’il a un talent naturel pour cela, le personnage est un menteur-né. Il ressent instinctivement les émotions des autres, est capable de devenir leurs pensées… et de s’en servir pour ses propres intérêts. S’il était plus sympathique, il aurait pu user de ce don pour devenir un artiste de talent, mais il a préféré en tirer profit pour ses intrigues !",
+      "effects": "Le personnage bénéficie de pmf pour tous les tests impliquant les compétences suivantes : Baratin, Comédie, Empathie et Illégalités. Cette Qualité est incompatible avec Empathe.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Empire de Sol",
+      "restriction": "Interdit : [[qualite-empathe]]"
+    },
+    {
+      "id": "qualite-gaucher",
+      "type": "Qualité",
+      "name": "Gaucher",
+      "cost": "+3",
+      "description": "Le personnage ne l’a pas choisi, mais il est gaucher. Heureusement pour lui, dans le Dernier Millénaire, tous les outils et les armes sont fabriqués pour être utilisés de n’importe quelle main. EN outre, au corps à corps, ses mouvements sont difficiles à prévoir, car tout le monde est habitué à se battre contre des droitiers.",
+      "effects": "Le personnage bénéficie de (pmf) pour tous les tests de Mêlée, sauf lorsqu’il se bat contre un gaucher ou un ambidextre.",
+      "prerequisites": "Incompatible avec [[qualite-ambidextre]].",
+      "references": [],
+      "nation": "Aucune",
+      "restriction": "Interdit : [[qualite-ambidextre]]"
+    },
+    {
+      "id": "qualite-genie",
+      "type": "Qualité",
+      "name": "Génie",
+      "cost": "+3",
+      "description": "Le personnage est un génie. Il connaît toutes les facettes de la science à laquelle il s’est intéressé et fait régulièrement des découvertes incroyables. Il est capable de déductions si clairvoyantes que cela tient presque de l’inspiration mystique. Peu importe, il a toujours raison.",
+      "effects": "Le personnage bénéficie de PMF pour tout les tests d’une compétence de Sciences choisie à l’achat de cette qualité.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-gloire",
+      "type": "Qualité",
+      "name": "Gloire",
+      "cost": "+X",
+      "description": "Déjà avant de larguer les amarres, le personnage était célèbre. Cette réputation n’est pas nécessairement bénéfique pour le personnage, mais il doit faire avec. Elle ne suppose pas forcément que le personnage ait conservé son identité « d’avant » : elle peut être liée à un signe distinctif du personnage ou à une mauvaise habitude de celui-ci.",
+      "effects": "Le personnage gagne un nombre de points de Gloire qui dépend de X :",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-grand-voyageur",
+      "type": "Qualité",
+      "name": "Grand voyageur",
+      "cost": "+3",
+      "description": "Le personnage aime s’aventurer là où personne n’est jamais allé, et il est toujours prêt à faire face au danger ! Ainsi, l’espace est devenu pour lui aussi familier que la surface de sa planète natale. Même s’il ne connaît pas tous les mystères des phénomènes astrophysiques, cet instinct lui permet de se tirer des pires situations.",
+      "effects": "Lors de la résolution d’un péril, le personnage ne subit pas TD lorsqu’il n’est pas à son poste ou que le péril n’a pas été anticipé.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-grand-voyageur-2",
+      "type": "Qualité",
+      "name": "Grand voyageur 2",
+      "cost": "X",
+      "description": "Le personnage a tellement l’habitude de mémoriser des coordonnées hyperspatiales qu’il a développé un ensemble de moyens mnémotechniques pour les retenir plus facilement. La conséquence inattendue de cela, c’est qu’il peut désormais en apprendre plus !",
+      "effects": "Effet : le personnage peut mémoriser X coordonnées hyperspatiales supplémentaires.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-gros-bras",
+      "type": "Qualité",
+      "name": "Gros bras",
+      "cost": "+3",
+      "description": "Le personnage est particulièrement costaud. Cela est peut-être naturel, ou bien il a travaillé dur pour gonfler ses biceps. Peut-être que les durs combats qu’il a menés ne lui ont pas laissé le choix et l’ont doté d’habitudes salvatrices. Une chose est sûr, aucune arme n’est trop grosse pour lui !",
+      "effects": "Effet : Le personnage peut utiliser les armes d’épaule avec une seule main.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-guerison-miraculeuse",
+      "type": "Qualité",
+      "name": "Guérison miraculeuse",
+      "cost": "+3",
+      "description": "Le personnage est doté d’un organisme robuste dont il semble que rien ne puisse venir à bout. C’est peut-être une particularité génétique (une mutation ?) ou tout simplement l’habitude de prendre des mauvais coups. En tout cas, il est sur pied en un temps record !",
+      "effects": "Effet : Quand le personnage regagne au moins un PV, il en regagne un de plus.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-gros-porteur",
+      "type": "Qualité",
+      "name": "Gros porteur",
+      "cost": "+3",
+      "description": "Le personnage n’est pas forcément une montagne de muscles, mais à la bonne technique pour empiler un volume incroyable de choses sur son dos et ses épaules. Même les bras remplis de paquets, il sait encore ouvrir une porte ou, c’est plus utile, tirer au pistolet laser. Peut-être est-il un ancien esclave accoutumé au travail de chantier, ou tout simplement un pirate habitué à porter ses camarades blessés !",
+      "effects": "Lorsque vous déterminez le malus d’encombrement de votre personnage, vous le lisez une ligne plus haut sur le tableau. Cette Qualité est sans effet sur les malus liés à une armure.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Ligue",
+      "restriction": null
+    },
+    {
+      "id": "qualite-heroïque",
+      "type": "Qualité",
+      "name": "Héroïque",
+      "cost": "+X",
+      "description": "Le personnage n’est pas seulement un aventurier, c’est un véritable héros. Le cœur pur, l’âme insouciante, il rit face au danger et se lance dans la bagarre sans hésitation. Cette énergie lui provient de ses idéaux héroïques ou de sa sincère joie de vivre.",
+      "effects": "Le personnage gagne un certain nombre de points de Panache, en fonction du coût de la qualité :",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-idealiste",
+      "type": "Qualité",
+      "name": "Idéaliste",
+      "cost": "+3",
+      "description": "Le personnage croit en la possibilité de construire un monde meilleur. Pas juste pour lui (de cela, tous les pirates en sont convaincus), mais pour tout le monde. Cela lui vaut parfois d’être perçu comme un doux rêver un peu naïf, mais lorsqu’il est au pied du mur, ses idéaux lui confèrent des ressources insoupçonnées !",
+      "effects": "Une fois par scène, si celle-ci met en jeu les idéaux du personnage, celui-ci bénéficie de PMF pour un test.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Ligue",
+      "restriction": null
+    },
+    {
+      "id": "qualite-initie",
+      "type": "Qualité",
+      "name": "Initié",
+      "cost": "+1",
+      "description": "Vous avez été initié de façon traditionnelle. Le souvenir de cette soirée si particulière vous réconforte dans les moments difficiles, et la solennité de votre engagement vous contraint à aller jusqu’au bout de vous-même. Vous êtes un pirate de l’espace, un vrai !",
+      "effects": "Effet : A la fin d’une séance, si vous n’avez plus de PP, vous en récupérez un (une fois).",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-inquisiteur",
+      "type": "Qualité",
+      "name": "Inquisiteur",
+      "cost": "+3",
+      "description": "Le personnage est particulièrement habile pour découvrir les secrets des gens. Soit il est simplement curieux, soit il a patiemment développé cette incroyable capacité. En tout cas, au fil des ans, il est devenu un enquêteur implacable qui ne recule devant aucune question… ou aucune accusation. Tôt ou tard, tout le monde finit par parler !",
+      "effects": "Effet : Le personnage bénéficie de pmf pour tous les tests impliquant les compétences suivantes : Empathie, Intimidation et Recherche.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-intrepide",
+      "type": "Qualité",
+      "name": "Intrépide",
+      "cost": "+3",
+      "description": "Le personnage ne tient pas en place. Il court, saute et voltige en tous sens dès que la moindre occasion se présente. Un abordage ne lui fait jamais peur. Souple et rapide, il ne rate jamais ses acrobaties aériennes, comme s’il était né pour se balancer aux lustres.",
+      "effects": "Le personnage peut utiliser des dés MF lorsqu’il effectue une action impliquant Acrobaties ou Athlétisme.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-loup-de-mer",
+      "type": "Qualité",
+      "name": "Loup de mer",
+      "cost": "+3",
+      "description": "Le personnage est un vieux pirate à qui l’on n’apprend plus les grimaces. Il a déjà appartenu à plusieurs équipages pirates, participé à des combats spatiaux et à des abordages. Certains loups de mer ont le visage dur et le regard menaçant, d’autres dissimulent le poids des ans sous un cynisme mâtiné de plus ou moins d’humour. Tous ont déjà atteint la force de l’âge.",
+      "effects": "Le personnage gagne +1 dans les compétences suivantes :",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-lucide",
+      "type": "Qualité",
+      "name": "Lucide",
+      "cost": "+1",
+      "description": "Parce que c’est son caractère, ou parce qu’il a reçu un entraînement particulier, le personnage se laisse rarement emporter par ses émotions. Même s’il peut être effrayé ou paniqué, il conserve toujours un peu de son sang-froid et dose mieux que la plupart des gens le degré de violence dont il désirer faire preuve dans une situation donnée.",
+      "effects": "Le joueur peut annoncer en dernier s’il utilise des dés MF (ou pas) et combien lors d’une opposition.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-multillingue",
+      "type": "Qualité",
+      "name": "Multillingue",
+      "cost": "+3",
+      "description": "Le personnage connaît de nombreuses langues, à tel point qu’il a découvert des points communs et des méthodes transversales. Il n’est plus seulement un spécialiste des langues, mais de la communication en général, et lorsque sa mémoire lui fait défaut, c’est son instinct qui prend le relais.",
+      "effects": "Effet : Le personnage bénéficie de pmf pour tous les tests de Langue (au choix).",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-mutant-sympathique",
+      "type": "Qualité",
+      "name": "Mutant sympathique",
+      "cost": "+3",
+      "description": "Bien que visiblement mutant, le personnage a la chance d’être doté d’un physique presque humain. En outre, comme il a grandi dans le climat accueillant de la Ligue, il ne manifeste ni la crainte, ni la gêne que les autres mutants manifestent inconsciemment face à des humains. La réciproque est vraie et où qu’il aille, les gens ont tendance à le traiter sans mépris.",
+      "effects": "Le personnage ne subit pas E2F pour ses tests de Négociation. Il est tout de même achevé lors des combats.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Ligue",
+      "restriction": null
+    },
+    {
+      "id": "qualite-mutant-costaud",
+      "type": "Qualité",
+      "name": "Mutant costaud",
+      "cost": "+3",
+      "description": "Par un caprice de la nature, le métabolisme du personnage n’est pas aussi instable que celui des autres mutants. En outre, son organisme est organisé à peu près comme celui d’un humain normal, et fonctionne d’une façon similaire.",
+      "effects": "Le personnage ne subit pas les malus des mutants pour les tests de guérison naturelle et les soins. Cette qualité n’a pas d’effet sur Toucher curatif.",
+      "prerequisites": null,
+      "references": [
+        "B&B p.20)"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-mutant-furtif",
+      "type": "Qualité",
+      "name": "Mutant furtif",
+      "cost": "+5",
+      "description": "Par une bizarrerie de la génétique, le personnage est un mutant à l’apparence humaine. A l’œil nu, il est impossible de discerner sa nature de mutant. Cependant, une prise de sang ou un examen médical révéleront celle-ci.",
+      "effects": "Le personnage est considéré par les autres comme un humain normal. Il ne subit pas E2F aux tests de Négociation. Toute action impliquant un test de Médecine ou de Premiers soins révèle que le personnage est mutant. En outre, celui-ci guérit comme un mutant. Une fois sa nature révélée, il subit également E2F aux tests de Négociation.",
+      "prerequisites": null,
+      "references": [
+        "B&B p.20)"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-mystique",
+      "type": "Qualité",
+      "name": "Mystique",
+      "cost": "+3",
+      "description": "Elevé sur une planète primitive ou tout simplement par des parents superstitieux, le personnage croit à l’influence de forces inconnues sur le cosmos et à l’existence de la magie et des fantômes. Cela pourrait être un défaut, mais cette croyance lui permet de toujours envisager les problèmes les plus absurdes avec un esprit ouvert, et donc plus efficace !",
+      "effects": "Lorsqu’il est confronté à un phénomène inexplicable par les sciences du dernier millénaire, et qu’il doit résoudre un test de Sciences, le personnage bénéficie de pmf.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Barrens",
+      "restriction": null
+    },
+    {
+      "id": "qualite-pacifiste",
+      "type": "Qualité",
+      "name": "Pacifiste",
+      "cost": "+X",
+      "description": "Le personnage est convaincu que la violence n’apporte que la violence et que celle-ci ne résoudra pas les problèmes du Dernier Millénaire. Il sermonne constamment ses compagnons de voyage sur les avantages de la diplomatie et de l’harmonie entre les peuples. Qu’ils soient couronnés de succès ou pas, ses efforts calment toujours un peu les passions.",
+      "effects": "Effet : A la fin d’une scène, le personnage peut faire baisser le MF de 1 point , 2 points (+3) ou 3 points. Cette qualité est sans effet si le personnage a eu recours au MF au cours de la scène.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-parrain",
+      "type": "Qualité",
+      "name": "Parrain",
+      "cost": "+3",
+      "description": "Même s’il n’a jamais posé le pied sur Havana, le personnage a déjà réussi à s’attirer les bonnes grâces d’un des quatre amiraux de la planète pirate. Peut-être a-t-il disputé une âpre partie de poker havanais avec lui. Il est possible qu’il lui ait rendu un service anodin, mais sans avoir qu’il s’agissait d’un grand capitaine, démontrant ainsi un solide sens de la fraternité. Quoi qu’il en soit, cet amiral est prêt à donner, de temps en temps, un coup de pouce au personnage et à faire les bons offices si celui-ci s’attire le courroux d’un autre amiral pirate.",
+      "effects": "Effet : Le joueur peut choisir l’un des quatre amiraux d’Havana comme parrain. Celui-ci lui prodigue les mêmes bienfaits qu’un contact (cf. R&P p.18), mais exerce également une autorité morale sur le personnage. C’est son parrain, il est responsable de lui !",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-pied-marin",
+      "type": "Qualité",
+      "name": "Pied marin",
+      "cost": "+1",
+      "description": "La plupart des individus souffrent de nausées et de vertiges la première fois qu’ils entreprennent un voyage spatial. Sauf celui qui a le pied marin. Qu’il soit en gravité artificielle ou en apesanteur, en espace normal ou en hyperespace, il est aussi à l’aise qu’un poisson dans l’eau. C’est plutôt la terre ferme qui le met dans un drôle d’état, une sorte de vague à l’âme mélancolique.",
+      "effects": "Le personnage ne souffre d’aucun malus lié à l’apesanteur, à la dépressurisation (si inférieure à quelques mètres) ou aux soubresauts d’un vaisseau spatial en mouvement.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-potentiel-x",
+      "type": "Qualité",
+      "name": "Potentiel X",
+      "cost": "+1",
+      "description": "Le personnage n’est pas un mutant : pourtant, son organisme génère de l’énergie X ! Personne ne peut vraiment expliquer ce paradoxe. Qui sait si une nouvelle paire de bras ne lui poussera pas dans la nuit ?",
+      "effects": "Le personnage dispose d’un score d’énergie X calculé comme pour un mutant. Cependant, il est bien considéré comme un humain « normal », que ce soit par un examen médical ou par les règles.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-premier-pas",
+      "type": "Qualité",
+      "name": "Premier pas",
+      "cost": "+1",
+      "description": "Le personnage a visité de nombreuses planètes, ce qui lui a permis de développer une certaine accoutumance aux changements de gravité. Il s’est habitué à la gêne et aux sensations que ceux-ci génèrent, et connaît les gestes et les attitudes pour éviter les effets",
+      "effects": "Le personnage n’est pas affecté par la gravité forte. Quand la gravité est écrasante, il subit D+1 au lieu de TD.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-prestige",
+      "type": "Qualité",
+      "name": "Prestige",
+      "cost": "+3",
+      "description": "Même s’il a largué les amarres, le personnage a conservé un certain prestige au sein de l’Empire de Sol, et les gens ont tendance à le considérer avant tout comme l’un d’entre eux. Cela ne lui permet pas de se livrer impunément à la piraterie, mais il aura peut-être de la chance et bénéficiera d’un traitement de faveur. Surtout, cela signifie que de nombreuses portes lui restent ouvertes !",
+      "effects": "Lorsque le personnage est confronté aux autorités solaires ou doit entrer en contact avec noble solaire. Il bénéficie de pmf pour ses tests de Négociation. Il doit pour cela révéler son identité.",
+      "prerequisites": "Être noble",
+      "references": [],
+      "nation": "Empire de Sol",
+      "restriction": "Noble"
+    },
+    {
+      "id": "qualite-pur",
+      "type": "Qualité",
+      "name": "Pur",
+      "cost": "+1",
+      "description": "Certains sorciers prétendent que tous les êtres vivants dégagent un champ énergétique et que certains d’entre eux ont un champ particulier qui leur permet de résister à la magie. Que cela soit fondé ou pas, il est certain que le personnage est particulièrement résistant aux mutations offensives, aux mutations en général et qu’à chaque fois qu’on a voulu lui jeter le « mauvais œil », ce fut un échec",
+      "effects": "Pour affecter le personnage (ou un objet qu’il tient ou porte) avec un pouvoir mutant, il faut dépenser 1 EX de plus (l’adversaire est informé de cela avant la dépense).",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-rapide",
+      "type": "Qualité",
+      "name": "Rapide",
+      "cost": "+3",
+      "description": "Le personnage est un coureur émérite. Cela ne tient pas tant à son entraînement ou à son endurance qu’au fait que ses jambes semblent montées sur ressort. En un instant, il est ailleurs, que ce soit sous l’effet de la peur, de l’excitation ou de la nécessité.",
+      "effects": "Le personnage dispose d’une action simple supplémentaire par phase d’action pour Marcher.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-ranger",
+      "type": "Qualité",
+      "name": "Ranger",
+      "cost": "+3",
+      "description": "Parce qu’il a été élevé sur une planète hostile, ou tout simplement parce qu’il a passé son enfance à courir dans les ruelles d’une ville en ruine, le personnage n’a pas besoin d’une piste de course pour battre des records de vitesse. Il négocie les nids de poule, les racines et les obstacles comme s’il courait sur du béton bien lisse et ne s’arrête que lorsque la ligne d’arrivée est franchie.",
+      "effects": "Lorsqu’il effectue l’action Courir ou Sprinter, la Difficulté est toujours égale à 1.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-reflexes-de-pirates",
+      "type": "Qualité",
+      "name": "Réflexes de pirates",
+      "cost": "+1",
+      "description": "Habitué aux bagarres de bar et aux mauvais coups, le pirate a toujours la main près de son arme. Au moindre bruit, il est capable de dégainer à la vitesse de l’éclair, car il sait que la différence entre la vie et la mort tient parfois à un pistolet laser…",
+      "effects": "Effet : Une fois par tour, le personnage peut Dégainer en une action gratuite.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-rhum-lover",
+      "type": "Qualité",
+      "name": "Rhum Lover",
+      "cost": "+3",
+      "description": "Pour bien des pirates, le rhum est le nectar de la vie, la boisson qui fait oublier plus les tracas, et même les blessures. Si beaucoup de pirates se contentent de boire le rhum, le personnage, lui, le déguste. Il connaît si bien toutes les sortes de rhum qu’il peut presque identifier la plantation dont provient une bouteille. Chaque gorgée lui fait parcourir de milliers de Parsec et le ramène sur une plage de sable blanc.",
+      "effects": "Effet : Quand le personnage utilise Et une bouteille de rhum !, il récupère 1 PV en plus de l’effet de la bouteille.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-riche",
+      "type": "Qualité",
+      "name": "Riche",
+      "cost": "+X",
+      "description": "Le personnage est riche ! Peu importe que cela soit légal ou pas, il a un sacré pactole avec lui. En principe, cette somme se présente sous la forme de crédits, mais vous pouvez décider, en accord avec le MJ, qu’il s’agit d’une autre forme de monnaie : pierres précieuses, bijoux, etc.",
+      "effects": "Le personnage gagne X x 250 ₡. X ne peut être supérieur à 5.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-route-dhavana",
+      "type": "Qualité",
+      "name": "Route d’Havana",
+      "cost": "X",
+      "description": "Le personnage connaît les coordonnées hyperspatiales d’Havana. Soit parce qu’il a jeté un œil sur les instruments de la vigie avant de quitter le système et fait le point, soit parce qu’il a officiellement demandé les coordonnées à la capitainerie… et les a obtenues. Dans un cas comme dans l’autre, il a intérêt à les garder pour lui s’il ne veut pas d’ennui !",
+      "effects": "Effet : L’effet exact est déterminé par le coût de la Qualité :",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Havana",
+      "restriction": null
+    },
+    {
+      "id": "qualite-ruse",
+      "type": "Qualité",
+      "name": "Rusé",
+      "cost": "+3",
+      "description": "Une lueur particulièrement vivace brille dans le regard du personnage. Sans être nécessairement malicieux ou hypocrite, celui-ci n’a pas son pareil pour tirer son épingle du jeu lorsqu’il s’agit de subterfuge et de tromperie. Il préfère la subtilité à la force brute, et il excelle en la matière.",
+      "effects": "Le personnage bénéficie de (pmf) pour tous les tests d’Espionnage, sauf dans le cadre d’un combat.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-savant",
+      "type": "Qualité",
+      "name": "Savant",
+      "cost": "+3",
+      "description": "Le personnage est vraiment très cultivé. Il a passé de nombreuses heures la tête dans les livres ou à discuter avec des érudits du Dernier Millénaire. Il ne maîtrise pas toujours les tenants et les aboutissants des connaissances qu’il a ingurgitées, mais il est difficile de le prendre en défaut sur une question de culture générale !",
+      "effects": "Le personnage dispose de (pmf) pour tous les tests de Sciences s’il n’est pas en danger.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-scaphandrier",
+      "type": "Qualité",
+      "name": "Scaphandrier",
+      "cost": "+3",
+      "description": "Le personnage est parfaitement à l’aise avec cinquante kilos de métal sur les épaules. Seules les armures les plus lourdes lui posent des soucis. Pour les autres, il a développé des habitudes et des réflexes qui lui permettent de se déplacer comme si de rien n’était. Il lui arrive même de s’endormir dans son scaphandre !",
+      "effects": "Effet : Le personnage ne subit pas de pénalité lorsqu’il porte une armure lourde ou un scaphandre. Cette Qualité est sans effet concernant les armures intégrales, les scaphandres blindés et les scaphandres.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-sens-developpes",
+      "type": "Qualité",
+      "name": "Sens développés",
+      "cost": "+3",
+      "description": "Le personnage a quelque chose d’animal en lui. Parce qu’il est né dans un contexte sauvage ou que son métier l’a obligé à survivre par ses propres moyens, il a développé une acuité sensorielle digne des meilleurs prédateurs.",
+      "effects": "Le personnage bénéficie de (pmf) sur ses tests d’Empathie, de Recherche et de Vigilance.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-sexy",
+      "type": "Qualité",
+      "name": "Sexy",
+      "cost": "+3",
+      "description": "Le personnage n’a pas froid aux yeux. Lorsqu’il s’agit de séduire son prochain, il est capable de sortir le grand jeu, quels que soient la situation ou le milieu : propositions indécentes, regard aguicheur, déhanchement suggestif, tous les moyens sont bons pour goûter aux plaisirs de la chair !",
+      "effects": "Le personnage bénéficie d’une OD pour tous les tests de Séduction. Cette Qualité est incompatible avec Cicatrices et Sale gueule.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-sixieme-sens",
+      "type": "Qualité",
+      "name": "Sixième sens",
+      "cost": "+3",
+      "description": "Grâce à un don inné ou un entraînement mystique, le personnage est capable de sentir l’invisible. Il n’obtient jamais plus qu’un mauvais pressentiment, mais ce réflexe l’a déjà sorti plusieurs fois du pétrin. Et même s’ils n’ont pas d’explication pour cela, ses compagnons ont appris à faire confiance à ses frissons.",
+      "effects": "Le personnage n’est jamais surpris par un phénomène surnaturel ou une créature constituée d’énergie X. Face à un péril surnaturel, il ne subit pas TD (mais il n’a pas le temps d’avertir ses compagnons).",
+      "prerequisites": null,
+      "references": [
+        "B&B p.11)"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-taille-anormale",
+      "type": "Qualité",
+      "name": "Taille anormale",
+      "cost": "+1",
+      "description": "Le personnage est affublé d’une taille anormale. Soit il mesure plus de deux mètres, soit il mesure moins d’1,50 mètre.",
+      "effects": "Si le personnage est anormalement grand, il gagne +1 en Athlétisme. S’il est anormalement petit, il gagne +1 en Discrétion.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-teigneux",
+      "type": "Qualité",
+      "name": "Teigneux",
+      "cost": "+3",
+      "description": "Le personnage ne s’avoue jamais vaincu. Il préfère se tordre une cheville ou se claquer un muscle plutôt que de faire une pause. Dans une course d’endurance, il passe toujours la ligne d’arrivée, même si c’est pour finir à l’hôpital. Et avant qu’il ne s’endorme, il faudra le droguer !",
+      "effects": "Lorsque votre personnage doit effectuer un test de veille (MdJ p.158) ou un test de marche forcée (G&D p.21), vous pouvez donner au MJ 1d MF pour considérer ce test comme réussi. Vous devez attendre que votre personnage ait dormi une nuit complète pour pouvoir utiliser à nouveau cette Qualité",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Barrens",
+      "restriction": null
+    },
+    {
+      "id": "qualite-terrifiant",
+      "type": "Qualité",
+      "name": "Terrifiant",
+      "cost": "+3",
+      "description": "Pour le personnage, faire peur aux gens est une seconde nature, une mode d’expression aussi évident et facile que sourire. En fait, pour lui, c’est même beaucoup plus facile que de sourire ! Un simple regard, un grognement ou froncement de sourcil un peu sévère lui suffit pour glacer le sang des plus costauds.",
+      "effects": "Le personnagee peut Menacer au titre d’une action simple.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Barrens",
+      "restriction": null
+    },
+    {
+      "id": "qualite-touche-a-tout",
+      "type": "Qualité",
+      "name": "Touche-à-tout",
+      "cost": "+5",
+      "description": "Le personnage n’a jamais su ce qu’il voulait. Du coup, il a tout appris. Peut-être a-t-il exercé plusieurs métiers. Ou bien il était si dissipé en classe qu’il est passé par de nombreuses écoles techniques. Il est possible qu’il ait un don presque surnaturel pour s’adapter à toutes les situations, ce qui est parfois bien utile dans le Dernier Millénaire !",
+      "effects": "Aucune compétence n’est fermée, à l’exception des compétences fermées qui nécessitent des conditions particulières pour être apprises et de celles qui le sont du fait d’un Défaut",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-tireur-delite",
+      "type": "Qualité",
+      "name": "Tireur d’élite",
+      "cost": "+3",
+      "description": "Le personnage a reçu le rigoureux entraînement des tireurs d’élite impériaux, ou à l’inverse celui des assassins rebelles qui sévissent dans l’Empire. Le tir instinctif et le tir visé n’ont plus de secrets pour lui, et il a développé une affinité naturelle avec les armes.",
+      "effects": "Effet : Le personnage bénéficie de pmf pour ses tests d’Armes de poing ou d’Armes d’épaule.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Empire Galactique",
+      "restriction": null
+    },
+    {
+      "id": "qualite-tresor",
+      "type": "Qualité",
+      "name": "Trésor",
+      "cost": "X",
+      "description": "Le personnage n’a pas attendu d’être pirate pour chercher des trésors, ou a eu la chance d’en récupérer un sans rien demander. En tout cas, maintenant, il l’a, il le garde ! Il peut s’agir du résultat d’une fouille, d’un héritage familial ou même du fruit d’un vol. C’est peut-être même la raison pour laquelle il a dû larguer les amarres !",
+      "effects": "Effet : Le personnage débute la partie avec un trésor dont la valeur maximale dépend du coût de la Qualité :",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-tribun",
+      "type": "Qualité",
+      "name": "Tribun",
+      "cost": "+3",
+      "description": "Le personnage est un orateur efficace et persuasif. Lorsqu’il s’adresse à une foule, il sait aisément repérer qui commence à être convaincu, et sait jouer avec les rapports de force qui existent au sein de l’auditoire pour emporter l’adhésion de tous les autres.",
+      "effects": "Le personnage bénéficie de pmf pour les tests de Baratin, Eloquence, Séduction et Intimidation lorsqu’il veut affecter plusieurs personnes à la fois.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-vaurien",
+      "type": "Qualité",
+      "name": "Vaurien",
+      "cost": "+3",
+      "description": "Le personnage n’est décidément pas un individu recommandable. Tout petit déjà, il traînait avec les voyous du quartier. Pour lui, les us et coutumes de la rue sont une seconde nature. Il a le crime dans la peau et ne peut s’empêcher de faire de mauvais coups et de voir le mal partout. Dans le Dernier Millénaire, il a souvent raison.",
+      "effects": "Le personnage bénéficie de (pmf) pour tous les tests de Négociation et de Trempe prenant pour cible un criminel des nations stellaires ou un pillard, mais pas les pirates.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-vieux-routard",
+      "type": "Qualité",
+      "name": "Vieux routard",
+      "cost": "+3",
+      "description": "Le personnage a pas mal roulé sa bosse dans la marine marchande de l’OCG.",
+      "effects": "Le personnage connaît une route galactique entre deux systèmes qui sont sur des routes commerciales ou galactiques. Cette qualité peut être achetée plusieurs fois pour connaître plusieurs routes.",
+      "prerequisites": null,
+      "references": [
+        "P&P p11"
+      ],
+      "nation": "OCG",
+      "restriction": null
+    },
+    {
+      "id": "qualite-vif",
+      "type": "Qualité",
+      "name": "Vif",
+      "cost": "+3",
+      "description": "Les réflexes du personnage sont particulièrement aiguisés. Toujours aux aguets, il est rarement surpris et réagit toujours à la vitesse de l’éclair",
+      "effects": "Le personnage bénéficie de (pmf) pour tous ses tests d’initiative, quelle que soit la compétence utilisée.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-violent",
+      "type": "Qualité",
+      "name": "Violent",
+      "cost": "",
+      "description": "Le personnage a un don pour la violence. Celle-ci ne lui fait pas peur ni ne le dégoûte. Il en tire même une certaine satisfaction. En tout cas, il ne s’avoue jamais vaincu.",
+      "effects": "Lorsque le personnage a recours au MF, il bénéficie d’un dé MF spécial, un « Dé de violence ». Ce dé de violence n’est pas donné au MJ après le test. SI cette Qualité est utilisée par un PNJ, le MJ ne le donne pas à la réserve de MF est vide. Enfin, ce dé s’ajoute au nombre de dés MF que le personnage peut utiliser.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-voltigeur",
+      "type": "Qualité",
+      "name": "Voltigeur",
+      "cost": "+3",
+      "description": "Le personnage est un casse-cou… dans le bon sens du terme. Doté d’un sens de l’équilibre et d’une vivacité exceptionnels, mû par une audace toute pirate, il saute, bondit et virevolte sans scrupules, l'œil toujours rivé sur le lustres…",
+      "effects": "Effet : Le personnage peut effectuer une Cascade (cf. MdJ p.103) ou Sauter (cf. MdJ p.107) au titre d’une action simple.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    }
+  ],
+  "defauts": [
+    {
+      "id": "defaut-alcoolique",
+      "type": "Défaut",
+      "name": "Alcoolique",
+      "cost": "-3",
+      "description": "Le personnage aime l’alcool, beaucoup trop pour sa propre santé. La journée ne commence vraiment qu’avec le premier verre de rhum, et elle finit trop souvent le verre de rhum, et elle finit trop souvent le verre à la main. Le pire, c’est que le personnage est tellement imbibé que pour sentir quoi que ce soit, il doit boire encore plus que les autres !",
+      "effects": "Lorsqu’il recourt à l’effet « Et une bouteille de rhum ! » (MdJ p.90), le personnage doit boire deux fois plus de rhum pour bénéficier des effets.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-amnesique",
+      "type": "Défaut",
+      "name": "Amnésique",
+      "cost": "-1",
+      "description": "Le personnage n’a aucun souvenir antérieur au début de la première séance de jeu. Il sait lire, écrire et compter. Il sait ce qu’est un parsec et peut parfaitement se débrouiller dans le Dernier Millénaire, dans la limite de ses attributs. Cependant, il n’a plus aucun souvenir personnel.",
+      "effects": "Le joueur ne connaît pas le passé de son personnage, imaginé par le MJ. Celui-ci a carte blanche !",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-amour-perdu",
+      "type": "Défaut",
+      "name": "Amour perdu",
+      "cost": "-3",
+      "description": "Le personnage a perdu la trace du seul être qu’il n’ait jamais aimé et qu’il n’aimera jamais. Il ou elle est quelque part dans la Galaxie, perdu€. Cette absence obsède le personnage, qui part à la recherche de son amour perdu dès qu’il en entend parler.",
+      "effects": "Lorsque le personnage dispose d’informations sur son amour perdu, il doit suivre cette piste, coûte que coûte. Si cela le confronter à un danger certain, il peut tenter un test de Détermination (5) pour se retenir.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-analphabete",
+      "type": "Défaut",
+      "name": "Analphabète",
+      "cost": "-1",
+      "description": "Le personnage ne sait ni lire ni écrire",
+      "effects": "Le personnage ne sait ni lire ni écrire.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-avide",
+      "type": "Défaut",
+      "name": "Avide",
+      "cost": "-1",
+      "description": "Le personnage ne court pas après le bonheur, il le pourchasse. Effrayé à l’idée de ne pas atteindre ses buts avant d’être trop vieux, il cherche à rentabiliser son temps au maximum !",
+      "effects": "Le personnage perd (temporairement) un point de Panache lorsqu’il reste un mois sans partir à l’aventure.",
+      "prerequisites": null,
+      "references": [
+        "P&P p11"
+      ],
+      "nation": "OCG",
+      "restriction": null
+    },
+    {
+      "id": "defaut-apathie-x",
+      "type": "Défaut",
+      "name": "Apathie X",
+      "cost": "-1",
+      "description": "L’organisme du personnage est dépendant du taux d’énergie X présent dans ses cellules. Lorsqu’il en est dépourvu, ses rythmes métaboliques se ralentissent et il souffre de migraines",
+      "effects": "Le personnage subit (e2f) à tous ses tests lorsqu’il est dépourvu d’EX. Ce défaut ne peut être choisi que par les mutants disposant de mutations actives.",
+      "prerequisites": null,
+      "references": [
+        "B&B p.20"
+      ],
+      "nation": "Aucune",
+      "restriction": "Mutant"
+    },
+    {
+      "id": "defaut-bagarreur",
+      "type": "Défaut",
+      "name": "Bagarreur",
+      "cost": "-3",
+      "description": "Le personnage aime taper, à tel point que ça ne le gêne pas qu’on le tape aussi. Il aime bien quand les choses explosent, que les tirs de laser lui rôtissent les moustaches et que les cris de ses ennemis résonnent à ses oreilles. Il n’a pas de goût particulier pour le massacre gratuit, mais lorsque ses adversaires répliquent, c’est le bonheur !",
+      "effects": "Une fois par séance, le MJ peut dépenser autant de dés MF que le Sang-froid du personnage pour l’obliger à engager un combat. Si ce défaut est celui d’un PNJ affrontant, les PJ, le MJ récupère autant de dés MF que le Sang-froid du PNJ lorsque celui-ci part au combat.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-berzerk",
+      "type": "Défaut",
+      "name": "Berzerk",
+      "cost": "-3",
+      "description": "Le personnage porte en lui une part de bête fauve. Une pointe de sauvagerie qu’aucune éducation, crainte ou raffinement culturel ne peuvent effacer. Il ne la contrôle pas et lorsqu’elle le submerge, elle ne s’éteint que dans la mort de ses adversaires. Ce n’est pas toujours lui qui verse le premier sang, mais c’est toujours lui qui verse le dernier !",
+      "effects": "Si le personnage perd un point de vie à cause d’un adversaire, il doit attaque ce dernier jusqu’à ce qu’il soit Mort ?. Il ne peut pas arrêter de se battre avant cela, et doit se débarrasser de tous ceux qui voudraient le retenir. Ce Défaut n’est pas déclenché par les points de dégâts non létaux.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Barrens",
+      "restriction": null
+    },
+    {
+      "id": "defaut-borne",
+      "type": "Défaut",
+      "name": "Borné",
+      "cost": "-3",
+      "description": "Le personnage porte des œillères. Il est sûr d’avoir raison, et n’est pas très attentif à ce qui se passe autour de lui. Il n’est pas foncièrement stupide (les pires bornés sont d’ailleurs ceux qui sont intelligents), mais il est tellement convaincu d’avoir déjà tout compris qu’il a du mal à voir l’évidence.",
+      "effects": "Effet : Pour le personnage, toutes les compétences d’espionnage sont fermées.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Empire Galactique",
+      "restriction": null
+    },
+    {
+      "id": "defaut-brutal",
+      "type": "Défaut",
+      "name": "Brutal",
+      "cost": "-3",
+      "description": "Le personnage ne sait pas se contenir. Il n’est pas plus violent qu’un autre, ou moins réfléchi, mais lorsqu’il se décide à agir, il se laisse toujours emporter par son « style personnel », et cela finit irrémédiablement en boucherie. Il s’en veut, fait amende honorable et se retient… jusqu’à la prochaine bouffée de violence !",
+      "effects": "Quand le personnage peut utiliser du MF, il doit au moins en utiliser un, ou deux s’il est humain, de façon à en donner un au MJ ou aux PJs (selon).",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Barrens",
+      "restriction": null
+    },
+    {
+      "id": "defaut-chefaillon",
+      "type": "Défaut",
+      "name": "Chefaillon",
+      "cost": "-1",
+      "description": "Le personnage est convaincu qu’il est fait pour être chef, mais il est le seul à être de cet avis. Un brin égocentrique, il ramène toujours tout à lui et est incapable de faire profiter les autres des accomplissements du groupe.",
+      "effects": "Quand le personnage est capitaine et gagne un PP ou un PG, la Satisfaction maximale de l’équipage augmente, mais celui-ci perd un PS.",
+      "prerequisites": null,
+      "references": [
+        "P&P p11"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-cicatrices",
+      "type": "Défaut",
+      "name": "Cicatrices",
+      "cost": "-3",
+      "description": "Le personnage porte encore les traces de vieilles blessures. Balafré, couturé, il n’est pas beau à voir, même s’il n’est pas défiguré. Toutes ces cicatrices n’inspirent pas confiance à ses interlocuteurs.",
+      "effects": "Le personnage subit (e2f) pour tous ses tests de Négociation lorsque son interlocuteur est un individu respectable des nations stellaires. Ce défaut est incompatible avec Attirant, Sexy et Tête de mutant.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-couard",
+      "type": "Défaut",
+      "name": "Couard",
+      "cost": "-3",
+      "description": "Le personnage manque de courage. Non pas qu’il soit complètement lâche, mais la prise de risque n’est pas un réflexe. Il préfère sa sécurité à la réussite et ne prend aucun risque inconsidéré.",
+      "effects": "Le personnage subit (e2f) pour tous ses tests de Trempe effectués dans le cadre d’un combat.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-coureur-de-juponsde-caleçons",
+      "type": "Défaut",
+      "name": "Coureur de jupons/de caleçons",
+      "cost": "-3",
+      "description": "Le personnage est un dragueur invétéré. Peu importent les circonstances ou les charmes de son interlocuteur, il ne peut résister au plaisir de la séduction. Bien souvent, cela n’est l’affaire que d’une seule nuit, mais il lui arrive d’être pris à son propre jeu.",
+      "effects": "Une fois par séance, le MJ peut dépenser autant de dés MF que le Sang-froid du personnage pour le forcer à courtiser un PNJ qui constitue un partenaire sexuel potentiel. Si ce Défaut est celui d’un PNJ affrontant les PJ, le MJ récupère autant de dés MF que le Sang-Froid de ce PNJ lorsque celui-ci courtise un PJ au mépris du danger.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-cuillere-en-or",
+      "type": "Défaut",
+      "name": "Cuillère en or",
+      "cost": "-3",
+      "description": "Le personnage aime le luxe, le confort et la belle vie. Il ne veut boire que les meilleurs vins, refuse de dormir en dortoir et aime son petit confort. A ses yeux, la richesse n’est rien c’est le luxe qui fait que la vie vaut d’être vécue !",
+      "effects": "Quand il choisit un niveau de vie, le personnage doit sélectionner le plus cher possible. Il doit en outre dépenser la moitié de son argent en produits « la belle vie ».",
+      "prerequisites": null,
+      "references": [
+        "P&P p11"
+      ],
+      "nation": "OCG",
+      "restriction": null
+    },
+    {
+      "id": "defaut-cupide",
+      "type": "Défaut",
+      "name": "Cupide",
+      "cost": "-3",
+      "description": "Le personnage aime l’argent, plus que de raison. L’appât du gain est une véritable maladie qui embrume son esprit. Son plus grand plaisir, c’est de se baigner dans un container rempli de pièces d’or !",
+      "effects": "Une fois par séance, le MJ peut dépenser autant de dés MJ que le Sang-froid du personnage pour le forcer à s’approprier un bien précieux ou une forte somme d’argent. Si ce défaut est celui d’un PNJ affrontant les PJ, le MJ récupère autant de dés MJ que le Sang-froid du PNJ lorsque celui-ci prend des risques.",
+      "prerequisites": null,
+      "references": [
+        "P&P p11"
+      ],
+      "nation": "OCG",
+      "restriction": null
+    },
+    {
+      "id": "defaut-curieux",
+      "type": "Défaut",
+      "name": "Curieux",
+      "cost": "-3",
+      "description": "Le personnage a une soif insatiable de connaissance. Ce qu’il ne comprend pas l’attire et l’inconnu exerce sur lui une fascination irrésistible.",
+      "effects": "",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-depensier",
+      "type": "Défaut",
+      "name": "Dépensier",
+      "cost": "-3",
+      "description": "L’argent brûle les doigts du personnage. Comme un enfant dans un magasin de confiseries, il ne peut pas s’empêcher de se faire plaisir et de tout dépenser. Avec un peu de chance, il achète des choses qui lui sont utiles mais il arrive bien souvent qu’il se retrouve avec des objets farfelus et totalement superflus…",
+      "effects": "Lorsqu’il est sur une planète qui n’est ni pauvre, ni primitive, le personnage doit acheter des choses avec ses crédits, jusqu’à avoir les poches vides. A la discrétion du MJ, les crédits restants au décollage sont perdus",
+      "prerequisites": null,
+      "references": [
+        "P&P p11"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-depolitise",
+      "type": "Défaut",
+      "name": "Dépolitisé",
+      "cost": "-1",
+      "description": "Insouciant, peut-être un peu inculte, le personnage ne voit pas (ou ne veut pas voir) le rapport entre les aventures de pirates de l’espace et l’astropolitique, les nations stellaires et la Révolte. Pour lui, il s’agit avant tout d’une aventure personnelle, peut-être même égoïste.",
+      "effects": "Effet : Le personnage subit e2f pour tous les tests effectués dans le cadre de la résolution d’une Révolte.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-dettes",
+      "type": "Défaut",
+      "name": "Dettes",
+      "cost": "-X",
+      "description": "Le personnage doit de l’argent à un individu peu recommandable. Cette dette n’est probablement formalisée par aucun contrat, mais cela n’empêchera pas le créancier d’utiliser des moyens expéditifs pour récupérer son argent. Il peut s’agir d’un marchand peu scrupuleux, d’un seigneur de guerre des Barrens ou d’un noble solaire. Ce qui est sûr c’est que le paiement doit avoir lieu.",
+      "effects": "La somme due dépend du coût de ce Défaut. SI le personnage ne fait pas de paiement régulier (à la discrétion du MJ), ce défaut a les mêmes effets que Wanted, pour le même coût.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-dette-dhonneur",
+      "type": "Défaut",
+      "name": "Dette d’honneur",
+      "cost": "-X",
+      "description": "Avant de devenir pirate, ou au moment de larguer les amarres, le personnage a contracté une dette d’honneur. Peut être quelqu’un l’a aidé à fuir ou qu’avant même de vouloir devenir pirate, il avait déjà eu assez d’ennuis pour contracter une telle dette. Ici, il n’est point question d’argent, mais un jour, quelqu’un viendra lui réclamer un service…",
+      "effects": "Le MJ choisit un PNJ envers lequel le personnage a contracté la dette. Eventuellement, il ne lui communique pas la nature de celle-ci. Le PNJ décidera du moment auquel la dette devra être réglée. Le coût de celle-ci détermine les dangers qu’elle implique :",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-enchaine",
+      "type": "Défaut",
+      "name": "Enchaîné",
+      "cost": "-3",
+      "description": "Qu’il ait été serf, esclave ou simplement un de ces milliards d’individus écrasés par la domination des nations stellaires, le personnage a pris la mauvaise habitude de courber l’échine. Même aujourd’hui, alors qu’il est pirate, il lui est toujours difficile de résister : Les pires chaînes ne sont pas celles qu’on porte autour du cou, mais celles forgées par des millénaires de tradition et d’endoctrinement.",
+      "effects": "Le personnage subit e2f pour résister aux actions impliquant Commandement ou Intimidation.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-feignasse",
+      "type": "Défaut",
+      "name": "Feignasse",
+      "cost": "-3",
+      "description": "Le personnage est allergique au travail. L’effort le terrorise et son hamac est son meilleur ami.",
+      "effects": "La durée des actions effectuées par le personnage dans une scène jouée en mode narratif est doublée. Il ne peut participer qu’à des tâches effectuées à ce rythme.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-fiche",
+      "type": "Défaut",
+      "name": "Fiché",
+      "cost": "-1",
+      "description": "Le personnage a déjà eu maille à partir avec les autorités d’une nation stellaire, et il fut capturé. Son signalement et ses méfaits ont été enregistrés. Qu’il ait purgé sa peine ou qu’il se soit évadé, qu’il soit activement recherché ou pas, il existe une fiche le concernant, une véritable mine d’informations !",
+      "effects": "Effet : Lorsqu’il sélectionne ce défaut, le joueur choisit une nation stellaire. Les tests de Sécurité et les tests visant à retrouver le personnage effectués par des forces de l’ordre de la nation concernée bénéficient de SC. Cet effet s’applique aux formalités d’astroport si le personnage est le capitaine du vaisseau.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-fier-detre-pirate",
+      "type": "Défaut",
+      "name": "Fier d’être pirate",
+      "cost": "-1",
+      "description": "Le personnage est tout simplement fier d’être pirate et ne perd pas une occasion de le montrer. Il s’habille toujours à la mode havanaise, clame son nom dès qu’il le peut (mais n’est pas non plus suicidaire) et ne perd pas une occasion de célébrer l’héroïsme ou la férocité des pirates de l’espace.",
+      "effects": "Effet : Le personnage s’habille toujours en vêtements de pirate (cf. MdJ p.193) ou en vêtements de capitaine pirate (cf PdE p.166). Il peut porter des combinaisons, armures et scaphandres, mais avec une finition pirate (cf. MdJ p.189).",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-fou",
+      "type": "Défaut",
+      "name": "Fou",
+      "cost": "-3",
+      "description": "Le personnage n’est pas comme les autres. Soit il est affligé d’une maladie mentale qui le rend visiblement fou, soit il est simplement… étrange. En tout cas, il se comporte parfois bizarrement et n’a pas la même vision du monde que ses compagnons.",
+      "effects": "Le personnage est affligé d’une folie (cf. p.16).",
+      "prerequisites": null,
+      "references": [
+        "B&B p.11"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-fragile",
+      "type": "Défaut",
+      "name": "Fragile",
+      "cost": "-1",
+      "description": "A cause d’un mauvais souvenir d’enfance ou d’une vie trop marquée par les traumatismes psychologiques, le personnage a du mal à se remettre lorsque son psychisme est bousculé. IL n’est pas plus fou qu’un autre, mais sa raison est déjà si ébranlée qu’il a du mal à oublier toutes les horreurs qu’il affronte…",
+      "effects": "Les actions visant à annuler les troubles et les folies du personnage subissent D+1.",
+      "prerequisites": null,
+      "references": [
+        "B&B p.11"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-fraternite-pirate",
+      "type": "Défaut",
+      "name": "Fraternité pirate",
+      "cost": "-3",
+      "description": "Le personnage croit dur comme fer au code des pirates, en tout cas en ce qui concerne la fraternité. Il considère son équipage comme sa famille et il entend bien protéger celle-ci. Il ne laissera jamais derrière lui un membre de son équipage et se portera toujours au secours de ceux qui ont un problème.",
+      "effects": "Vous ne pouvez pas décider que votre personnage abandonne un membre d’équipage, PJ ou PNJ, face au danger. Jamais.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-fureur-revolutionnaire",
+      "type": "Défaut",
+      "name": "Fureur révolutionnaire",
+      "cost": "-5",
+      "description": "Pour devenir pirate, il faut se révolter contre son ancienne vie. Non seulement c’est ce qu’a fait le personnage, mais en outre, il réalise à quel point cela a changé, en bien, sa vie. Il est convaincu que tout le monde devrait faire comme lui et prendre son destin en main, par la force s’il le faut !",
+      "effects": "Effet : Une fois par séance, le MJ peut dépenser autant de dés MF que le Sang-froid du personnage pour le forcer à déclencher une Révolte ou une rébellion face à un gouvernement despotique. Si ce défaut est celui d’un PNJ affrontant les PJ, le MJ récupère autant de dés MF que le Sang-Froid du PNJ lorsque celui-ci prend des risques.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-gueule-de-porte-bonheur",
+      "type": "Défaut",
+      "name": "Gueule de porte-bonheur",
+      "cost": "-1",
+      "description": "Le personnage est un mutant à l’aspect particulièrement repoussant. Ou peut-être que son odeur corporelle est pestilentielle. Ou qu’il a tendance à produire des bruits obscènes. En tout cas, il est vraiment affreux !",
+      "effects": "Le personnage est tellement moche que les malus de Tête de mutant s’applique envers tous les personnages de la Galaxie.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-handicap",
+      "type": "Défaut",
+      "name": "Handicap",
+      "cost": "-3",
+      "description": "Le personnage démontre une inaptitude exceptionnelle. Dès son plus jeune âge, son entourage a remarqué qu’il n’était pas comme les autres enfants et il est probable que ses parents l’aient encouragé à développer d’autres dons. Aujourd’hui, son handicap le gênera sûrement dans sa carrière de pirate.",
+      "effects": "Le personnage perd 1 point dans une caractéristique de votre choix.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-hautain",
+      "type": "Défaut",
+      "name": "Hautain",
+      "cost": "-3",
+      "description": "Le personnage a toujours été entouré de gens « de bonnes compagnie » : nobles solaires, courtisans, chevaliers. Serf ou noble, il a évolué dans les plus hautes sphères de l’Empire solaire, et a pris l’habitude de côtoyer les puissants. Aujourd’hui, et malgré tout, il lui est toujours difficile de s’intégrer à la « plèbe ».",
+      "effects": "Le personnage subit e2f pour les tests d’Empathie, d’Eloquence, de Séduction et d’Etiquette face aux personnages dont le score de Gloire est strictement inférieur au sien.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-honorable",
+      "type": "Défaut",
+      "name": "Honorable",
+      "cost": "-3",
+      "description": "Tout simplement, le personnage tient ses promesses. Toujours. Son nom et sa parole sont ses biens les plus précieux. Lorsqu’il jure quelque chose, il s’y tient, et au prix de sa vie s’il le faut !",
+      "effects": "Lorsque le personnage jure « sur son honneur », le joueur est obligé d’honorer ce serment. Et en restant de bonne foi s’il vous plaît !",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-hook ",
+      "type": "Défaut",
+      "name": "Hook !",
+      "cost": "-X",
+      "description": "Le personnage a été amputé à la suite d’une vilaine blessure. Selon le coût de ce Défaut, le membre manquant a été remplacé, ou pas, et avec plus ou moins de bonheur.",
+      "effects": "Le personnage subit des malus selon le type de prothèse, déterminé par le coût du défaut :",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-inconnu-a-lui-meme",
+      "type": "Défaut",
+      "name": "Inconnu à lui-même",
+      "cost": "-3",
+      "description": "Le potentiel génétique du personnage ne s’est pas exprimé. S’il s’agit de mutations passives, le corps du personnage ne s’est pas modifié. S’il s’agit de mutations actives, il ne sait pas les activer (ou a oublié s’il est amnésique). Dans les deux cas, il a tout de même l’aspect d’un mutant et dispose d’énergie X.",
+      "effects": "Avant de pouvoir choisir ses mutations, le personnage doit dépenser des PX : 1 000 PX pour une mutation basique, 2 500 PX pour une mutation avancée.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-inculte",
+      "type": "Défaut",
+      "name": "Inculte",
+      "cost": "-3",
+      "description": "Le personnage n’est pas très cultivé. Cela ne signifie pas qu’il est bête, juste qu’il n’a jamais appris grand-chose et qu’il n’est pas raffiné.",
+      "effects": "Pour le personnage, toutes les compétences de Sciences sont fermées.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-justicier-de-lespace",
+      "type": "Défaut",
+      "name": "Justicier de l’espace",
+      "cost": "-3",
+      "description": "Le personnage croit dur comme fer à l’idéal pirate. Pour lui, être pirate, c’est plus qu’aborder des vaisseaux et amasser de l’or. Il sait qu’il peut sauver des gens, aider les malheureux et combattre l’injustice. Et parce qu’il le peut, il le doit !",
+      "effects": "Effet : Une fois par séance, le MJ peut dépenser autant de dés MF que le Sang-froid du personnage pour le forcer à redresser un tort, combattre une injustice ou donner l’exemple. Si ce défaut est celui d’un PNJ affrontant les PJ, le MJ récupère autant de dés MF que le Sang-Froid du PNJ lorsque celui-ci prend des risques.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-le-code,-cest-la-loi",
+      "type": "Défaut",
+      "name": "Le code, c’est la loi",
+      "cost": "-3",
+      "description": "Le personnage voue un respect presque religieux au code des pirates. Selon lui, c’est son application qui fait qu’on est pirate ou pas. A ses yeux, la moindre dérogation justifie un détour par le sans… sans scaphandre !",
+      "effects": "Effet : Le pirate respecte le code à la lettre et tâche de le faire respecter par tout l’équipage.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-liberateur",
+      "type": "Défaut",
+      "name": "Libérateur",
+      "cost": "-1",
+      "description": "Le personnage est très attaché à l’idée de liberté. Il ne supporte pas l’esclavagisme, au point d’entrer dans une rage incontrôlable à la vue d’esclaves. Dans ces moments-là, il fait fi du danger, dégaine son sabre, et part faire sa petite révolution…",
+      "effects": "Effet : Une fois par séance, le MJ peut dépenser autant de dés MF que le Sang-froid du personnage pour le forcer à libérer des esclaves. Si ce défaut est celui d’un PNJ affrontant les PJ, le MJ récupère autant au dés MF que le Sang-froid du PNJ lorsque celui-ci prend des risques.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-malchanceux",
+      "type": "Défaut",
+      "name": "Malchanceux",
+      "cost": "-3",
+      "description": "Au sein du contexte tragique du dernier millénaire, le personnage est né sous une mauvaise étoile. Tout petit déjà, il souffrait d’une terrible malchance. Cela a failli lui coûter la vie bien des fois, et nul doute que ce sera encore souvent le cas maintenant qu’il est pirate.",
+      "effects": "Effet : Une fois par séance de jeu, le MJ peut demander au joueur qu’un jet de dé soit refait, que le personnage y participe ou pas.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-mal-du-pays",
+      "type": "Défaut",
+      "name": "Mal du pays",
+      "cost": "-1",
+      "description": "Le personnage est tombé amoureux d’Havana, à tel point qu’il a du mal à s’en passer. Certes, il aime l’aventure et le danger comme n’importe quel pirate, mais lorsqu’il reste trop loin de sa terre natale ou d’adoption, une terrible mélancolie lui étreint le cœur.",
+      "effects": "Effet : Au début de chaque séance, le personnage doit dépenser 1 PP si cela fait plus de 6 mois qu’il n’a pas posé le pied sur Havana.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-malformation-x",
+      "type": "Défaut",
+      "name": "Malformation X",
+      "cost": "-3",
+      "description": "Le potentiel génétique du personnage ne s’est pas exprimé normalement. Son organisme réagit mal aux décharges d’énergie X générées par l’activation des mutations. Il s’ensuit des lésions internes, parfois même des plaies ouvertes, voire des arrêts cardiaques.",
+      "effects": "Le personnage subit 1S qui ignore la Protection pour chaque EX qu’il dépense. Ce défaut ne peut être choisi que par les mutants disposant de mutations actives.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-maudit",
+      "type": "Défaut",
+      "name": "Maudit",
+      "cost": "-3",
+      "description": "Toute sa vie, le personnage est allé de mauvaises surprises en coups du sort. Si jamais il existe réellement des forces maléfiques ancestrales, c’est sûr, elles n’aiment pas le personnage !",
+      "effects": "Le personnage est affligé d’une malédiction (cf. p.24).",
+      "prerequisites": null,
+      "references": [
+        "B&B p.11"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-mauvais-eleve",
+      "type": "Défaut",
+      "name": "Mauvais élève",
+      "cost": "-3",
+      "description": "Lorsque ses mutations sont apparues, le personnage a eu du mal à les maîtriser. Personne n’était là pour le guider dans l’apprentissage de sa différence. Encore aujourd’hui, il doit produire plus d’efforts pour arriver au même résultat que les autres mutants.",
+      "effects": "Le personnage doit dépenser 1 EX de plus pour activer une mutation. Ce défaut ne peut être choisi que par des mutants disposant de mutations actives.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-mauvais-payeur",
+      "type": "Défaut",
+      "name": "Mauvais payeur",
+      "cost": "-1",
+      "description": "Le personnage n’aime pas payer. Il considère les gens qui travaillent pour lui avec suspicion et craint toujours de les payer à ne rien faire. Le vrai problème c’est que ça se voit, et qu’à cause de cela, le jour de la paye n’a pas l’effet revigorant qu’il devrait avoir",
+      "effects": "Pour que l’équipage récupère des PS à la suite d’une répartition de trésor, il doit posséder le double de crédits que le montant correspondant à son niveau.",
+      "prerequisites": null,
+      "references": [
+        "P&P p11"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-mauvaises-vibrations",
+      "type": "Défaut",
+      "name": "Mauvaises vibrations",
+      "cost": "-1",
+      "description": "Certains sorciers prétendent que tous les êtres vivants dégagent un champ énergétique et que certains d’entre eux ont un champ particulier qui les rend particulièrement sensibles à l’énergie X. Que cela soit fondé ou pas, il est certain que le personnage se sent nauséeux à chaque fois qu’il est en présence d’un mutant ou qu’un phénomène surnaturel se manifeste. Malheureusement, la nausée arrive trop tard pour que cela le prévienne !",
+      "effects": "Le personnage subit D+1 à toutes ses actions lorsque de l’EX est utilisée à proximité.",
+      "prerequisites": null,
+      "references": [
+        "B&B p.11"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-medium",
+      "type": "Défaut",
+      "name": "Médium",
+      "cost": "-1",
+      "description": "Le personnage est particulièrement réceptif à l’énergie X, qui s’insinue en lui avec une étonnante facilité. Pour certains, c’est une horrible malédiction, la marque de l’héritage alien, pour d’autres, c’est une bénédiction accordée par les dieux. Quoi qu’il en soit, face à un éclair énergétique, c’est une mauvaise nouvelle !",
+      "effects": "Pour affecter le personnage (ou un objet qu’il tient ou porte avec un pouvoir mutant, il faut dépenser 1 EX de moins (minimum 1).",
+      "prerequisites": null,
+      "references": [
+        "B&B p.11"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-non-violent",
+      "type": "Défaut",
+      "name": "Non-violent",
+      "cost": "-5",
+      "description": "Le personnage ne sait pas être violent. Il n’arrive jamais à s’énerver et ne peut trouver le courage ou la colère pour faire mal ne serait-ce qu’à une mouche. Il n’est pas forcément lâche, mais ses jeunes années ne lui ont pas appris à être un « dur », aussi rare que cela puisse être dans le Dernier Millénaire. Chaque jour, il constate d’ailleurs à quel point il est mal à l’aise dans ce dernier",
+      "effects": "Le personnage ne peut jamais recourir au MF, même s’il dispose d’une OD ou s’il est humain standard. Cela signifie que, Blessé grave ou aux commandes d’un vaisseau Gravement endommagé, il ne peut plus agir. Il ne peut pas non plus bénéficier de l’aide d’un personnage gravement blessé (MdJ p.108).",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-petite-malediction",
+      "type": "Défaut",
+      "name": "Petite malédiction",
+      "cost": "-3",
+      "description": "Le potentiel génétique du personnage est plus pauvre que celui des autres mutants. Non seulement ses chromosomes ne peuvent produire des mutations complexes, mais ils sont même incapable de stocker beaucoup d’informations. On pourrait presque croire qu’il s’agit d’un mutant maudit !",
+      "effects": "Le personnage peut uniquement choisir une mutation basique.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-paranoïaque",
+      "type": "Défaut",
+      "name": "Paranoïaque",
+      "cost": "-3",
+      "description": "Le personnage voit des ennemis et des complots partout ! Cela peut venir d’une éducation visant à en faire un comploteur né ou à une vie placée sous le sceau de la trahison. Souvent, s’il craint à ce point le mensonge, c’est parce qu’il ment beaucoup. Le pire, c’est que dans le Dernier Millénaire, il a parfois raison d’être paranoïaque…",
+      "effects": "Une fois par séance, le MJ peut dépenser autant de dés MF que le Sang-Froid du personnage pour forcer celui-ci à se méfier d’un PNJ. S’il s’agit d’un PNJ affrontant les PJ, le MJ récupère autant de MF que le Sang-froid du PNJ lorsque celui-ci devient méfiant.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Empire de Sol",
+      "restriction": null
+    },
+    {
+      "id": "defaut-raciste",
+      "type": "Défaut",
+      "name": "Raciste",
+      "cost": "-1",
+      "description": "Le personnage est convaincu que les mutants sont les rebuts de l’humanité, des déchets génétiques hérités de l’influence nocive des aliens. Fourbes, mauvais, incapables, il manque d’injures pour décrire tout le mal qu’il pense d’eux, même lorsqu’il est obligé de les côtoyer.",
+      "effects": "Effet : Le personnage subit E2F pour les tests de Négociation prenant pour cible un mutant ou une majorité de mutants.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Empire Galactique",
+      "restriction": null
+    },
+    {
+      "id": "defaut-rebelle",
+      "type": "Défaut",
+      "name": "Rebelle",
+      "cost": "-1",
+      "description": "Le personnage ne supporte pas l’autorité, probablement parce qu’il en a trop souffert au cours de sa vie. Le simple fait de vouloir lui dicter ses actes, ou ceux des autres, lui paraît suspect, voire agressif. Il ne supporte aucune entrave et se révolte dès que quelqu’un se mêle des affaires des autres.",
+      "effects": "Effet : Une fois par séance, le MJ peut dépenser autant de dés MF que le Sang-froid du personnage pour forcer celui-ci à se méfier d’un PNF représentant une autorité constituée. S’il s’agit d’un PNJ affrontant les PJ, le MJ récupère autant de dés MF que le Sang-froid du PNJ lorsque celui-ci devient méfiant.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-reeducation-imperiale",
+      "type": "Défaut",
+      "name": "Rééducation impériale",
+      "cost": "-3",
+      "description": "Le personnage a été jugé subversif par les autorités impériales et a été soumis à un traitement “rééducatif”. Il en est ressorti brisé à l’intérieur, désormais incapable d’être un danger. Même s’il a largué les amarres, il porte toujours l’empreinte de ce terrible conditionnement.",
+      "effects": "Effet : Le personnage subit e2f lorsqu’il affronte des représentants des forces de l’ordre des nations stellaires.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Empire Galactique",
+      "restriction": null
+    },
+    {
+      "id": "defaut-rouge-de-cœur",
+      "type": "Défaut",
+      "name": "Rouge de cœur",
+      "cost": "-1",
+      "description": "Le personnage aime se battre. C’est plus fort que lui ; la vie de pirates, c’est fait pour ça ! Si ça ne tenait qu’à lui, il hisserait le drapeau rouge au moindre coup de laser, mais il sait faire preuve de pitié… du moment qu’il a eu son compte d’explosions et de violence !",
+      "effects": "Effet : Si le personnage n’a participé à aucun combat au cours de la séance, il doit dépenser 1 PP au terme de celle-ci.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-sale-gueule",
+      "type": "Défaut",
+      "name": "Sale gueule",
+      "cost": "-3",
+      "description": "Le personnage est mal rasé, n’a plus toutes ses dents et a le rire gras. Bref, c’est l’effigie du pirate tel que se le représentent les « bonnes gens » des nations stellaires. Il fait peur aux enfants !",
+      "effects": "Le personnage subit un (e2f) pour tous ses tests de Négociation lorsque son interlocuteur est un individu respectable des nations stellaires. Ce défaut est incompatible avec Attirant, Sexy et Tête de mutant.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-sauvage--*",
+      "type": "Défaut",
+      "name": "Sauvage  *",
+      "cost": "-3",
+      "description": "Le personnage ne connaît rien au Dernier Millénaire. Il baragouine à peine le galactique, ne comprend pas comment marche une hyperpropulsion et ne sait rien de la société galactique et métahumaine. Il mange avec les doigts, se mouche dans la nappe et ramène les femmes chez lui en les tirant par les cheveux. Il vaut mieux ne pas le laisser parler !",
+      "effects": "Pour le personnage, toutes les compétences de Négociation sont fermées.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-superstitieux",
+      "type": "Défaut",
+      "name": "Superstitieux",
+      "cost": "-1",
+      "description": "Elevé sur une planète primitive ou tout simplement par des parents superstitieux, le personnage croit à l’influence de forces inconnues sur le cosmos et à l’existence de la magie et des fantômes. Cela aurait pu être une qualité, mais la simple perspective d’affronter ces forces magiques terrifie le personnage jusqu’au plus profond de lui-même. Il tente par tous les moyens de conjurer le sort, tout en sachant qu’il ne peut pas échapper à son destin !",
+      "effects": "Le personnage s’entoure de tout un tas de porte-bonheur. Lorsqu’il est confronté à un phénomène d’apparence magique (à la discrétion du MJ), tous ses tests sont affligés de e2f.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-signe-distinctif",
+      "type": "Défaut",
+      "name": "Signe distinctif",
+      "cost": "-X",
+      "description": "Qu’il s’agisse d’une marque de naissance, d’un tatouage spécifique ou d’une cicatrice unique dans la Galaxie, le personnage est particulièrement reconnaissable. Les passants l’oublient rarement et il est facile de le décrire. Ce signe distinctif peut être lié à une organisation (le tatouage d’une bande de pillards) ou être spécifique au personnage (la marque de l’héritier du trône de Tartarus V). Il peut être choisi pour un personnage mutant. Cela signifie que, même pour un mutant, il ne passe pas inaperçu !",
+      "effects": "Le personnage est plus facile à retrouver. A faible niveau, l’effet est laissé à la discrétion du MJ. A haut niveau, ce défaut confère un bonus pour les tests visant à retrouver la trace du personnage ou à se souvenir de lui :",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-tete-brulee",
+      "type": "Défaut",
+      "name": "Tête brulée",
+      "cost": "-5",
+      "description": "Le personnage aime le risque. Il ne vit que sous adrénaline, lorsque la tension est à son comble et que sa vie ne tient qu’à un fil. Il est prêt à prendre des risques insensés pour se sentir vivre et goûter une fois de plus à ce dangereux nectar. Certains le disent fou, lui se considère comme simplement vivant.",
+      "effects": "Une fois par séance, le MJ peut dépenser autant de dés MF que le sang-froid du personnage pour lui faire prendre une décision risquée. Si ce Défaut est celui d’un PNJ affrontant les PJ, le MJ récupère autant de dés MF que le Sang-froid du PNJ lorsque celui-ci prend des risques.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Barrens",
+      "restriction": null
+    },
+    {
+      "id": "defaut-tete-de-mutant-",
+      "type": "Défaut",
+      "name": "Tête de mutant ",
+      "cost": "Spécial",
+      "description": "Le personnage est un mutant, et il n’a pas une tête de porte-bonheur. A l’évidence, il n’est pas humain : yeux globuleux, couleur de peau bizarre, nombre de membres anormal, etc. Chaque mutant est unique et horrible à sa façon. Les humains « normaux » les détestent et refusent bien souvent de leur adresser la parole.",
+      "effects": "Effet : Le personnage subit (E2F) pour les tests de Négociation où l’interlocuteur est un non-mutant des nations stellaires et où le personnage est visible. En outre, il constitue une cible prioritaire en combat. Enfin, les actions visant à enquêter sur lui sont toutes (TF) dans les nations stellaires. Ce défaut est réservé aux mutants. Il est incompatible avec Cicatrices et Sale gueule. Il faut  pour les mutants maudits (MdJ p.51).",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-tresor-perdu",
+      "type": "Défaut",
+      "name": "Trésor perdu",
+      "cost": "-3",
+      "description": "Le personnage possédait quelque chose de très cher à ses yeux, et il l’a perdu. Il peut s’agir d’un coffre empli d’or, d’un titre social ou d’un porte-bonheur à valeur sentimentale. Il est peut-être égaré, ou volé. Quoi qu’il en soit, le personnage veut à tout prix le retrouver.",
+      "effects": "Lorsque le personnage dispose d’informations sur son trésor perdu, il doit suivre cette piste, coûte que coûte. Si cela le confronte à un danger certain, il peut tenter un test de Détermination (5) pour se retenir. Discutez de la nature et de la valeur de ce trésor avec votre MJ. Celui-ci déterminera alors seuls les dangers associés, en prenant soin de rester équitable.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-vengeance ",
+      "type": "Défaut",
+      "name": "Vengeance !",
+      "cost": "-X",
+      "description": "Le personnage a été vaincu ou humilié par un adversaire ou celui-ci a infligé une terrible blessure affective au personnage. Il peut s’agir d’un rival pirate, du meurtrier de sa femme ou de celui qui a provoqué sa disgrâce. Quoi qu’il en soit, il doit se venger, à tout prix.",
+      "effects": "Le personnage doit nuire à celui dont il veut se venger, quels que soient les risques encourus. La catégorie à laquelle appartient ce PNJ est déterminé par le coût de ce Défaut.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-wanted",
+      "type": "Défaut",
+      "name": "Wanted",
+      "cost": "-X",
+      "description": "Le personnage est recherché par les autorités stellaires ou des chasseurs de primes. Peu importe qu’il soit effectivement coupable d’un crime ; il peut s’agir d’une erreur judiciaire ou des conséquences d’une vieille querelle, une de ces vendettas si chères aux nobles solaires.",
+      "effects": "Le personnage est recherché par ses poursuivants, qui interviennent si les circonstances de l’aventure le permettent. La nature de ces poursuivants est déterminée par le coût de ce Défaut.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    }
+  ],
+  "mutations": [
+    {
+      "id": "mutation-absorption-energetique",
+      "type": "Mutation",
+      "name": "Absorption énergétique",
+      "mutation_type": "Basique",
+      "ex_cost": "1 (M)",
+      "is_maintained": true,
+      "effect": "Permet d'absorber l'énergie X des personnages et des monstres par une attaque à mains nues. Absorbe 1 EX + 1 par succès excédentaire.",
+      "references": []
+    },
+    {
+      "id": "mutation-acclimatation-genetique",
+      "type": "Mutation",
+      "name": "Acclimatation génétique",
+      "mutation_type": "Passive",
+      "ex_cost": "P8",
+      "is_maintained": false,
+      "effect": "L'organisme du personnage est adapté à un type d'environnement. Il bénéficie de PMF pour résister à cet environnement.",
+      "references": []
+    },
+    {
+      "id": "mutation-acuite-sensorielle",
+      "type": "Mutation",
+      "name": "Acuité sensorielle",
+      "mutation_type": "Passive",
+      "ex_cost": "P8",
+      "is_maintained": false,
+      "effect": "Le cerveau et les organes sensoriels sont plus sensibles. Le personnage gagne définitivement un point en Perception.",
+      "references": []
+    },
+    {
+      "id": "mutation-adrenaline-hyperconcentree",
+      "type": "Mutation",
+      "name": "Adrénaline hyperconcentrée",
+      "mutation_type": "Basique",
+      "ex_cost": "X8",
+      "is_maintained": false,
+      "effect": "Le mutant sécrète une adrénaline surpuissante. Il bénéficie de X dés bonus pour un test d'initiative.",
+      "references": []
+    },
+    {
+      "id": "mutation-anaerobisme",
+      "type": "Mutation",
+      "name": "Anaérobisme",
+      "mutation_type": "Basique",
+      "ex_cost": "1 (M)",
+      "is_maintained": true,
+      "effect": "L'organisme peut se priver d'air. Le personnage est insensible à l'asphyxie ou la noyade.",
+      "references": []
+    },
+    {
+      "id": "mutation-armes-corporelles",
+      "type": "Mutation",
+      "name": "Armes corporelles",
+      "mutation_type": "Passive",
+      "ex_cost": "P8",
+      "is_maintained": false,
+      "effect": "Le personnage dispose d'armes naturelles (griffes, crocs...). Les dégâts à mains nues augmentent d'un niveau et sont létaux.",
+      "references": []
+    },
+    {
+      "id": "mutation-articulations-mobiles",
+      "type": "Mutation",
+      "name": "Articulations mobiles",
+      "mutation_type": "Passive",
+      "ex_cost": "P8",
+      "is_maintained": false,
+      "effect": "Les articulations et les cartilages du personnage sont particulièrement souples. Il bénéficie de PMF pour tous les tests d'[[competence-acrobaties]].",
+      "references": []
+    },
+    {
+      "id": "mutation-beaute-stellaire",
+      "type": "Mutation",
+      "name": "Beauté stellaire",
+      "mutation_type": "Passive",
+      "ex_cost": "P8",
+      "is_maintained": false,
+      "effect": "Les traits du personnage sont d'une beauté inhumaine. Le personnage gagne définitivement un point en Présence.",
+      "references": []
+    },
+    {
+      "id": "mutation-cameleon",
+      "type": "Mutation",
+      "name": "Caméléon",
+      "mutation_type": "Avancée",
+      "ex_cost": "1 (M)",
+      "is_maintained": true,
+      "effect": "Le personnage est doté d'un épiderme capable de changer de couleur, voire de texture. Lorsqu'il ne dispose d'aucun couvert, mais qu'il est nu, le personnage peut Se cacher ou Se faufiler.",
+      "references": []
+    },
+    {
+      "id": "mutation-cerveau-secondaire",
+      "type": "Mutation",
+      "name": "Cerveau secondaire",
+      "mutation_type": "Passive",
+      "ex_cost": "P8",
+      "is_maintained": false,
+      "effect": "Le personnage dispose d'un second cerveau, connecté en parallèle au premier. Le personnage gagne définitivement un point en Intelligence.",
+      "references": []
+    },
+    {
+      "id": "mutation-changeforme",
+      "type": "Mutation",
+      "name": "Changeforme",
+      "mutation_type": "Avancée",
+      "ex_cost": "5 (S)",
+      "is_maintained": true,
+      "effect": "L'épiderme du personnage est parcouru par des terminaisons nerveuses spéciales. Il peut dupliquer parfaitement l'apparence d'un autre. Il bénéficie alors de PMF pour les tests de [[competence-baratin]], [[competence-comedie]] ou [[competence-deguisement]].",
+      "references": []
+    }
+  ],
+  "actions": [
+    {
+      "id": "action-camper",
+      "type": "Action",
+      "name": "Camper",
+      "category": "Aventures au sol",
+      "tags": [],
+      "duration": "1 heure",
+      "skill_id": "competence-environnement",
+      "domain": "Survie",
+      "description": "Le personnage fait de son mieux pour installer un campement.",
+      "rules": "Difficulté 2, modifiée par le terrain et les objectifs (confort, discrétion, fortification).",
+      "references": []
+    },
+    {
+      "id": "action-cascade-vehicule",
+      "type": "Action",
+      "name": "Cascade! (Véhicule)",
+      "category": "Aventures au sol",
+      "tags": [],
+      "duration": "Complexe",
+      "skill_id": "competence-pilotage",
+      "domain": "Techniques",
+      "description": "Simule n'importe quelle manœuvre risquée en véhicule pour éviter un obstacle ou manœuvrer en espace restreint.",
+      "rules": "La Difficulté est déterminée par la situation (ex: Virage serré: 1, Sauter au-dessus de voitures: 8).",
+      "references": []
+    },
+    {
+      "id": "action-fourrager",
+      "type": "Action",
+      "name": "Fourrager",
+      "category": "Aventures au sol",
+      "tags": [],
+      "duration": "1 jour",
+      "skill_id": "competence-environnement",
+      "domain": "Techniques",
+      "description": "Le personnage cherche de la nourriture dans son environnement.",
+      "rules": "Difficulté 1, modifiée par le terrain. Si réussi, trouve l'équivalent d'une ration, plus une par succès excédentaire.",
+      "references": []
+    },
+    {
+      "id": "action-stock-car",
+      "type": "Action",
+      "name": "Stock-Car",
+      "category": "Aventures au sol",
+      "tags": [],
+      "duration": "Complexe",
+      "skill_id": "competence-pilotage",
+      "domain": "Techniques",
+      "description": "Le personnage percute un autre véhicule avec le sien.",
+      "rules": "Difficulté 1. Si réussi, provoque une collision et inflige des dégâts à la cible et à soi-même.",
+      "references": []
+    },
+    {
+      "id": "action-chiffrer-dechiffrer",
+      "type": "Action",
+      "name": "Chiffrer/Déchiffrer",
+      "category": "De cape et d'épée",
+      "tags": [],
+      "duration": "Spéciale",
+      "skill_id": "competence-analyse",
+      "domain": "Sciences",
+      "description": "Le personnage code ou décode un message. La durée dépend de la longueur du message.",
+      "rules": "Pour coder, le joueur compte les succès. Pour décoder, la Difficulté est égale au nombre de succès du codage.",
+      "references": []
+    },
+    {
+      "id": "action-connaitre",
+      "type": "Action",
+      "name": "Connaître",
+      "category": "De cape et d'épée",
+      "tags": [],
+      "duration": "Complexe",
+      "skill_id": "competence-connaissance",
+      "domain": "Sciences",
+      "description": "Le personnage tente de se souvenir d'une information sur un sujet donné.",
+      "rules": "La Difficulté dépend de la nature de l'information (connue du grand public: 1, caractéristiques d'un vaisseau: 3/5).",
+      "references": []
+    },
+    {
+      "id": "action-dissimuler",
+      "type": "Action",
+      "name": "Dissimuler",
+      "category": "De cape et d'épée",
+      "tags": [],
+      "duration": "Complexe",
+      "skill_id": "competence-discretion",
+      "domain": "Espionnage",
+      "description": "Le personnage tente de cacher un objet sur lui ou dans ses affaires.",
+      "rules": "La Difficulté dépend de l'objet (dague: 1, arme d'épaule: 5). Le nombre de succès excédentaires devient la Difficulté pour trouver l'objet.",
+      "references": []
+    },
+    {
+      "id": "action-fouiller",
+      "type": "Action",
+      "name": "Fouiller",
+      "category": "De cape et d'épée",
+      "tags": [],
+      "duration": "Spéciale",
+      "skill_id": "competence-recherche",
+      "domain": "Espionnage",
+      "description": "Le personnage inspecte une zone ou une personne pour trouver des indices ou des objets cachés.",
+      "rules": "La durée dépend de la zone (un cadavre: Complexe, un appartement: 5 minutes). La Difficulté dépend de ce qui est cherché.",
+      "references": []
+    },
+    {
+      "id": "action-recouper",
+      "type": "Action",
+      "name": "Recouper",
+      "category": "De cape et d'épée",
+      "tags": [],
+      "duration": "Spéciale",
+      "skill_id": "competence-analyse",
+      "domain": "Sciences",
+      "description": "Le personnage compulse plusieurs sources d'information pour en extraire une vérité cachée.",
+      "rules": "La durée dépend de la quantité de sources. La Difficulté dépend de la complexité des recoupements (évident: 1, nombreux: 8).",
+      "references": []
+    },
+    {
+      "id": "action-se-faufiler",
+      "type": "Action",
+      "name": "Se faufiler",
+      "category": "De cape et d'épée",
+      "tags": [],
+      "duration": "Complexe",
+      "skill_id": "competence-discretion",
+      "domain": "Espionnage",
+      "description": "Le personnage se déplace furtivement pour ne pas être repéré.",
+      "rules": "La Difficulté dépend de l'environnement (jungle: 1, entrepôt vide: 5). Le nombre de succès excédentaires devient la Difficulté pour être repéré.",
+      "references": []
+    },
+    {
+      "id": "action-frapper-cac",
+      "type": "Action",
+      "name": "Frapper [CAC]",
+      "category": "Combat",
+      "tags": [
+        "CAC"
+      ],
+      "duration": "Complexe",
+      "skill_id": "competence-melee",
+      "domain": "Survie",
+      "description": "Une attaque simple au corps à corps pour infliger des dégâts.",
+      "rules": "Cette action est résolue par une opposition de [[competence-melee]] entre vous et votre cible.",
+      "references": []
+    },
+    {
+      "id": "action-tirer-tir",
+      "type": "Action",
+      "name": "Tirer [TIR]",
+      "category": "Combat",
+      "tags": [
+        "TIR"
+      ],
+      "duration": "Complexe",
+      "skill_id": "competence-armes-d-epaule",
+      "domain": "Techniques",
+      "description": "Un tir avec une arme à distance.",
+      "rules": "La compétence utilisée dépend de l'arme. La Difficulté dépend de la distance.",
+      "references": []
+    },
+    {
+      "id": "action-viser",
+      "type": "Action",
+      "name": "Viser",
+      "category": "Combat",
+      "tags": [
+        "TIR"
+      ],
+      "duration": "Simple",
+      "skill_id": null,
+      "domain": "Techniques",
+      "description": "Vous alignez proprement le soldat ennemi.",
+      "rules": "Permet de bénéficier de (+1d) sur le prochain tir contre cette cible.",
+      "references": []
+    },
+    {
+      "id": "action-se-preparer",
+      "type": "Action",
+      "name": "Se préparer",
+      "category": "Générique",
+      "tags": [],
+      "duration": "Simple",
+      "skill_id": null,
+      "domain": null,
+      "description": "Malgré les explosions et les cris, vous parvenez à vous préparer.",
+      "rules": "Permet de bénéficier de (+1d) pour votre prochain test.",
+      "references": []
+    }
+  ]
+}

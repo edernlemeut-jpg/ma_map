@@ -1,10 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Metal Adventures — Tableau de bord</title>
   <link rel="stylesheet" href="/css/tailwind.css?v=2.0.0">
+  <link rel="stylesheet" href="/css/ma-theme.css">
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
   <!-- Header -->
@@ -40,68 +41,48 @@
     <!-- Dashboard (shown when onboarding is not displayed) -->
     <div id="dashboard-container" class="hidden">
       <div class="space-y-6">
-        <section class="bg-gray-800 border border-gray-700 rounded-lg p-6">
-          <div class="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p class="text-sm text-gray-400 mb-2">Table active</p>
-              <h2 id="home-table-title" class="text-2xl font-bold">Chargement…</h2>
-              <p id="home-table-subtitle" class="text-gray-400 mt-2">Préparation de votre espace de jeu.</p>
-            </div>
-            <div id="home-role-badge" class="hidden rounded-full border border-blue-500/40 bg-blue-500/10 px-3 py-1 text-sm text-blue-200"></div>
-          </div>
-        </section>
-
         <section>
-          <h3 class="text-lg font-semibold mb-3">Accès rapides</h3>
-          <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <a id="home-dashboard-link" href="/dashboard.html"
-               class="hidden bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
-              <span class="text-2xl">📊</span>
-              <span class="font-medium">Dashboard MJ</span>
-              <span class="text-sm text-gray-400">Pilotage de session, visibilité et activité récente.</span>
-            </a>
-
+          <h3 class="text-lg font-semibold mb-3">Acc&egrave;s rapides</h3>
+          <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <a href="/itineraire.html"
                class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
-              <span class="text-2xl">�️</span>
+              <span class="text-2xl">&#128506;&#65039;</span>
               <span class="font-medium">Carte Galactique</span>
               <span class="text-sm text-gray-400">Carte interactive, routes et navigation.</span>
             </a>
 
-            <a href="/vaisseaux.html"
+            <a href="/univers.html"
                class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
-              <span class="text-2xl">🛸</span>
-              <span class="font-medium">Vaisseaux</span>
-              <span class="text-sm text-gray-400">Flotte et modèles de la table.</span>
+              <span class="text-2xl">🌌</span>
+              <span class="font-medium">Univers</span>
+              <span class="text-sm text-gray-400">Syst&egrave;mes, factions, vaisseaux et flotte de la table.</span>
             </a>
 
-            <a href="/compendium.html"
+            <a href="/regles.html"
                class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
-              <span class="text-2xl">📚</span>
+              <span class="text-2xl">📖</span>
               <span class="font-medium">Compendium</span>
-              <span class="text-sm text-gray-400">Consulter systèmes, factions et modèles de vaisseaux.</span>
+              <span class="text-sm text-gray-400">Comp&eacute;tences, qualit&eacute;s, d&eacute;fauts, mutations et actions.</span>
             </a>
 
-            <a id="home-import-link" href="/admin/import.html"
-               class="hidden bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
-              <span class="text-2xl">📦</span>
-              <span class="font-medium">Import de données</span>
-              <span class="text-sm text-gray-400">Importer ou compléter les données univers de l’instance.</span>
+            <a id="home-admin-link" href="/admin.html" class="hidden bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
+              <span class="text-2xl">&#128737;&#65039;</span>
+              <span class="font-medium">Administration</span>
+              <span class="text-sm text-gray-400">Gestion des utilisateurs, campagnes et mod&egrave;les.</span>
+            </a>
+
+            <a id="home-campaign-link" href="/campagne.html" class="hidden bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
+              <span class="text-2xl">🎲</span>
+              <span class="font-medium">Ma Campagne</span>
+              <span class="text-sm text-gray-400">Lien d&apos;invitation, membres et gestion de la table.</span>
             </a>
           </div>
-        </section>
-
-        <section class="bg-gray-800 border border-gray-700 rounded-lg p-6">
-          <h3 class="text-lg font-semibold mb-2">Prochaine étape</h3>
-          <p id="home-next-step" class="text-gray-400">
-            Sélectionnez une action pour continuer la configuration de votre campagne.
-          </p>
         </section>
       </div>
     </div>
   </main>
 
-  <script type="module" src="/js/shared/cold-start.js?v=2.0.0"></script>
-  <script type="module" src="/js/dashboard.js?v=2.0.0"></script>
+  <script type="module" src="/js/shared/cold-start.js?v=2.0.2"></script>
+  <script type="module" src="/js/hub.js?v=2.0.2"></script>
 </body>
 </html>

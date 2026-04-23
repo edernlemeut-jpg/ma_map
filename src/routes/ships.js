@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import db from '../database.js';
 import { forbidden, notFound, success, validationError } from '../utils/response.js';
 import { createShip, getShipById, listShips, softDeleteShip, updateShip } from '../services/ships.js';
 
@@ -13,6 +14,22 @@ function validateNumericFields(body) {
   }
   return null;
 }
+
+router.get('/active', (req, res) => {
+  if (!req.table) return validationError(res, 'Aucune table sélectionnée');
+  const row = db.prepare('SELECT active_ship_id FROM table_state WHERE table_id = ?').get(req.table.id);
+  const activeShipId = row?.active_ship_id || null;
+  success(res, { activeShipId });
+});
+
+router.patch('/active', (req, res) => {
+  if (!req.table) return validationError(res, 'Aucune table sélectionnée');
+  const { shipId } = req.body || {};
+  db.prepare(
+    'INSERT INTO table_state (table_id, active_ship_id) VALUES (?, ?) ON CONFLICT(table_id) DO UPDATE SET active_ship_id = excluded.active_ship_id'
+  ).run(req.table.id, shipId || '');
+  success(res, { activeShipId: shipId || null });
+});
 
 router.get('/', (req, res) => {
   if (!req.table) return validationError(res, 'Aucune table sélectionnée');
