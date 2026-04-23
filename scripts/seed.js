@@ -16,6 +16,8 @@ function seed() {
   seedSystems();
   seedPerils();
   seedGalacticEvents();
+  seedShipModels();
+  seedAdminSystems();
 
   console.log('✅ Seed complete');
 }
@@ -105,6 +107,79 @@ function seedGalacticEvents() {
   } catch {
     console.log('  ⏭️  donnee_base/galactic_events.json not found — skipping');
   }
+}
+
+function seedShipModels() {
+  const existing = db.prepare('SELECT COUNT(*) AS c FROM ship_models').get().c;
+  if (existing > 0) {
+    console.log(`  ⏭️  ship_models: ${existing} rows already exist — skipping`);
+    return;
+  }
+
+  const data = loadJSON('src/seeds/ship-models.json');
+
+  const ALL_FIELDS = [
+    'id', 'nom', 'classe', 'origine', 'tonnage', 'longueur',
+    'vitesse_croisiere', 'vitesse_hyperspatiale', 'vitesse_tactique', 'autonomie',
+    'blindage', 'coque', 'senseurs', 'senseurs_k', 'senseurs_us',
+    'manoeuvrabilite', 'equipage', 'passagers', 'soute', 'prix',
+    'image', 'armement_json', 'systemes_secondaires_json', 'description',
+  ];
+
+  const cols = db.prepare('PRAGMA table_info(ship_models)').all().map(c => c.name);
+  const insertFields = ALL_FIELDS.filter(f => cols.includes(f));
+  const placeholders = insertFields.map(() => '?').join(', ');
+  const insert = db.prepare(
+    `INSERT OR IGNORE INTO ship_models (${insertFields.join(', ')}) VALUES (${placeholders})`
+  );
+
+  const insertMany = db.transaction(() => {
+    let count = 0;
+    for (const m of data) {
+      insert.run(...insertFields.map(f => m[f] ?? null));
+      count++;
+    }
+    console.log(`  ✅ ship_models: ${count} rows inserted`);
+  });
+
+  insertMany();
+}
+
+function seedAdminSystems() {
+  const existing = db.prepare('SELECT COUNT(*) AS c FROM admin_systems').get().c;
+  if (existing > 0) {
+    console.log(`  ⏭️  admin_systems: ${existing} rows already exist — skipping`);
+    return;
+  }
+
+  const data = loadJSON('quadrants_MA.json');
+
+  const insert = db.prepare(
+    'INSERT INTO admin_systems (quadrant, nom, data_json) VALUES (?, ?, ?)'
+  );
+
+  const insertMany = db.transaction(() => {
+    let count = 0;
+    for (const [quadrant, systems] of Object.entries(data)) {
+      for (const sys of systems) {
+        const d = {
+          faction: sys.faction || '',
+          is_frontiere: sys.isFrontiere ? 1 : 0,
+          route: sys.route || '',
+          gouvernement: sys.gouvernement || '',
+          description: sys.description || '',
+          soleil: sys.soleil || {},
+          corpsCelestes: sys.corpsCelestes || [],
+          patrouilles: sys.patrouilles || [],
+        };
+        insert.run(quadrant, sys.nom || '', JSON.stringify(d));
+        count++;
+      }
+    }
+    console.log(`  ✅ admin_systems: ${count} rows inserted`);
+  });
+
+  insertMany();
 }
 
 seed();

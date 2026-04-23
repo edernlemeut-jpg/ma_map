@@ -708,44 +708,137 @@ function renderFactions() {
 }
 
 function openFactionModal(faction) {
+  const isNew = !faction;
   const overlay = document.createElement('div');
-  overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4';
+  overlay.className = 'fixed inset-0 bg-black/70 z-50 flex items-start justify-center pt-8 px-4 overflow-y-auto';
+
+  const val = (k) => esc(String(faction?.[k] ?? ''));
+  const hasImg = !!faction?.icon_url;
+
   overlay.innerHTML = `
-    <div class="bg-gray-800 border border-gray-700 rounded-xl p-6 w-full max-w-md">
-      <h3 class="text-lg font-semibold mb-4">${faction ? 'Modifier' : 'Nouvelle'} faction</h3>
-      <div class="space-y-3">
-        <div><label class="block text-xs text-gray-400 mb-1">Nom *</label><input id="fm-name" type="text" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm" value="${esc(faction?.name || '')}"></div>
-        <div><label class="block text-xs text-gray-400 mb-1">Diminutif</label><input id="fm-short" type="text" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm" value="${esc(faction?.short || '')}"></div>
-        <div><label class="block text-xs text-gray-400 mb-1">Description</label><textarea id="fm-desc" rows="2" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm">${esc(faction?.description || '')}</textarea></div>
-        <div><label class="block text-xs text-gray-400 mb-1">URL icône</label><input id="fm-icon" type="text" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm" value="${esc(faction?.icon_url || '')}"></div>
+    <div class="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-xl p-6 shadow-2xl mb-8">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-xl font-bold">${isNew ? '+ Nouvelle faction' : `✏️ ${esc(faction.name)}`}</h2>
+        <button id="fmf-close" class="text-gray-400 hover:text-gray-200 text-xl px-2">✕</button>
       </div>
-      <p id="fm-err" class="text-red-400 text-sm mt-2 hidden"></p>
-      <div class="flex gap-2 mt-4">
-        <button id="fm-save" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm flex-1">Enregistrer</button>
-        <button id="fm-cancel" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm">Annuler</button>
+      <p id="fmf-error" class="hidden mb-3 text-sm text-red-400 bg-red-900/20 border border-red-800 rounded p-2"></p>
+
+      <div class="flex gap-4 mb-5">
+        <div class="flex-shrink-0">
+          <p class="text-xs text-gray-400 mb-2">Icône</p>
+          <div style="width:100px;height:100px;background:#1f2937;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;border:1px solid #374151">
+            ${hasImg
+              ? `<img id="fmf-img-preview" src="${val('icon_url')}" style="max-width:100%;max-height:100%;object-fit:contain" alt="">`
+              : `<span id="fmf-img-preview" style="font-size:2.5rem">🏴</span>`}
+          </div>
+        </div>
+        <div class="flex-1 space-y-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Nom *</label>
+            <input type="text" id="fmf-name" value="${val('name')}" placeholder="ex: Empire Galactique"
+              class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Abréviation</label>
+            <input type="text" id="fmf-short" value="${val('short')}" placeholder="ex: EMP"
+              class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Couleur</label>
+            <input type="color" id="fmf-color" value="${faction?.color || '#888888'}"
+              class="h-10 w-20 bg-gray-700 border border-gray-600 rounded cursor-pointer">
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-xs text-gray-400 mb-1">Illustration (URL ou upload)</label>
+        <div class="flex gap-2">
+          <input type="text" id="fmf-icon-url" value="${val('icon_url')}" placeholder="https://..."
+            class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+          <label class="cursor-pointer bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded px-3 py-2 text-sm text-gray-300 transition-colors whitespace-nowrap">
+            📁 Choisir
+            <input type="file" id="fmf-file" accept="image/*" class="hidden">
+          </label>
+        </div>
+      </div>
+
+      <div class="mb-5">
+        <label class="block text-xs text-gray-400 mb-1">Description</label>
+        <textarea id="fmf-desc" rows="4"
+          class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 resize-y">${esc(String(faction?.description ?? ''))}</textarea>
+      </div>
+
+      <div class="flex gap-3">
+        <button id="fmf-save" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium transition-colors">Enregistrer</button>
+        <button id="fmf-cancel" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-200 py-2.5 rounded-lg transition-colors">Annuler</button>
       </div>
     </div>`;
+
   document.body.appendChild(overlay);
-  const errEl = overlay.querySelector('#fm-err');
-  overlay.querySelector('#fm-cancel').addEventListener('click', () => overlay.remove());
-  overlay.querySelector('#fm-save').addEventListener('click', async () => {
-    const name = overlay.querySelector('#fm-name').value.trim();
+  overlay.querySelector('#fmf-name').focus();
+
+  const close = () => overlay.remove();
+  overlay.querySelector('#fmf-close').addEventListener('click', close);
+  overlay.querySelector('#fmf-cancel').addEventListener('click', close);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+  // Image preview sync
+  const urlInput = overlay.querySelector('#fmf-icon-url');
+  const getImgPrev = () => overlay.querySelector('#fmf-img-preview');
+  const syncPreview = (url) => {
+    if (!url) return;
+    const prev = getImgPrev();
+    if (prev.tagName === 'SPAN') {
+      const img = document.createElement('img');
+      img.id = 'fmf-img-preview';
+      img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain';
+      prev.replaceWith(img);
+    } else {
+      prev.src = url;
+    }
+  };
+  urlInput.addEventListener('input', () => syncPreview(urlInput.value.trim()));
+
+  overlay.querySelector('#fmf-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const fd = new FormData(); fd.append('file', file);
+    try {
+      const r = await fetch('/api/upload', { method: 'POST', credentials: 'include', body: fd });
+      const json = await r.json();
+      if (!r.ok) throw new Error(json.error?.message || 'Erreur upload');
+      urlInput.value = json.data.url;
+      syncPreview(json.data.url);
+    } catch (ex) {
+      const errEl = overlay.querySelector('#fmf-error');
+      errEl.textContent = `Upload : ${ex.message}`;
+      errEl.classList.remove('hidden');
+    }
+  });
+
+  overlay.querySelector('#fmf-save').addEventListener('click', async () => {
+    const errEl = overlay.querySelector('#fmf-error');
+    errEl.classList.add('hidden');
+    const name = overlay.querySelector('#fmf-name').value.trim();
     if (!name) { errEl.textContent = 'Le nom est requis'; errEl.classList.remove('hidden'); return; }
     const body = {
       name,
-      short: overlay.querySelector('#fm-short').value.trim(),
-      description: overlay.querySelector('#fm-desc').value.trim(),
-      icon_url: overlay.querySelector('#fm-icon').value.trim(),
+      short: overlay.querySelector('#fmf-short').value.trim(),
+      color: overlay.querySelector('#fmf-color').value,
+      icon_url: overlay.querySelector('#fmf-icon-url').value.trim() || null,
+      description: overlay.querySelector('#fmf-desc').value.trim(),
     };
     try {
-      const url = faction ? `/api/factions/${faction.id}` : '/api/factions';
-      const method = faction ? 'PATCH' : 'POST';
+      const url = isNew ? '/api/factions' : `/api/factions/${faction.id}`;
+      const method = isNew ? 'POST' : 'PATCH';
       const r = await fetch(url, { method, credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error?.message || `Erreur ${r.status}`);
       overlay.remove();
       loadFactions();
-    } catch (e) { errEl.textContent = e.message; errEl.classList.remove('hidden'); }
+    } catch (ex) { errEl.textContent = ex.message; errEl.classList.remove('hidden'); }
   });
 }
 

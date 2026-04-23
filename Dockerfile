@@ -25,6 +25,7 @@ COPY public/ ./public/
 # CSS compilé depuis le builder (remplace l'éventuelle version locale obsolète)
 COPY --from=builder /app/public/css/tailwind.css ./public/css/tailwind.css
 COPY scripts/ ./scripts/
+COPY src/seeds/ ./src/seeds/
 COPY perils_data.json ./
 COPY quadrants_MA.json ./
 
@@ -33,5 +34,5 @@ RUN mkdir -p /app/db
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "node scripts/migrate.js && node server.js"]
+CMD ["sh", "-c", "node scripts/migrate.js && node scripts/seed.js && node server.js"]
 
