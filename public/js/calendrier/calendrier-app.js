@@ -245,7 +245,7 @@ function render() {
       // Event pills
       dayEvs.slice(0, 3).forEach(ev => {
         const pill = document.createElement('div');
-        const color = ev.color || ev.category_color || '#6b7280';
+        const color = ev.category_color || ev.color || '#6b7280';
         pill.className = 'text-white text-[0.6rem] font-medium rounded px-1 py-0.5 truncate mb-0.5 leading-tight';
         pill.style.backgroundColor = color + 'cc';
         pill.style.borderLeft = `2px solid ${color}`;
@@ -281,7 +281,7 @@ function render() {
 }
 
 function renderEventRow(ev) {
-  const color = ev.color || ev.category_color || '#6b7280';
+  const color = ev.category_color || ev.color || '#6b7280';
   const vis = ev.is_public ? '' : '<span class="text-gray-500 text-xs ml-1" title="Masqué aux joueurs">🔒</span>';
   const range = ev.date_end && ev.date_end !== ev.date_start
     ? `${ev.date_start} → ${ev.date_end}`
