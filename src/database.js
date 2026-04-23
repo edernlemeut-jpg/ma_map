@@ -82,6 +82,12 @@ ensureRoutePerilsTable();
 
 // ── Seed admin_peril_tables from perils_data.json if empty ────────────────────
 function seedAdminPerilTemplates() {
+  // Guard: table may not exist yet when called during migrate.js bootstrap
+  const tableExists = db.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='admin_peril_tables' LIMIT 1"
+  ).get();
+  if (!tableExists) return;
+
   const cnt = db.prepare('SELECT COUNT(*) as c FROM admin_peril_tables').get();
   if (cnt.c > 0) return; // already seeded
 
