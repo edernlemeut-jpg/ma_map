@@ -2874,16 +2874,41 @@ async function createPerilTable(type, panel) {
 
 function renderPerilEditor(panel, t) {
   const escA = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const inpF = (ci, pi, f, val, lbl, type = 'text', extra = '') =>
+    `<div><label class="text-xs text-gray-400">${lbl}</label><input type="${type}" data-ci="${ci}" data-pi="${pi}" data-f="${f}" class="cpe-field w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs" value="${escA(String(val ?? ''))}" ${extra}></div>`;
+  const taF = (ci, pi, f, val, lbl, rows = 3) =>
+    `<div><label class="text-xs text-gray-400">${lbl}</label><textarea data-ci="${ci}" data-pi="${pi}" data-f="${f}" class="cpe-field w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs" rows="${rows}">${escA(String(val ?? ''))}</textarea></div>`;
+
+  function listBuilder(ci, pi, field, items, cols) {
+    let rows = '';
+    (items || []).forEach((item, idx) => {
+      const cells = cols.map(c =>
+        `<input data-ci="${ci}" data-pi="${pi}" data-f="${field}" data-idx="${idx}" data-col="${c.key}"
+          class="cpe-list-field bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs ${c.flex ? 'flex-1' : 'w-20'}"
+          placeholder="${escA(c.label)}" value="${escA(String(item[c.key] ?? ''))}">`
+      ).join('');
+      rows += `<div class="flex gap-1 items-center mb-1">${cells}<button data-del-list="${ci}-${pi}-${field}-${idx}" class="text-xs text-red-400 hover:text-red-300 px-1 shrink-0">✕</button></div>`;
+    });
+    return `<div class="cpe-list-container" data-listci="${ci}" data-listpi="${pi}" data-listf="${field}">${rows}</div>
+      <button data-add-list="${ci}-${pi}-${field}" class="text-xs text-blue-400 hover:text-blue-300">+ Ajouter</button>`;
+  }
+
   const cats = t.categories || [];
   let h = `<div class="flex items-center gap-3 mb-4"><button id="cpe-back" class="text-blue-400 hover:text-blue-300 text-sm">← Retour</button><input class="bg-gray-700 border border-gray-600 rounded px-3 py-1 text-sm flex-1" value="${escA(t.name)}" id="cpe-name"><span class="text-xs px-2 py-1 rounded ${t.type === 'interplanetaire' ? 'bg-blue-900 text-blue-300' : 'bg-purple-900 text-purple-300'}">${t.type === 'interplanetaire' ? 'IP' : 'HS'}</span></div>`;
   cats.forEach((cat, ci) => {
     h += `<details class="bg-gray-800 rounded-lg border border-gray-700 mb-2 p-3" open><summary class="cursor-pointer font-medium text-sm">${escA(cat.nom)} <span class="text-gray-400">(${cat.seuilMin}–${cat.seuilMax})</span></summary><div class="mt-3 space-y-2">`;
     (cat.perils || []).forEach((p, pi) => {
       const d = p.data || {};
+      const proto = Array.isArray(d.protocole) ? d.protocole : [];
+      const res = Array.isArray(d.resultat) ? d.resultat : [];
       h += `<details class="bg-gray-750 rounded border border-gray-600 p-2"><summary class="cursor-pointer text-sm flex justify-between"><span>${escA(p.nom)}</span><span class="text-gray-400 text-xs">${p.seuilMin}–${p.seuilMax}</span></summary><div class="mt-2 space-y-2 text-sm">`;
-      h += `<div><label class="text-xs text-gray-400">Nom</label><input data-ci="${ci}" data-pi="${pi}" data-f="nom" class="cpe-field w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs" value="${escA(p.nom)}"></div>`;
-      h += `<div><label class="text-xs text-gray-400">Description</label><textarea data-ci="${ci}" data-pi="${pi}" data-f="desc" class="cpe-field w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs h-16">${escA(d.description || '')}</textarea></div>`;
+      h += inpF(ci, pi, 'nom', p.nom, 'Nom');
+      h += taF(ci, pi, 'texteAmbiance', d.texteAmbiance ?? '', 'Texte d\'ambiance (joueurs)', 4);
+      h += `<div class="flex gap-2 items-center">${inpF(ci, pi, 'mobile', d.mobile ? '1' : '', 'Mobile ?', 'checkbox', d.mobile ? 'checked' : '')}${inpF(ci, pi, 'senseurs', d.senseurs ?? 0, 'Senseurs', 'number')}${inpF(ci, pi, 'sciencesStellaires', d.sciencesStellaires ?? 0, 'Sc.Stellaires', 'number')}</div>`;
+      h += taF(ci, pi, 'description', d.description ?? '', 'Description (MJ)', 4);
       h += `<div class="flex gap-2"><div class="flex-1"><label class="text-xs text-gray-400">Seuil min</label><input type="number" data-ci="${ci}" data-pi="${pi}" data-f="seuilMin" class="cpe-field w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs" value="${p.seuilMin}"></div><div class="flex-1"><label class="text-xs text-gray-400">Seuil max</label><input type="number" data-ci="${ci}" data-pi="${pi}" data-f="seuilMax" class="cpe-field w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs" value="${p.seuilMax}"></div></div>`;
+      h += `<div><label class="text-xs text-gray-400 block mb-1">Protocole (Rôle / Action)</label>${listBuilder(ci, pi, 'protocole', proto, [{key:'role', label:'Rôle', flex:false},{key:'action', label:'Action', flex:true}])}</div>`;
+      h += `<div><label class="text-xs text-gray-400 block mb-1">Résultat (Seuil / Effet)</label>${listBuilder(ci, pi, 'resultat', res, [{key:'seuil', label:'Seuil', flex:false},{key:'effet', label:'Effet', flex:true}])}</div>`;
       h += `<button data-del-peril="${ci}-${pi}" class="text-xs text-red-400 hover:text-red-300">Supprimer ce péril</button></div></details>`;
     });
     h += `<button data-add-peril="${ci}" class="mt-1 text-xs text-blue-400 hover:text-blue-300">+ Ajouter un péril</button></div></details>`;
@@ -2904,6 +2929,35 @@ function renderPerilEditor(panel, t) {
   panel.querySelectorAll('.cpe-field').forEach(inp => {
     inp.addEventListener('input', () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => savePerilEditorState(t, panel), 800); });
   });
+  panel.querySelectorAll('.cpe-list-field').forEach(inp => {
+    inp.addEventListener('input', () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => savePerilEditorState(t, panel), 800); });
+  });
+
+  panel.querySelectorAll('[data-del-list]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const parts = btn.dataset.delList.split('-');
+      const ci = Number(parts[0]), pi = Number(parts[1]), field = parts[2], idx = Number(parts[3]);
+      const peril = t.categories[ci]?.perils?.[pi];
+      if (!peril?.data) return;
+      if (Array.isArray(peril.data[field])) peril.data[field].splice(idx, 1);
+      patchPerilTable(t.id, { categories: t.categories });
+      renderActiveTab();
+    });
+  });
+
+  panel.querySelectorAll('[data-add-list]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const parts = btn.dataset.addList.split('-');
+      const ci = Number(parts[0]), pi = Number(parts[1]), field = parts[2];
+      const peril = t.categories[ci]?.perils?.[pi];
+      if (!peril?.data) return;
+      if (!Array.isArray(peril.data[field])) peril.data[field] = [];
+      if (field === 'protocole') peril.data[field].push({ role: '', action: '' });
+      else if (field === 'resultat') peril.data[field].push({ seuil: '', effet: '' });
+      patchPerilTable(t.id, { categories: t.categories });
+      renderActiveTab();
+    });
+  });
 
   panel.querySelectorAll('[data-del-peril]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -2920,7 +2974,7 @@ function renderPerilEditor(panel, t) {
       const ci = Number(btn.dataset.addPeril);
       const perils = t.categories[ci].perils || [];
       const mx = perils.length ? Math.max(...perils.map(p => p.seuilMax)) : 1;
-      perils.push({ seuilMin: mx + 1, seuilMax: mx + 1, nom: 'Nouveau péril', data: { description: '', mobile: false, senseurs: 0, sciencesStellaires: 0, definition: '', protocole: '', resultat: '' } });
+      perils.push({ seuilMin: mx + 1, seuilMax: mx + 1, nom: 'Nouveau péril', data: { texteAmbiance: '', mobile: false, senseurs: 0, sciencesStellaires: 0, description: '', protocole: [], resultat: [] } });
       t.categories[ci].perils = perils;
       patchPerilTable(t.id, { categories: t.categories });
       renderActiveTab();
@@ -2940,10 +2994,23 @@ function savePerilEditorState(t, panel) {
     const ci = Number(inp.dataset.ci), pi = Number(inp.dataset.pi), f = inp.dataset.f;
     const peril = t.categories[ci]?.perils?.[pi];
     if (!peril) return;
+    if (!peril.data) peril.data = {};
     if (f === 'nom') peril.nom = inp.value;
-    else if (f === 'desc') { if (!peril.data) peril.data = {}; peril.data.description = inp.value; }
+    else if (f === 'texteAmbiance') peril.data.texteAmbiance = inp.value;
+    else if (f === 'description') peril.data.description = inp.value;
+    else if (f === 'mobile') peril.data.mobile = inp.checked;
+    else if (f === 'senseurs') peril.data.senseurs = +inp.value;
+    else if (f === 'sciencesStellaires') peril.data.sciencesStellaires = +inp.value;
     else if (f === 'seuilMin') peril.seuilMin = +inp.value;
     else if (f === 'seuilMax') peril.seuilMax = +inp.value;
+  });
+  panel.querySelectorAll('.cpe-list-field').forEach(inp => {
+    const ci = Number(inp.dataset.ci), pi = Number(inp.dataset.pi), f = inp.dataset.f;
+    const idx = Number(inp.dataset.idx), col = inp.dataset.col;
+    const peril = t.categories[ci]?.perils?.[pi];
+    if (!peril?.data) return;
+    if (!Array.isArray(peril.data[f])) return;
+    if (peril.data[f][idx]) peril.data[f][idx][col] = inp.value;
   });
   patchPerilTable(t.id, { categories: t.categories });
 }

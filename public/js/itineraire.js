@@ -880,15 +880,37 @@ function attachPerilEvents(container, legs) {
 function showPeril(peril) {
   const d = peril.data || {};
   let h = `<h2>${peril.nom}</h2>`;
-  if (d.description) h += `<p class="desc">${d.description}</p>`;
+  // texteAmbiance (new) or description (old compat)
+  const ambiance = d.texteAmbiance !== undefined ? d.texteAmbiance : d.description;
+  if (ambiance) h += `<p class="desc">${escH(ambiance)}</p>`;
   const stats = [];
   if (d.mobile) stats.push('📡 Mobile');
   if (d.senseurs) stats.push(`Senseurs: ${d.senseurs}`);
   if (d.sciencesStellaires) stats.push(`Sc.Stellaires: ${d.sciencesStellaires}`);
   if (stats.length) h += `<div class="pstats">${stats.join(' · ')}</div>`;
-  if (d.definition) h += `<div class="psection"><div class="psection-title">Définition</div><p>${d.definition}</p></div>`;
-  if (d.protocole) h += `<div class="psection"><div class="psection-title">Protocole</div><p>${d.protocole}</p></div>`;
-  if (d.resultat) h += `<div class="psection"><div class="psection-title">Résultat</div><p>${d.resultat}</p></div>`;
+  // description (new name) or definition (old compat)
+  const desc = d.description !== undefined && d.texteAmbiance !== undefined ? d.description : d.definition;
+  if (desc) h += `<div class="psection"><div class="psection-title">Description</div><p>${escH(desc)}</p></div>`;
+  // Protocole — array of {role, action} or legacy string
+  if (Array.isArray(d.protocole) && d.protocole.length) {
+    h += `<div class="psection"><div class="psection-title">Protocole</div><ol class="protocole-list">`;
+    for (const p of d.protocole) {
+      h += `<li>${p.role ? `<strong>${escH(p.role)}</strong> — ` : ''}${escH(p.action)}</li>`;
+    }
+    h += `</ol></div>`;
+  } else if (typeof d.protocole === 'string' && d.protocole) {
+    h += `<div class="psection"><div class="psection-title">Protocole</div><p>${escH(d.protocole)}</p></div>`;
+  }
+  // Résultat — array of {seuil, effet} or legacy string
+  if (Array.isArray(d.resultat) && d.resultat.length) {
+    h += `<div class="psection"><div class="psection-title">Résultat</div><table class="resultat-table">`;
+    for (const r of d.resultat) {
+      h += `<tr><td class="seuil-cell">${escH(r.seuil)}</td><td>${escH(r.effet)}</td></tr>`;
+    }
+    h += `</table></div>`;
+  } else if (typeof d.resultat === 'string' && d.resultat) {
+    h += `<div class="psection"><div class="psection-title">Résultat</div><p>${escH(d.resultat)}</p></div>`;
+  }
   document.getElementById('peril-content').innerHTML = h;
   openModal('modal-peril');
 }
