@@ -1066,7 +1066,40 @@ function renderAdminPerilEditorContent(t, editor) {
       if (field === 'protocole') peril.data[field].push({ role: '', action: '' });
       else if (field === 'resultat') peril.data[field].push({ seuil: '', effet: '' });
       patchAdminPeril(t.id, { categories: t.categories });
-      renderAdminPerilEditorContent(t, editor);
+      // Insertion DOM directe — pas de re-render pour éviter la rétraction des <details>
+      const idx = peril.data[field].length - 1;
+      const cols = field === 'protocole'
+        ? [{ key: 'role', label: 'Rôle', flex: false }, { key: 'action', label: 'Action', flex: true }]
+        : [{ key: 'seuil', label: 'Seuil', flex: false }, { key: 'effet', label: 'Effet', flex: true }];
+      const container = editor.querySelector(`.pe-list-container[data-listci="${ci}"][data-listpi="${pi}"][data-listf="${field}"]`);
+      if (!container) return;
+      const row = document.createElement('div');
+      row.className = 'flex gap-1 items-center mb-1';
+      cols.forEach(c => {
+        const inp = document.createElement('input');
+        inp.dataset.ci = ci; inp.dataset.pi = pi; inp.dataset.f = field;
+        inp.dataset.idx = idx; inp.dataset.col = c.key;
+        inp.className = `pe-list-field bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs ${c.flex ? 'flex-1' : 'w-20'}`;
+        inp.placeholder = c.label;
+        inp.value = '';
+        inp.addEventListener('input', () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => saveAdminPerilEditorState(t, editor), 800); });
+        row.appendChild(inp);
+      });
+      const delBtn = document.createElement('button');
+      delBtn.dataset.delList = `${ci}-${pi}-${field}-${idx}`;
+      delBtn.className = 'text-xs text-red-400 hover:text-red-300 px-1 shrink-0';
+      delBtn.textContent = '✕';
+      delBtn.addEventListener('click', () => {
+        const [ci2, pi2, field2, idx2] = delBtn.dataset.delList.split('-');
+        const p2 = t.categories[Number(ci2)]?.perils?.[Number(pi2)];
+        if (!p2?.data) return;
+        if (Array.isArray(p2.data[field2])) p2.data[field2].splice(Number(idx2), 1);
+        patchAdminPeril(t.id, { categories: t.categories });
+        renderAdminPerilEditorContent(t, editor);
+      });
+      row.appendChild(delBtn);
+      container.appendChild(row);
+      row.querySelector('input')?.focus();
     });
   });
 
