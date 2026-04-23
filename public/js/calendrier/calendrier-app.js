@@ -213,11 +213,18 @@ function render() {
   const WEEK_NAMES = ['', 'Semaine I', 'Semaine II', 'Semaine III', 'Semaine IV', 'Semaine V'];
 
   for (let week = 1; week <= 5; week++) {
-    // Mobile-only week separator (hidden on sm+)
+    // Mobile separator: full-width, hidden on sm+
     const sep = document.createElement('div');
     sep.className = 'block sm:hidden text-xs text-gray-500 font-semibold tracking-wider text-center py-1.5 border-t border-gray-700' + (week === 1 ? '' : ' mt-2');
     sep.textContent = `── ${WEEK_NAMES[week]} ──`;
     grid.appendChild(sep);
+
+    // Desktop week label: first column of the 6-col grid, hidden on mobile
+    const weekLabel = document.createElement('div');
+    weekLabel.className = 'hidden sm:flex items-center justify-center text-xs text-gray-500 font-semibold tracking-wider writing-mode-vertical';
+    weekLabel.style.cssText = 'writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: 0.1em;';
+    weekLabel.textContent = WEEK_NAMES[week];
+    grid.appendChild(weekLabel);
 
     for (let day = 1; day <= 5; day++) {
       const dateStr = formatDate(viewMonth, week, day);

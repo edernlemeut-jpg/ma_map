@@ -64,13 +64,14 @@
         </div>
       </div>
 
-      <!-- Week headers: visible on sm+ only -->
-      <div class="hidden sm:grid grid-cols-5 gap-1 mb-1 text-center text-xs text-gray-500 font-medium px-0.5">
+      <!-- Week headers: visible on sm+ only (1 empty col for week labels + 5 day cols) -->
+      <div class="hidden sm:grid sm:grid-cols-6 gap-1 mb-1 text-center text-xs text-gray-500 font-medium px-0.5">
+        <div></div>
         <div>Jour I</div><div>Jour II</div><div>Jour III</div><div>Jour IV</div><div>Jour V</div>
       </div>
 
-      <!-- Calendar grid (5 weeks × 5 days = 25 cells per month) -->
-      <div id="cal-grid" class="grid grid-cols-1 sm:grid-cols-5 gap-1 mb-6"></div>
+      <!-- Calendar grid: 1 col mobile, 6 col desktop (week label + 5 days) -->
+      <div id="cal-grid" class="grid grid-cols-1 sm:grid-cols-6 gap-1 mb-6"></div>
 
       <!-- Events legend / list for current month -->
       <div id="events-list-wrap" class="hidden border-t border-gray-700 pt-4">
