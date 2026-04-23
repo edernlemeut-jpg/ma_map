@@ -5,70 +5,88 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Connexion — Metal Adventures</title>
   <link rel="stylesheet" href="/css/tailwind.css?v=2.0.0">
+  <link rel="stylesheet" href="/css/ma-theme.css">
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center">
-  <div class="w-full max-w-md p-8">
-    <h1 class="text-3xl font-bold text-center mb-8">⚙️ Metal Adventures</h1>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
 
-    <!-- Error / Success messages -->
-    <div id="message" class="hidden mb-4 p-3 rounded text-sm"></div>
+  <!-- Header -->
+  <header class="border-b border-gray-700 bg-gray-800">
+    <div class="max-w-4xl mx-auto px-4 py-3">
+      <h1 class="text-xl font-bold">
+        <a href="/" class="hover:text-blue-400 transition-colors">⚙️ Metal Adventures</a>
+      </h1>
+    </div>
+  </header>
 
-    <!-- LOGIN FORM -->
-    <form id="login-form" class="space-y-4">
-      <h2 class="text-xl font-semibold">Connexion</h2>
-      <div>
-        <label for="login-username" class="block text-sm mb-1">Pseudo</label>
-        <input type="text" id="login-username" name="username" required
-               class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded focus:outline-none focus:border-blue-500 text-gray-100"
-               autocomplete="username">
-      </div>
-      <div>
-        <label for="login-password" class="block text-sm mb-1">Mot de passe</label>
-        <input type="password" id="login-password" name="password" required
-               class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded focus:outline-none focus:border-blue-500 text-gray-100"
-               autocomplete="current-password">
-      </div>
-      <button type="submit"
-              class="w-full py-2 bg-blue-600 hover:bg-blue-700 rounded font-medium transition-colors">
-        Se connecter
-      </button>
-      <p class="text-sm text-gray-400 text-center">
-        Pas encore de compte ?
-        <a href="#" id="show-register" class="text-blue-400 hover:underline">S'inscrire</a>
-      </p>
-    </form>
+  <!-- Main -->
+  <main class="flex-1 flex items-center justify-center px-4 py-12">
+    <div class="w-full max-w-sm">
 
-    <!-- REGISTER FORM (hidden by default) -->
-    <form id="register-form" class="space-y-4 hidden">
-      <h2 class="text-xl font-semibold">Inscription</h2>
-      <div>
-        <label for="register-username" class="block text-sm mb-1">Pseudo (3-30 caractères)</label>
-        <input type="text" id="register-username" name="username" required minlength="3" maxlength="30"
-               class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded focus:outline-none focus:border-blue-500 text-gray-100"
-               autocomplete="username">
-      </div>
-      <div>
-        <label for="register-password" class="block text-sm mb-1">Mot de passe (8+ caractères)</label>
-        <input type="password" id="register-password" name="password" required minlength="8"
-               class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded focus:outline-none focus:border-blue-500 text-gray-100"
-               autocomplete="new-password">
-      </div>
-      <div>
-        <label for="register-confirm" class="block text-sm mb-1">Confirmer le mot de passe</label>
-        <input type="password" id="register-confirm" name="confirm" required minlength="8"
-               class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded focus:outline-none focus:border-blue-500 text-gray-100"
-               autocomplete="new-password">
-      </div>
-      <button type="submit"
-              class="w-full py-2 bg-green-600 hover:bg-green-700 rounded font-medium transition-colors">
-        Créer mon compte
-      </button>
-      <p class="text-sm text-gray-400 text-center">
-        Déjà un compte ?
-        <a href="#" id="show-login" class="text-blue-400 hover:underline">Se connecter</a>
-      </p>
-    </form>
-  </div>
+      <!-- Error / Success messages -->
+      <div id="message" class="hidden mb-4 p-3 rounded-lg text-sm"></div>
+
+      <!-- LOGIN FORM -->
+      <form id="login-form" class="bg-gray-800 border border-gray-700 rounded-xl p-8 shadow-xl space-y-5">
+        <h2 class="text-xl font-semibold text-center" style="color:var(--gold)">Connexion</h2>
+        <div>
+          <label for="login-username" class="block text-sm text-gray-400 mb-1.5">Pseudo</label>
+          <input type="text" id="login-username" name="username" required
+                 class="w-full px-3 py-2.5 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-gray-100 transition-colors"
+                 autocomplete="username">
+        </div>
+        <div>
+          <label for="login-password" class="block text-sm text-gray-400 mb-1.5">Mot de passe</label>
+          <input type="password" id="login-password" name="password" required
+                 class="w-full px-3 py-2.5 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-gray-100 transition-colors"
+                 autocomplete="current-password">
+        </div>
+        <button type="submit"
+                class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors">
+          Se connecter
+        </button>
+        <p class="text-sm text-gray-500 text-center">
+          Pas encore de compte ?
+          <a href="#" id="show-register" class="text-blue-400 hover:underline">S'inscrire</a>
+        </p>
+      </form>
+
+      <!-- REGISTER FORM (hidden by default) -->
+      <form id="register-form" class="hidden bg-gray-800 border border-gray-700 rounded-xl p-8 shadow-xl space-y-5">
+        <h2 class="text-xl font-semibold text-center" style="color:var(--gold)">Inscription</h2>
+        <div>
+          <label for="register-username" class="block text-sm text-gray-400 mb-1.5">
+            Pseudo <span class="text-gray-500 text-xs">(3–30 caractères)</span>
+          </label>
+          <input type="text" id="register-username" name="username" required minlength="3" maxlength="30"
+                 class="w-full px-3 py-2.5 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-gray-100 transition-colors"
+                 autocomplete="username">
+        </div>
+        <div>
+          <label for="register-password" class="block text-sm text-gray-400 mb-1.5">
+            Mot de passe <span class="text-gray-500 text-xs">(8+ caractères)</span>
+          </label>
+          <input type="password" id="register-password" name="password" required minlength="8"
+                 class="w-full px-3 py-2.5 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-gray-100 transition-colors"
+                 autocomplete="new-password">
+        </div>
+        <div>
+          <label for="register-confirm" class="block text-sm text-gray-400 mb-1.5">Confirmer le mot de passe</label>
+          <input type="password" id="register-confirm" name="confirm" required minlength="8"
+                 class="w-full px-3 py-2.5 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-gray-100 transition-colors"
+                 autocomplete="new-password">
+        </div>
+        <button type="submit"
+                class="w-full py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-medium transition-colors">
+          Créer mon compte
+        </button>
+        <p class="text-sm text-gray-500 text-center">
+          Déjà un compte ?
+          <a href="#" id="show-login" class="text-blue-400 hover:underline">Se connecter</a>
+        </p>
+      </form>
+
+    </div>
+  </main>
 
   <script type="module" src="/js/shared/cold-start.js?v=2.0.1"></script>
   <script type="module" src="/js/login.js?v=2.0.1"></script>
