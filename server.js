@@ -22,6 +22,7 @@ import rulesRoutes from './src/routes/rules.js';
 import uploadRoutes from './src/routes/upload.js';
 import planetsRoutes from './src/routes/planets.js';
 import calendarRoutes from './src/routes/calendar.js';
+import revolteRoutes from './src/routes/revolte.js';
 
 import { fileURLToPath } from 'url';
 import { resolve } from 'path';
@@ -58,6 +59,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/rules', rulesRoutes);
 app.use('/api/planets', planetsRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/api/revolte', revolteRoutes);
 app.use(legacyRoutes);
 
 // Clean URL support for pages without .html extension

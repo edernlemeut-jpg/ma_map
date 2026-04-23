@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Révolte — Metal Adventures</title>
+  <link rel="stylesheet" href="/css/tailwind.css?v=2.0.0">
+  <link rel="stylesheet" href="/css/ma-theme.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    .revolte-fieldset {
+      border: 1px solid #374151;
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+      background-color: rgba(0,0,0,0.15);
+    }
+    .revolte-legend {
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
+      color: #c8a464;
+      font-size: 1.1rem;
+      padding: 0 0.5rem;
+    }
+    .info-box {
+      background-color: #1f2937;
+      padding: 0.75rem 1rem;
+      border-radius: 0.25rem;
+      border-left: 3px solid #5a8ecb;
+      margin-top: 0.75rem;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+    .info-box.malus { border-left-color: #cb5a5a; }
+    .info-box strong { color: #c8a464; }
+    .bonus-dice { color: #5acb8e; font-size: 0.9em; font-weight: bold; }
+    .pd-highlight { color: #c8a464; font-weight: bold; }
+    .progress-step {
+      padding: 0.6rem 1rem;
+      color: #9ca3af;
+      position: relative;
+      transition: color 0.2s;
+      text-align: center;
+      flex-grow: 1;
+      cursor: pointer;
+      font-size: 0.875rem;
+      border-bottom: 2px solid transparent;
+    }
+    .progress-step:hover { color: #d1d5db; }
+    .progress-step.active { color: #c8a464; font-weight: 600; border-bottom-color: #5bc0de; }
+    .revolte-input {
+      background-color: #374151;
+      color: #f3f4f6;
+      border: 1px solid #4b5563;
+      border-radius: 0.375rem;
+      padding: 0.375rem 0.5rem;
+      font-size: 0.875rem;
+      transition: border-color 0.15s;
+    }
+    .revolte-input:focus { outline: none; border-color: #c8a464; }
+    .revolte-input:disabled { background-color: #1f2937; color: #6b7280; cursor: not-allowed; }
+    .revolte-input[type="checkbox"] { width: auto; accent-color: #c8a464; cursor: pointer; }
+    .revolte-select {
+      background-color: #374151;
+      color: #f3f4f6;
+      border: 1px solid #4b5563;
+      border-radius: 0.375rem;
+      padding: 0.375rem 0.5rem;
+      font-size: 0.875rem;
+    }
+    .revolte-select:focus { outline: none; border-color: #c8a464; }
+    .w-20 { width: 5rem; }
+    /* Session panel */
+    #sessions-panel { width: 260px; flex-shrink: 0; }
+    .session-item { cursor: pointer; transition: background 0.15s; }
+    .session-item:hover { background-color: #374151; }
+    .session-item.active-session { border-left: 3px solid #c8a464; background-color: #374151; }
+    /* Status badge */
+    .badge-en_cours { color: #60a5fa; }
+    .badge-reussie { color: #4ade80; }
+    .badge-echouee { color: #f87171; }
+    .badge-archivee { color: #9ca3af; }
+    .propagande-grid { display: grid; grid-template-columns: 1fr 1px 1fr; gap: 1.5rem; align-items: start; }
+    .propagande-sep { width: 1px; background-color: #374151; height: 100%; }
+    @media (max-width: 639px) {
+      #sessions-panel { width: 100%; }
+      #editor-pane { display: none; }
+      #sessions-panel.mobile-hidden { display: none !important; }
+      #editor-pane.mobile-visible { display: flex; flex-direction: column; }
+      .propagande-grid { grid-template-columns: 1fr; }
+      .propagande-sep { display: none; }
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+
+  <!-- Standard header -->
+  <header class="border-b border-gray-700 bg-gray-800">
+    <div class="max-w-full mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="text-xl font-bold">
+        <a href="/" class="hover:text-blue-400 transition-colors">⚙️ Metal Adventures</a>
+      </h1>
+      <nav class="flex items-center gap-4 text-sm">
+        <span id="header-table-info" class="hidden flex items-center gap-2 text-gray-300 border-r border-gray-600 pr-4 mr-2">
+          <span id="header-table-name" class="font-medium"></span>
+          <span id="header-table-role" class="text-xs"></span>
+          <a href="#" id="header-change-table" class="text-blue-400 hover:text-blue-300 text-xs ml-1" title="Changer de table">✕</a>
+        </span>
+        <span id="header-campaign-date" class="hidden text-xs font-mono px-2 py-1 rounded border border-gray-600 text-yellow-300"></span>
+        <span id="auth-user-info" class="hidden flex items-center gap-3">
+          <span id="auth-user-name" class="text-gray-300"></span>
+          <a href="#" id="auth-logout-btn" class="text-red-400 hover:text-red-300 hover:underline">Déconnexion</a>
+        </span>
+        <a href="/login.html" id="auth-login-link" class="text-blue-400 hover:underline">Connexion</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Page title bar -->
+  <div class="bg-gray-800 border-b border-gray-700 px-4 py-2 flex items-center gap-3">
+    <span class="text-lg">⚔️</span>
+    <h2 class="text-base font-semibold text-yellow-300">Gestion des Révoltes</h2>
+    <span id="mj-only-badge" class="hidden ml-2 text-xs bg-yellow-700/40 text-yellow-300 border border-yellow-600 px-2 py-0.5 rounded">MJ</span>
+    <div class="ml-auto flex items-center gap-2">
+      <button id="new-session-btn" class="hidden text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded transition-colors">
+        + Nouvelle révolte
+      </button>
+    </div>
+  </div>
+
+  <!-- Auth gate -->
+  <div id="auth-gate" class="flex-1 flex items-center justify-center">
+    <div class="text-center text-gray-500">
+      <p class="text-lg mb-2">🔒 Connexion requise</p>
+      <a href="/login.html" class="text-blue-400 hover:underline">Se connecter</a>
+    </div>
+  </div>
+
+  <!-- No table gate -->
+  <div id="no-table-gate" class="hidden flex-1 flex items-center justify-center">
+    <div class="text-center text-gray-500">
+      <p class="text-lg mb-2">📋 Aucune table active</p>
+      <a href="/" class="text-blue-400 hover:underline">Choisir une table</a>
+    </div>
+  </div>
+
+  <!-- Main content (shown when logged in + table active) -->
+  <div id="main-content" class="hidden flex-1 flex overflow-hidden" style="max-height: calc(100vh - 96px);">
+
+    <!-- Session list panel -->
+    <aside id="sessions-panel" class="border-r border-gray-700 bg-gray-800 flex flex-col overflow-hidden">
+      <div class="px-3 py-2 border-b border-gray-700 flex items-center justify-between">
+        <span class="text-sm font-semibold text-gray-300">Sessions</span>
+        <select id="session-filter" class="text-xs bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-gray-300">
+          <option value="">Toutes</option>
+          <option value="en_cours">En cours</option>
+          <option value="reussie">Réussies</option>
+          <option value="echouee">Échouées</option>
+          <option value="archivee">Archivées</option>
+        </select>
+      </div>
+      <div id="sessions-list" class="flex-1 overflow-y-auto text-sm"></div>
+    </aside>
+
+    <!-- Editor pane -->
+    <main id="editor-pane" class="flex-1 overflow-y-auto p-4">
+
+      <!-- Empty state -->
+      <div id="editor-empty" class="flex items-center justify-center h-full text-gray-600">
+        <div class="text-center">
+          <p class="text-4xl mb-3">⚔️</p>
+          <p class="text-lg">Sélectionnez une session ou créez-en une nouvelle</p>
+        </div>
+      </div>
+
+      <!-- New session form -->
+      <div id="new-session-form" class="hidden max-w-lg">
+        <h3 class="text-lg font-semibold text-yellow-300 mb-4">Nouvelle session de révolte</h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">Nom *</label>
+            <input id="ns-name" type="text" placeholder="Ex: Révolution d'Havana" class="revolte-input w-full">
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">Type *</label>
+            <select id="ns-type" class="revolte-select w-full">
+              <option value="emeute">Émeute Pirate</option>
+              <option value="festive">Révolution Festive</option>
+              <option value="mutinerie">Mutinerie</option>
+              <option value="revolution">Révolution</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">Portée</label>
+            <select id="ns-scope" class="revolte-select w-full">
+              <option value="">— N/A —</option>
+              <option value="vaisseau">Vaisseau</option>
+              <option value="lieu">Lieu spécifique</option>
+              <option value="planetaire">Planétaire</option>
+              <option value="locale">Locale (Système)</option>
+              <option value="stellaire">Stellaire (Secteur)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">Localisation (planète / système / quadrant)</label>
+            <input id="ns-location" type="text" placeholder="Ex: Havana, Système Alpha-7, Quadrant Bleu..." class="revolte-input w-full">
+          </div>
+          <div class="flex gap-2 pt-2">
+            <button id="ns-create-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded transition-colors">Créer</button>
+            <button id="ns-cancel-btn" class="bg-gray-600 hover:bg-gray-500 text-white text-sm px-4 py-2 rounded transition-colors">Annuler</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session editor -->
+      <div id="session-editor" class="hidden">
+
+        <!-- Session metadata bar -->
+        <div class="flex items-center gap-3 mb-4 pb-3 border-b border-gray-700">
+          <button id="mobile-back-btn" class="sm:hidden flex-shrink-0 text-sm text-blue-400 hover:text-blue-300 mr-1">← Sessions</button>
+          <h3 id="editor-session-name" class="text-lg font-semibold text-yellow-300 flex-1"></h3>
+          <span id="editor-session-location" class="text-xs text-gray-400 font-mono"></span>
+          <select id="editor-status" class="text-xs bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-300">
+            <option value="en_cours">En cours</option>
+            <option value="reussie">Réussie</option>
+            <option value="echouee">Échouée</option>
+            <option value="archivee">Archivée</option>
+          </select>
+          <button id="save-btn" class="text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded transition-colors">💾 Sauvegarder</button>
+          <button id="delete-session-btn" class="text-xs bg-red-900/60 hover:bg-red-700 text-red-300 px-2 py-1 rounded transition-colors" title="Supprimer cette session">🗑</button>
+          <span id="save-indicator" class="text-xs text-gray-500 hidden">Sauvegardé ✓</span>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="flex border-b border-gray-700 mb-4">
+          <div class="progress-step active" data-step="0">⚙ Paramétrage</div>
+          <div class="progress-step" data-step="1">📋 Préparation</div>
+          <div class="progress-step" data-step="2">⚡ Exécution</div>
+          <div class="progress-step" data-step="3">🏆 Célébration</div>
+        </div>
+
+        <!-- ── STEP 0: PARAMÉTRAGE ─────────────────────────────────────────── -->
+        <div id="step-content-0">
+          <fieldset class="revolte-fieldset">
+            <legend class="revolte-legend">Type de Révolte</legend>
+            <div class="mb-3">
+              <label class="block text-sm text-gray-400 mb-1">Type</label>
+              <select id="revolteType" class="revolte-select">
+                <option value="emeute">Émeute Pirate</option>
+                <option value="festive">Révolution Festive</option>
+                <option value="mutinerie">Mutinerie</option>
+                <option value="revolution">Révolution</option>
+              </select>
+            </div>
+            <div id="revolteDescription" class="info-box"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend">Population de la Planète</legend>
+                <label class="block text-sm text-gray-400 mb-1">Population (milliards)</label>
+                <input type="number" id="populationInput" min="0" value="1" class="revolte-input w-20">
+              </fieldset>
+              <fieldset id="revolution-options" class="revolte-fieldset hidden">
+                <legend class="revolte-legend">Options Révolution</legend>
+                <label class="block text-sm text-gray-400 mb-1">Portée</label>
+                <select id="revolutionScope" class="revolte-select w-full">
+                  <option value="planetaire">Planétaire</option>
+                  <option value="locale">Locale (Système)</option>
+                  <option value="stellaire">Stellaire (Secteur)</option>
+                </select>
+                <div id="revolutionScopeDescription" class="text-xs text-gray-400 mt-2"></div>
+              </fieldset>
+            </div>
+          </fieldset>
+
+          <fieldset class="revolte-fieldset">
+            <legend class="revolte-legend">Stella Bell (Modifications)</legend>
+            <div class="grid grid-cols-3 gap-3 mb-3">
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" id="stellaPorteDrapeauCheck" class="revolte-input"> Porte-Drapeau
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" id="stellaConnuCheck" class="revolte-input"> Connue
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" id="stellaMorteCheck" class="revolte-input"> Morte
+              </label>
+            </div>
+            <div id="stellaMalusResult" class="info-box"></div>
+
+            <fieldset class="revolte-fieldset mt-4">
+              <legend class="revolte-legend">Propagande Préalable</legend>
+              <div class="propagande-grid mb-4">
+                <div class="space-y-2">
+                  <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="gloireCheck" class="revolte-input"> Gloire ≥ 7</label>
+                  <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="filmeCheck" class="revolte-input"> Filmé</label>
+                </div>
+                <div class="propagande-sep"></div>
+                <div>
+                  <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="pubCheck" class="revolte-input"> Publicité (Argent)</label>
+                </div>
+              </div>
+              <div id="propagandeTest" class="hidden space-y-3">
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label id="propagandeSuccesLabel" class="block text-sm text-gray-400 mb-1">Propagande</label>
+                    <input type="number" id="propagandeSuccesInput" min="0" value="1" class="revolte-input w-20">
+                  </div>
+                  <div>
+                    <label id="eloquencePropagandeLabel" class="block text-sm text-gray-400 mb-1">Eloquence</label>
+                    <input type="number" id="eloquencePropagandeInput" min="0" value="3" class="revolte-input w-20">
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm text-gray-400 mb-1">Bonus de Révolte (dés)</label>
+                    <input type="number" id="bonusJets" min="0" value="0" class="revolte-input w-20">
+                  </div>
+                  <div>
+                    <label class="block text-sm text-gray-400 mb-1">Mois Suppl.</label>
+                    <input type="number" id="bonusDuree" min="0" value="0" class="revolte-input w-20">
+                  </div>
+                </div>
+                <div id="propagandeResult" class="info-box"></div>
+              </div>
+            </fieldset>
+          </fieldset>
+
+          <fieldset class="revolte-fieldset">
+            <legend class="revolte-legend">Porte-Drapeau</legend>
+            <div class="grid grid-cols-3 gap-4 mb-3">
+              <div>
+                <label class="block text-sm text-gray-400 mb-1">Locaux</label>
+                <input type="number" id="pdLocaux" min="0" value="0" class="revolte-input w-20">
+              </div>
+              <div>
+                <label class="block text-sm text-gray-400 mb-1">Pirates</label>
+                <input type="number" id="pdPirates" min="0" value="0" class="revolte-input w-20">
+              </div>
+              <div>
+                <label class="block text-sm text-gray-400 mb-1">Autres</label>
+                <input type="number" id="pdAutres" min="0" value="0" class="revolte-input w-20">
+              </div>
+            </div>
+            <div id="pdResult" class="info-box"></div>
+            <div class="grid grid-cols-2 gap-4 mt-4">
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend" style="font-size:0.9rem">Officiers</legend>
+                <label class="block text-sm text-gray-400 mb-1">Nombre impliqué</label>
+                <input type="number" id="officiers" min="0" value="0" class="revolte-input w-20">
+              </fieldset>
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend" style="font-size:0.9rem">Sécurité</legend>
+                <label class="block text-sm text-gray-400 mb-1">Sécurité planétaire</label>
+                <input type="number" id="securitePlanetaireInput" min="0" value="5" class="revolte-input w-20">
+              </fieldset>
+            </div>
+          </fieldset>
+        </div>
+
+        <!-- ── REVOLTE STEPS CONTAINER ──────────────────────────────────────── -->
+        <div id="revolte-steps-container" class="hidden">
+
+          <!-- ÉMEUTE -->
+          <div id="emeute-container" class="hidden">
+            <div class="step-content hidden" data-step-id="1">
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend">Préparation (Émeute)</legend>
+                <div class="mb-3">
+                  <label class="block text-sm text-gray-400 mb-1">Lieu de l'émeute</label>
+                  <input type="text" id="emeuteLieu" placeholder="Ex: La taverne du Spatioport" class="revolte-input w-full max-w-sm">
+                </div>
+                <label class="flex items-center gap-2 text-sm cursor-pointer mb-3">
+                  <input type="checkbox" id="grandLieuCheck" class="revolte-input"> Grand Lieu ?
+                </label>
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label id="empathieTestLabel" class="block text-sm text-gray-400 mb-1">Empathie (1)</label>
+                    <input type="number" id="empathieTestInput" min="0" value="1" class="revolte-input w-20">
+                  </div>
+                  <div>
+                    <label id="tactiqueTestLabel" class="block text-sm text-gray-400 mb-1">Tactique (1)</label>
+                    <input type="number" id="tactiqueTestInput" min="0" value="1" class="revolte-input w-20">
+                  </div>
+                </div>
+                <div id="emeutePreparationResult" class="info-box"></div>
+              </fieldset>
+            </div>
+            <div class="step-content hidden" data-step-id="2">
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend">Exécution (Émeute)</legend>
+                <div>
+                  <label id="discoursTestLabel" class="block text-sm text-gray-400 mb-1">Eloquence</label>
+                  <input type="number" id="discoursTestInput" min="0" value="5" class="revolte-input w-20">
+                </div>
+                <div id="emeuteExecutionResult" class="info-box"></div>
+                <div id="coutPanache" class="info-box mt-3">Coût : Verrouillage de <strong>3 PP</strong>.</div>
+              </fieldset>
+            </div>
+            <div class="step-content hidden" data-step-id="3">
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend">Célébration (Émeute)</legend>
+                <div id="emeuteCelebrationResult" class="info-box"></div>
+              </fieldset>
+            </div>
+          </div>
+
+          <!-- FESTIVE -->
+          <div id="festive-container" class="hidden">
+            <div class="step-content hidden" data-step-id="1">
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend">Préparation (Révolution festive)</legend>
+                <p class="text-xs text-gray-400 mb-4">La phase de préparation est critique pour assurer le déroulement de la fête.</p>
+                <fieldset class="revolte-fieldset">
+                  <legend class="revolte-legend" style="font-size:0.9rem">Lieu de la fête</legend>
+                  <div class="mb-3">
+                    <label class="block text-sm text-gray-400 mb-1">Type de lieu</label>
+                    <select id="lieuFete" class="revolte-select">
+                      <option value="vaisseau_nature">Votre vaisseau ou pleine nature</option>
+                      <option value="lieu_autorise">Lieu public (avec autorisation)</option>
+                      <option value="lieu_illegale">Lieu illégal</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-sm text-gray-400 mb-1">Nombre d'invités</label>
+                    <select id="nbInvites" class="revolte-select">
+                      <option value="10">~10 (250Ø / diff 1)</option>
+                      <option value="100">~100 (2500Ø / diff 3 / +1d)</option>
+                      <option value="1000">~1000 (25000Ø / diff 5 / TF)</option>
+                      <option value="10000">~10000 (250000Ø / diff 8 / TF)</option>
+                    </select>
+                  </div>
+                  <div id="prepaFestiveResult" class="info-box mt-3"></div>
+                </fieldset>
+                <fieldset class="revolte-fieldset">
+                  <legend class="revolte-legend" style="font-size:0.9rem">Tests de préparation</legend>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label id="autorisationTestLabel" class="block text-sm text-gray-400 mb-1">Test d'autorisation</label>
+                      <input type="number" id="autorisationTestSucces" min="0" value="0" class="revolte-input w-20">
+                    </div>
+                    <div>
+                      <label id="rassemblementTestLabel" class="block text-sm text-gray-400 mb-1">Test de rassemblement</label>
+                      <input type="number" id="rassemblementTestSucces" min="0" value="0" class="revolte-input w-20">
+                    </div>
+                    <div>
+                      <label id="preparerLieuTestLabel" class="block text-sm text-gray-400 mb-1">Test de préparation du lieu</label>
+                      <input type="number" id="preparerLieuTestSucces" min="0" value="0" class="revolte-input w-20">
+                    </div>
+                    <div id="recruterTestGroup" class="hidden">
+                      <label id="recruterTestLabel" class="block text-sm text-gray-400 mb-1">Test de recrutement</label>
+                      <input type="number" id="recruterTestSucces" min="0" value="0" class="revolte-input w-20">
+                    </div>
+                  </div>
+                  <div id="prepaFestiveDetails" class="info-box mt-3"></div>
+                </fieldset>
+                <div id="festivePrepResult" class="info-box"></div>
+              </fieldset>
+            </div>
+            <div class="step-content hidden" data-step-id="2">
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend">Exécution (Révolution festive)</legend>
+                <p class="text-xs text-gray-400 mb-4">La fête dure de 6 à 10 heures. L'appel à la révolution est lancé à son apogée.</p>
+                <div>
+                  <label id="appelFestiveLabel" class="block text-sm text-gray-400 mb-1">Appel à la Révolution (Eloquence)</label>
+                  <input type="number" id="appelFestiveSucces" min="0" value="0" class="revolte-input w-20">
+                </div>
+                <div id="festiveExecutionResult" class="info-box mt-3"></div>
+              </fieldset>
+            </div>
+            <div class="step-content hidden" data-step-id="3">
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend">Célébration (Révolution festive)</legend>
+                <div id="festiveCelebrationResult" class="info-box"></div>
+                <div id="festiveContreRevolutionResult" class="info-box malus mt-3"></div>
+              </fieldset>
+            </div>
+          </div>
+
+          <!-- MUTINERIE -->
+          <div id="mutinerie-container" class="hidden">
+            <div class="step-content hidden" data-step-id="1">
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend">Préparation (Mutinerie)</legend>
+                <div class="mb-3">
+                  <label class="block text-sm text-gray-400 mb-1">Tonnage du vaisseau</label>
+                  <select id="mutinerieTonnage" class="revolte-select">
+                    <option value="100">100 t</option>
+                    <option value="1000">1 000 t</option>
+                    <option value="10000">10 000 t</option>
+                    <option value="100000">100 000 t</option>
+                  </select>
+                </div>
+                <div id="mutinerieCostResult" class="info-box mb-4"></div>
+                <fieldset class="revolte-fieldset">
+                  <legend class="revolte-legend" style="font-size:0.9rem">Ralliement & Discrétion (par jour)</legend>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-sm text-gray-400 mb-1">Eloquence (poste - diff 3)</label>
+                      <input type="number" id="mutinerieEloquencePoste" min="0" value="0" class="revolte-input w-20">
+                    </div>
+                    <div>
+                      <label class="block text-sm text-gray-400 mb-1">Eloquence (cambuse - diff 2)</label>
+                      <input type="number" id="mutinerieEloquenceCambuse" min="0" value="0" class="revolte-input w-20">
+                    </div>
+                    <div>
+                      <label class="block text-sm text-gray-400 mb-1">Discrétion (diff 1)</label>
+                      <input type="number" id="mutinerieDiscretion" min="0" value="1" class="revolte-input w-20">
+                    </div>
+                    <label class="flex items-center gap-2 text-sm cursor-pointer pt-5">
+                      <input type="checkbox" id="mutinerieConditions" class="revolte-input"> Conditions favorables (+1d)
+                    </label>
+                  </div>
+                  <div id="mutinerieRalliementResult" class="info-box mt-3"></div>
+                </fieldset>
+                <fieldset class="revolte-fieldset">
+                  <legend class="revolte-legend" style="font-size:0.9rem">Planification</legend>
+                  <div>
+                    <label class="block text-sm text-gray-400 mb-1">Tactique (diff 3)</label>
+                    <input type="number" id="mutinerieTactique" min="0" value="0" class="revolte-input w-20">
+                  </div>
+                  <div id="mutineriePlanificationResult" class="info-box mt-3"></div>
+                </fieldset>
+              </fieldset>
+            </div>
+            <div class="step-content hidden" data-step-id="2">
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend">Exécution (Mutinerie)</legend>
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm text-gray-400 mb-1">Localisation du vaisseau</label>
+                    <select id="mutinerieLocation" class="revolte-select">
+                      <option value="1">Barrens</option>
+                      <option value="3">Nation Stellaire</option>
+                      <option value="5">Nation d'Origine</option>
+                      <option value="8">Système d'Origine</option>
+                      <option value="10">Orbite du Port d'Attache</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label id="mutinerieAppelLabel" class="block text-sm text-gray-400 mb-1">Appel à la mutinerie (Eloquence)</label>
+                    <input type="number" id="mutinerieAppelSucces" min="0" value="0" class="revolte-input w-20">
+                  </div>
+                </div>
+                <div id="mutinerieExecutionResult" class="info-box mt-3"></div>
+              </fieldset>
+            </div>
+            <div class="step-content hidden" data-step-id="3">
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend">Célébration (Mutinerie)</legend>
+                <div id="mutinerieRecompensesResult" class="info-box mb-3"></div>
+                <div id="mutineriePrixDuSangResult" class="info-box malus mb-3"></div>
+                <fieldset class="revolte-fieldset">
+                  <legend class="revolte-legend" style="font-size:0.9rem">Contre-Révolution</legend>
+                  <div id="mutinerieContreRevolutionResult" class="text-sm space-y-2"></div>
+                </fieldset>
+              </fieldset>
+            </div>
+          </div>
+
+          <!-- RÉVOLUTION -->
+          <div id="revolution-container" class="hidden">
+            <!-- Persistent elements (visible across all rev steps) -->
+            <div id="revolution-persistent-elements">
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend">Lieux de Pouvoir</legend>
+                <fieldset class="revolte-fieldset" style="border-style:dashed">
+                  <legend class="revolte-legend" style="font-size:0.85rem">Ajouter un Lieu</legend>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="md:col-span-2">
+                      <label class="block text-sm text-gray-400 mb-1">Nom</label>
+                      <input type="text" id="powerPlaceName" placeholder="Ex: Palais du Gouverneur" class="revolte-input w-full">
+                    </div>
+                    <label class="flex items-center gap-2 text-sm cursor-pointer pt-2">
+                      <input type="checkbox" id="powerPlaceIsQG" class="revolte-input"> QG (malus si non capturé)
+                    </label>
+                    <div class="md:col-span-2">
+                      <label class="block text-sm text-gray-400 mb-1">Description</label>
+                      <textarea id="powerPlaceDesc" rows="2" placeholder="Centre névralgique..." class="revolte-input w-full"></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                      <button id="addPowerPlaceBtn" class="text-sm bg-gray-600 hover:bg-gray-500 text-white px-3 py-1.5 rounded w-full transition-colors">Ajouter le Lieu</button>
+                    </div>
+                  </div>
+                </fieldset>
+                <div id="powerPlaceList" class="space-y-2 mb-3"></div>
+                <div id="powerPlaceResult" class="info-box"></div>
+              </fieldset>
+            </div>
+
+            <!-- REVOLUTION step 1 -->
+            <div class="step-content hidden" data-step-id="1">
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend">Préparation (Révolution)</legend>
+                <fieldset class="revolte-fieldset">
+                  <legend class="revolte-legend" style="font-size:0.9rem">Soutiens Stratégiques</legend>
+                  <fieldset class="revolte-fieldset" style="border-style:dashed">
+                    <legend class="revolte-legend" style="font-size:0.85rem">Ajouter un Allié</legend>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <div class="col-span-2 md:col-span-3">
+                        <label class="block text-sm text-gray-400 mb-1">Nom</label>
+                        <input type="text" id="allyName" placeholder="Ex: Lord Tiberius" class="revolte-input w-full">
+                      </div>
+                      <div><label class="block text-sm text-gray-400 mb-1">Gloire</label><input type="number" id="allyGloire" min="0" value="0" class="revolte-input w-20"></div>
+                      <div><label class="block text-sm text-gray-400 mb-1">Grade</label><input type="number" id="allyGrade" min="0" value="0" class="revolte-input w-20"></div>
+                      <div><label class="block text-sm text-gray-400 mb-1">Statut</label><input type="number" id="allyStatut" min="0" value="0" class="revolte-input w-20"></div>
+                      <div><label class="block text-sm text-gray-400 mb-1">Riche</label><input type="number" id="allyRiche" min="0" value="0" class="revolte-input w-20"></div>
+                      <label class="flex items-center gap-2 text-sm cursor-pointer pt-4">
+                        <input type="checkbox" id="allyIsPD" class="revolte-input"> Porte-Drapeau (PD)
+                      </label>
+                      <div class="col-span-2 md:col-span-3">
+                        <button id="addAllyBtn" class="text-sm bg-gray-600 hover:bg-gray-500 text-white px-3 py-1.5 rounded w-full transition-colors">Ajouter l'Allié</button>
+                      </div>
+                    </div>
+                  </fieldset>
+                  <div id="allyList" class="space-y-2 mb-3"></div>
+                  <div id="allyBonusResult" class="info-box"></div>
+                </fieldset>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <fieldset class="revolte-fieldset">
+                    <legend class="revolte-legend" style="font-size:0.9rem">Recrutement & Insurgés</legend>
+                    <div class="grid grid-cols-2 gap-3">
+                      <div><label class="block text-sm text-gray-400 mb-1">Sections actuelles</label><input type="number" id="currentSectionsInput" min="0" value="0" class="revolte-input w-20"></div>
+                      <div><label id="recrutementLabel" class="block text-sm text-gray-400 mb-1">Eloquence</label><input type="number" id="recrutementSucces" min="0" value="0" class="revolte-input w-20"></div>
+                    </div>
+                    <div id="insurgentInfo" class="info-box mt-3"></div>
+                  </fieldset>
+                  <fieldset class="revolte-fieldset">
+                    <legend class="revolte-legend" style="font-size:0.9rem">Qualité des Troupes</legend>
+                    <div id="troopQualityResult" class="text-center text-lg font-bold mb-3"></div>
+                    <div class="space-y-2">
+                      <button id="equipTroopsBtn" class="text-sm bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded w-full transition-colors">Équiper (+1)</button>
+                      <button id="trainTroopsBtn" class="text-sm bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded w-full transition-colors">Entraîner (+1)</button>
+                      <button id="planInsurrectionBtn" class="text-sm bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded w-full transition-colors">Planifier insurrection (+1)</button>
+                    </div>
+                  </fieldset>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <fieldset class="revolte-fieldset">
+                    <legend class="revolte-legend" style="font-size:0.9rem">Sensibilisation du Peuple</legend>
+                    <div class="space-y-2">
+                      <div><label id="discoursPeupleLabel" class="block text-sm text-gray-400 mb-1">Discours de rue</label><input type="number" id="discoursPeupleSucces" min="0" value="0" class="revolte-input w-20"></div>
+                      <div><label id="tractsPeupleLabel" class="block text-sm text-gray-400 mb-1">Tracts et affiches</label><input type="number" id="tractsPeupleSucces" min="0" value="0" class="revolte-input w-20"></div>
+                      <div><label id="comprehensionPeupleLabel" class="block text-sm text-gray-400 mb-1">Compréhension du peuple</label><input type="number" id="comprehensionPeupleSucces" min="0" value="0" class="revolte-input w-20"></div>
+                    </div>
+                    <div id="sensibilisationResult" class="info-box mt-3"></div>
+                  </fieldset>
+                  <fieldset class="revolte-fieldset">
+                    <legend class="revolte-legend" style="font-size:0.9rem">Actions Spéciales</legend>
+                    <div class="space-y-2">
+                      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="secretCheck" class="revolte-input"> Divulguer un secret compromettant</label>
+                      <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="techCheck" class="revolte-input"> Créer un bouleversement technologique</label>
+                    </div>
+                    <div id="specialActionsResult" class="info-box mt-3"></div>
+                  </fieldset>
+                </div>
+              </fieldset>
+            </div>
+
+            <!-- REVOLUTION step 2 -->
+            <div class="step-content hidden" data-step-id="2">
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend">Exécution (Révolution)</legend>
+                <div id="execution-summary" class="info-box mb-4"></div>
+                <fieldset class="revolte-fieldset">
+                  <legend class="revolte-legend" style="font-size:0.9rem">Assaut des Lieux de Pouvoir</legend>
+                  <div id="assault-section" class="space-y-4"></div>
+                </fieldset>
+                <fieldset class="revolte-fieldset">
+                  <legend class="revolte-legend" style="font-size:0.9rem">Appel à la Révolte</legend>
+                  <div><label id="appelRevolteLabel" class="block text-sm text-gray-400 mb-1">Eloquence (PD)</label>
+                  <input type="number" id="appelRevolteSucces" min="0" value="0" class="revolte-input w-20"></div>
+                  <div id="appelRevolteResult" class="info-box mt-3"></div>
+                </fieldset>
+                <fieldset class="revolte-fieldset">
+                  <legend class="revolte-legend" style="font-size:0.9rem">Reddition des Autorités</legend>
+                  <div><label id="intimidationRedditionLabel" class="block text-sm text-gray-400 mb-1">Intimidation</label>
+                  <input type="number" id="intimidationRedditionSucces" min="0" value="0" class="revolte-input w-20"></div>
+                  <div id="intimidationRedditionResult" class="info-box mt-3"></div>
+                </fieldset>
+              </fieldset>
+            </div>
+
+            <!-- REVOLUTION step 3 -->
+            <div class="step-content hidden" data-step-id="3">
+              <fieldset class="revolte-fieldset">
+                <legend class="revolte-legend">Célébration (Révolution)</legend>
+                <div class="mb-4">
+                  <label class="block text-sm text-gray-400 mb-1">Nouveau dirigeant</label>
+                  <select id="nouveauDirigeantSelect" class="revolte-select w-full max-w-xs">
+                    <option>-- Candidats PD --</option>
+                  </select>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label id="sciencesSolairesLabel" class="block text-sm text-gray-400 mb-1">Sciences Solaires</label>
+                    <input type="number" id="sciencesSolairesSucces" min="0" value="3" class="revolte-input w-20">
+                  </div>
+                  <div>
+                    <label class="block text-sm text-gray-400 mb-1">Jours de combat</label>
+                    <input type="number" id="joursDeCombatInput" min="1" value="1" class="revolte-input w-20">
+                  </div>
+                </div>
+                <div id="recompensesResult" class="info-box mt-3"></div>
+                <div id="prixDuSangResult" class="info-box malus mt-3"></div>
+              </fieldset>
+            </div>
+          </div>
+
+        </div><!-- /revolte-steps-container -->
+
+      </div><!-- /session-editor -->
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/shared/cold-start.js?v=2.0.2"></script>
+  <script type="module" src="/js/revolte/revolte-app.js?v=1.0.0"></script>
+</body>
+</html>

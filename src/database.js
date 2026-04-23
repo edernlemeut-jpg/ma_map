@@ -229,4 +229,25 @@ function ensureCalendarTables() {
 
 ensureCalendarTables();
 
+function ensureRevolteTables() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS revolte_sessions (
+      id           TEXT PRIMARY KEY,
+      table_id     INTEGER NOT NULL REFERENCES game_tables(id) ON DELETE CASCADE,
+      name         TEXT NOT NULL,
+      type         TEXT NOT NULL DEFAULT 'emeute',
+      scope        TEXT,
+      location_ref TEXT,
+      status       TEXT NOT NULL DEFAULT 'en_cours',
+      state_json   TEXT NOT NULL DEFAULT '{}',
+      created_by   INTEGER NOT NULL REFERENCES users(id),
+      created_at   TEXT DEFAULT (datetime('now')),
+      updated_at   TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_revolte_table ON revolte_sessions(table_id, status);
+  `);
+}
+
+ensureRevolteTables();
+
 export default db;
