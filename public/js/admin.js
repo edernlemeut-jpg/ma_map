@@ -1401,7 +1401,7 @@ function openBodyModal(body, onSave) {
 // ── Système solaire modal (admin) ─────────────────────────────────────────────
 function openAdminSystemModal(sys) {
   const isNew = !sys;
-  let soleil = {}, corps = [];
+  let soleil = {}, corps = [], patrouilles = [];
 
   if (!isNew) {
     // Handle both new-format (soleil_json string) and old seed format (soleil object)
@@ -1412,6 +1412,10 @@ function openAdminSystemModal(sys) {
     const rawCorps = sys.corps_celestes_json ?? sys.corpsCelestes;
     if (typeof rawCorps === 'string') { try { corps = JSON.parse(rawCorps) || []; } catch { corps = []; } }
     else if (Array.isArray(rawCorps)) { corps = rawCorps; }
+
+    const rawPatr = sys.patrouilles_json ?? sys.patrouilles;
+    if (typeof rawPatr === 'string') { try { patrouilles = JSON.parse(rawPatr) || []; } catch { patrouilles = []; } }
+    else if (Array.isArray(rawPatr)) { patrouilles = rawPatr; }
   }
 
   const overlay = document.createElement('div');
@@ -1444,6 +1448,16 @@ function openAdminSystemModal(sys) {
   const renderBodyList = () =>
     !corps.length ? '<p class="text-xs text-gray-500 italic py-2">Aucun corps céleste</p>' :
     corps.map((b, i) => renderBodyRow(b, i)).join('');
+
+  const renderPatrRow = (p, idx) =>
+    `<div class="flex items-center gap-2 py-1 patr-row" data-idx="${idx}">
+      <input type="text" class="patr-vaisseaux flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Vaisseaux" value="${esc(p.vaisseaux || '')}" data-idx="${idx}">
+      <input type="text" class="patr-cout w-28 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Coût" value="${esc(p.cout || '')}" data-idx="${idx}">
+      <button class="btn-del-patr text-xs text-red-500 hover:text-red-400 px-2 py-1 flex-shrink-0" data-idx="${idx}">✕</button>
+    </div>`;
+  const renderPatrList = () =>
+    !patrouilles.length ? '<p class="text-xs text-gray-500 italic py-2">Aucune patrouille</p>' :
+    patrouilles.map((p, i) => renderPatrRow(p, i)).join('');
 
   overlay.innerHTML = `
     <div class="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-2xl p-6 shadow-2xl mb-8">
@@ -1490,7 +1504,15 @@ function openAdminSystemModal(sys) {
 
       <div class="border-t border-gray-700 pt-4 mb-4">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="text-sm font-semibold text-gray-300">📐 Matrice des distances</h3>
+          <h3 class="text-sm font-semibold text-gray-300">� Patrouilles système</h3>
+          <button id="btn-add-patr" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1.5 rounded transition-colors">+ Ajouter</button>
+        </div>
+        <div id="fms-patr-list" class="space-y-1 min-h-[24px]">${renderPatrList()}</div>
+      </div>
+
+      <div class="border-t border-gray-700 pt-4 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-gray-300">�📐 Matrice des distances</h3>
           <button id="btn-recalc-matrix" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1.5 rounded transition-colors">🎲 Recalculer</button>
         </div>
         <div id="fms-matrix-wrap" class="overflow-x-auto text-xs"></div>
@@ -1595,11 +1617,43 @@ function openAdminSystemModal(sys) {
   overlay.querySelector('#fms-sol-saut').addEventListener('change', refreshMatrix);
   overlay.querySelector('#fms-sol-nom').addEventListener('change', refreshMatrix);
 
+  // Patrouilles — inline editing
+  const refreshPatrList = () => {
+    overlay.querySelector('#fms-patr-list').innerHTML = renderPatrList();
+    bindPatrButtons();
+  };
+  const bindPatrButtons = () => {
+    overlay.querySelectorAll('.btn-del-patr').forEach(btn => {
+      btn.addEventListener('click', () => { patrouilles.splice(Number(btn.dataset.idx), 1); refreshPatrList(); });
+    });
+    overlay.querySelectorAll('.patr-vaisseaux').forEach(inp => {
+      inp.addEventListener('change', () => { patrouilles[Number(inp.dataset.idx)].vaisseaux = inp.value; });
+    });
+    overlay.querySelectorAll('.patr-cout').forEach(inp => {
+      inp.addEventListener('change', () => { patrouilles[Number(inp.dataset.idx)].cout = inp.value; });
+    });
+  };
+  bindPatrButtons();
+  overlay.querySelector('#btn-add-patr').addEventListener('click', () => {
+    patrouilles.push({ vaisseaux: '', cout: '' });
+    refreshPatrList();
+    const rows = overlay.querySelectorAll('.patr-vaisseaux');
+    rows[rows.length - 1]?.focus();
+  });
+
   overlay.querySelector('#fms-save').addEventListener('click', async () => {
     const errEl = overlay.querySelector('#fms-error');
     errEl.classList.add('hidden');
     const nom = overlay.querySelector('#fms-nom').value.trim();
     if (!nom) { errEl.textContent = 'Le nom est requis'; errEl.classList.remove('hidden'); return; }
+
+    // Sync patrouilles from live inputs before saving
+    overlay.querySelectorAll('.patr-row').forEach((row, i) => {
+      if (!patrouilles[i]) patrouilles[i] = {};
+      patrouilles[i].vaisseaux = row.querySelector('.patr-vaisseaux')?.value.trim() || '';
+      patrouilles[i].cout = row.querySelector('.patr-cout')?.value.trim() || '';
+    });
+    const finalPatrouilles = patrouilles.filter(p => p.vaisseaux || p.cout);
 
     const str = id => overlay.querySelector(id)?.value?.trim() || null;
     const num = id => { const v = overlay.querySelector(id)?.value?.trim(); return v ? Number(v) : null; };
@@ -1620,6 +1674,7 @@ function openAdminSystemModal(sys) {
       description: str('#fms-description'),
       soleil_json: soleilObj ? JSON.stringify(soleilObj) : null,
       corps_celestes_json: corps.length ? JSON.stringify(corps) : null,
+      patrouilles_json: finalPatrouilles.length ? JSON.stringify(finalPatrouilles) : null,
     };
 
     try {

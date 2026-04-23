@@ -2256,6 +2256,16 @@ function openSystemModal(system) {
     return corps.map((b, i) => renderBodyRow(b, i)).join('');
   };
 
+  const renderPatrRow = (p, idx) =>
+    `<div class="flex items-center gap-2 py-1 patr-row" data-idx="${idx}">
+      <input type="text" class="patr-vaisseaux flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Vaisseaux" value="${esc(p.vaisseaux || '')}" data-idx="${idx}">
+      <input type="text" class="patr-cout w-28 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Coût" value="${esc(p.cout || '')}" data-idx="${idx}">
+      <button class="btn-del-patr text-xs text-red-500 hover:text-red-400 px-2 py-1 flex-shrink-0" data-idx="${idx}">✕</button>
+    </div>`;
+  const renderPatrList = () =>
+    !patrouilles.length ? '<p class="text-xs text-gray-500 italic py-2">Aucune patrouille</p>' :
+    patrouilles.map((p, i) => renderPatrRow(p, i)).join('');
+
   overlay.innerHTML = `
     <div class="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-2xl p-6 shadow-2xl mb-8">
       <div class="flex items-center justify-between mb-5">
@@ -2300,6 +2310,24 @@ function openSystemModal(system) {
           <button id="btn-add-body" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1.5 rounded transition-colors">+ Ajouter</button>
         </div>
         <div id="fms-bodies-list" class="space-y-0.5 min-h-[24px]">${renderBodyList()}</div>
+      </div>
+
+      <!-- Patrouilles -->
+      <div class="border-t border-gray-700 pt-4 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-gray-300">👮 Patrouilles système</h3>
+          <button id="btn-add-patr" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1.5 rounded transition-colors">+ Ajouter</button>
+        </div>
+        <div id="fms-patr-list" class="space-y-1 min-h-[24px]">${renderPatrList()}</div>
+      </div>
+
+      <!-- Patrouilles -->
+      <div class="border-t border-gray-700 pt-4 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-gray-300">👮 Patrouilles système</h3>
+          <button id="btn-add-patr" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1.5 rounded transition-colors">+ Ajouter</button>
+        </div>
+        <div id="fms-patr-list" class="space-y-1 min-h-[24px]">${renderPatrList()}</div>
       </div>
 
       <!-- Matrice de distances -->
@@ -2428,11 +2456,45 @@ function openSystemModal(system) {
   overlay.querySelector('#fms-sol-saut').addEventListener('change', refreshMatrix);
   overlay.querySelector('#fms-sol-nom').addEventListener('change', refreshMatrix);
 
+  // Patrouilles — inline editing (no sub-modal needed)
+  const refreshPatrList = () => {
+    overlay.querySelector('#fms-patr-list').innerHTML = renderPatrList();
+    bindPatrButtons();
+  };
+  const bindPatrButtons = () => {
+    overlay.querySelectorAll('.btn-del-patr').forEach(btn => {
+      btn.addEventListener('click', () => { patrouilles.splice(Number(btn.dataset.idx), 1); refreshPatrList(); });
+    });
+    overlay.querySelectorAll('.patr-vaisseaux').forEach(inp => {
+      inp.addEventListener('change', () => { patrouilles[Number(inp.dataset.idx)].vaisseaux = inp.value; });
+    });
+    overlay.querySelectorAll('.patr-cout').forEach(inp => {
+      inp.addEventListener('change', () => { patrouilles[Number(inp.dataset.idx)].cout = inp.value; });
+    });
+  };
+  bindPatrButtons();
+  overlay.querySelector('#btn-add-patr').addEventListener('click', () => {
+    patrouilles.push({ vaisseaux: '', cout: '' });
+    refreshPatrList();
+    // focus last row
+    const rows = overlay.querySelectorAll('.patr-vaisseaux');
+    rows[rows.length - 1]?.focus();
+  });
+
   overlay.querySelector('#fms-save').addEventListener('click', async () => {
     const errEl = overlay.querySelector('#fms-error');
     errEl.classList.add('hidden');
     const nom = overlay.querySelector('#fms-nom').value.trim();
     if (!nom) { errEl.textContent = 'Le nom est requis'; errEl.classList.remove('hidden'); return; }
+
+    // Sync patrouilles from inputs before saving
+    overlay.querySelectorAll('.patr-row').forEach((row, i) => {
+      patrouilles[i] = {
+        vaisseaux: row.querySelector('.patr-vaisseaux')?.value.trim() || '',
+        cout: row.querySelector('.patr-cout')?.value.trim() || '',
+      };
+    });
+    const finalPatrouilles = patrouilles.filter(p => p.vaisseaux || p.cout);
 
     const str = id => overlay.querySelector(id)?.value?.trim() || undefined;
     const num = id => { const v = overlay.querySelector(id)?.value?.trim(); return v ? Number(v) : undefined; };
@@ -2453,7 +2515,7 @@ function openSystemModal(system) {
       description: str('#fms-description') || null,
       soleil_json: Object.keys(soleilObj).length ? JSON.stringify(soleilObj) : null,
       corps_celestes_json: corps.length ? JSON.stringify(corps) : null,
-      patrouilles_json: patrouilles.length ? JSON.stringify(patrouilles) : null,
+      patrouilles_json: finalPatrouilles.length ? JSON.stringify(finalPatrouilles) : null,
     };
 
     try {
