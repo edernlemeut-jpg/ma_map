@@ -250,4 +250,34 @@ function ensureRevolteTables() {
 
 ensureRevolteTables();
 
+// ── Migrations factions ───────────────────────────────────────────────────────
+function ensureFactionsMigrations() {
+  const cols = new Set(db.prepare("PRAGMA table_info('factions')").all().map(c => c.name));
+  if (!cols.has('origin_nation_id')) {
+    db.exec("ALTER TABLE factions ADD COLUMN origin_nation_id TEXT DEFAULT NULL");
+  }
+}
+
+ensureFactionsMigrations();
+
+// ── Characters (feuilles de personnage) ───────────────────────────────────────
+function ensureCharactersTable() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS characters (
+      id          TEXT PRIMARY KEY,
+      table_id    INTEGER NOT NULL REFERENCES game_tables(id) ON DELETE CASCADE,
+      created_by  INTEGER NOT NULL REFERENCES users(id),
+      type        TEXT NOT NULL DEFAULT 'pj',
+      name        TEXT NOT NULL,
+      data_json   TEXT NOT NULL DEFAULT '{}',
+      created_at  TEXT DEFAULT (datetime('now')),
+      updated_at  TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_characters_table ON characters(table_id, type);
+    CREATE INDEX IF NOT EXISTS idx_characters_user  ON characters(created_by);
+  `);
+}
+
+ensureCharactersTable();
+
 export default db;

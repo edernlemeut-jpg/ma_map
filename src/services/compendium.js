@@ -7,7 +7,7 @@ import db from '../database.js';
 import { isVisible } from './visibility.js';
 
 const SYSTEMS_COLS = 'id, quadrant, nom, faction, is_frontiere, route, gouvernement, description, soleil_json, corps_celestes_json, patrouilles_json';
-const FACTIONS_COLS = 'id, name, short, description, icon, icon_url, color';
+const FACTIONS_COLS = 'id, name, short, description, icon, icon_url, color, origin_nation_id';
 const SHIP_MODELS_COLS = 'id, nom, classe, tonnage, longueur, vitesse_croisiere, vitesse_hyperspatiale, vitesse_tactique, autonomie, manoeuvrabilite, blindage, coque, senseurs, senseurs_k, senseurs_us, equipage, passagers, soute, prix, origine, image, armement_json, systemes_secondaires_json, description, history, mj_notes, special_features';
 
 export function getSystems(tableId, role) {
@@ -43,7 +43,7 @@ export function getShipModels(tableId, role) {
 // --- Edit functions (MJ only) ---
 
 const SYSTEM_EDITABLE = ['nom', 'quadrant', 'faction', 'is_frontiere', 'route', 'gouvernement', 'description', 'soleil_json', 'corps_celestes_json', 'patrouilles_json'];
-const FACTION_EDITABLE = ['name', 'short', 'description', 'icon', 'icon_url', 'color'];
+const FACTION_EDITABLE = ['name', 'short', 'description', 'icon', 'icon_url', 'color', 'origin_nation_id'];
 const SHIP_MODEL_EDITABLE = ['nom','classe','origine','tonnage','longueur','vitesse_croisiere','vitesse_hyperspatiale','vitesse_tactique','autonomie','manoeuvrabilite','blindage','coque','senseurs','senseurs_k','senseurs_us','equipage','passagers','soute','prix','image','armement_json','systemes_secondaires_json','description','history','mj_notes','special_features'];
 
 function applyUpdate(table, selectCols, allowedFields, id, fields, hasUpdatedAt = true) {

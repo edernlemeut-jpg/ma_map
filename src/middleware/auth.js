@@ -14,6 +14,8 @@ const WHITELIST = [
   { method: 'GET', path: '/personnage.html' },
   { method: 'GET', path: '/revolte.html' },
   { method: 'GET', path: '/calendrier.html' },
+  // Characters ref-data — requiert une auth pour filtrer la visibilité des origines par faction
+  // { method: 'GET', path: '/api/characters/ref-data' },  ← supprimé intentionnellement
 ];
 
 export default function authMiddleware(req, res, next) {

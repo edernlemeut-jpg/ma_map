@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Metal Adventures — Personnages</title>
+  <link rel="stylesheet" href="/css/tailwind.css?v=2.0.0">
+  <link rel="stylesheet" href="/css/ma-theme.css">
+  <style>
+    /* Wizard step indicator */
+    .step-dot { width:10px; height:10px; border-radius:50%; background:#4b5563; flex-shrink:0; transition:background .2s; }
+    .step-dot.active { background: var(--gold, #c8a464); }
+    .step-dot.done   { background: #22c55e; }
+
+    /* Attribute assignment card */
+    .attr-card { cursor:pointer; border:2px solid transparent; transition:border-color .15s, background .15s; }
+    .attr-card.selected { border-color: var(--gold, #c8a464); background:#1c1a2e; }
+    .attr-card:hover:not(.selected) { border-color:#4b5563; }
+
+    /* Archetype card */
+    .archetype-card { cursor:pointer; border:2px solid #374151; transition:border-color .15s, background .15s; }
+    .archetype-card.selected { border-color: var(--gold, #c8a464); background:#1c1a2e; }
+    .archetype-card:hover:not(.selected) { border-color:#6b7280; }
+
+    /* Skill row */
+    .skill-row input[type=number]::-webkit-inner-spin-button,
+    .skill-row input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    .skill-row input[type=number] { -moz-appearance: textfield; }
+
+    /* Trait toggle */
+    .trait-btn { border:1px solid #374151; border-radius:.5rem; padding:.5rem .75rem; cursor:pointer; text-align:left; transition:border-color .15s, background .15s; }
+    .trait-btn.selected-q { border-color:#3b82f6; background:rgba(59,130,246,.1); }
+    .trait-btn.selected-d { border-color:#f59e0b; background:rgba(245,158,11,.1); }
+    .trait-btn:hover:not(.selected-q):not(.selected-d) { border-color:#6b7280; }
+
+    /* Health/EnergyX checkboxes */
+    .tracker-boxes { display:flex; flex-wrap:wrap; gap:4px; }
+    .tracker-box { width:28px; height:28px; border:2px solid #6b7280; border-radius:4px; background:#1f2937; flex-shrink:0; }
+
+    /* Modal */
+    #char-list-modal { display:none; }
+    #char-list-modal.open { display:flex; }
+
+    /* Tooltip */
+    [data-tip] { position:relative; }
+    [data-tip]:hover::after {
+      content: attr(data-tip);
+      position:absolute; bottom:125%; left:50%; transform:translateX(-50%);
+      background:#111827; border:1px solid #374151; color:#e5e7eb;
+      font-size:.7rem; padding:.35rem .6rem; border-radius:.375rem;
+      white-space:pre-wrap; max-width:220px; z-index:50; pointer-events:none;
+    }
+
+    /* Selector buttons (mutant, motivation, PNJ niveau, pirate, named) */
+    .sel-btn { border:2px solid #374151; background:#1f2937; border-radius:.75rem; cursor:pointer; transition:border-color .15s, background .15s; }
+    .sel-btn:hover:not(.sel-gold):not(.sel-purple):not(.sel-cyan):not(.sel-pirate) { border-color:#6b7280; background:#374151; }
+    .sel-btn.sel-gold   { border-color:#eab308 !important; background:rgba(202,138,4,.14) !important; }
+    .sel-btn.sel-purple { border-color:#a855f7 !important; background:rgba(168,85,247,.14) !important; }
+    .sel-btn.sel-cyan   { border-color:#06b6d4 !important; background:rgba(6,182,212,.14) !important; }
+    .sel-btn.sel-pirate { border-color:#f59e0b !important; background:rgba(245,158,11,.14) !important; }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="border-b border-gray-700 bg-gray-800">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="text-xl font-bold">
+        <a href="/" class="hover:text-blue-400 transition-colors">⚙️ Metal Adventures</a>
+      </h1>
+      <nav class="flex items-center gap-4 text-sm">
+        <span id="header-table-info" class="hidden flex items-center gap-2 text-gray-300 border-r border-gray-600 pr-4 mr-2">
+          <span id="header-table-name" class="font-medium"></span>
+          <span id="header-table-role" class="text-xs"></span>
+          <a href="#" id="header-change-table" class="text-blue-400 hover:text-blue-300 text-xs ml-1" title="Changer de table">✕</a>
+        </span>
+        <span id="header-campaign-date" class="hidden text-xs font-mono px-2 py-1 rounded border border-gray-600 text-yellow-300"></span>
+        <span id="auth-user-info" class="hidden flex items-center gap-3">
+          <span id="auth-user-name" class="text-gray-300"></span>
+          <a href="#" id="auth-logout-btn" class="text-red-400 hover:text-red-300 hover:underline">Déconnexion</a>
+        </span>
+        <a href="/login.html" id="auth-login-link" class="text-blue-400 hover:underline">Connexion</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="flex-1 max-w-4xl mx-auto w-full px-4 py-6">
+
+    <!-- Top bar: title + actions -->
+    <div class="flex items-center justify-between mb-5 gap-3 flex-wrap">
+      <h2 class="text-lg font-semibold" style="color:var(--gold)">🧑‍🚀 Personnages</h2>
+      <div class="flex gap-2">
+        <button id="btn-list" class="hidden px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-sm rounded-lg">
+          📋 Mes Personnages
+        </button>
+        <button id="btn-new-pj" class="hidden px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg">
+          ＋ Nouveau PJ
+        </button>
+        <button id="btn-new-pnj" class="hidden px-3 py-1.5 bg-purple-700 hover:bg-purple-600 text-white text-sm rounded-lg">
+          ＋ Nouveau PNJ
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="text-center py-16 text-gray-400">Chargement…</div>
+
+    <!-- Character list (default view) -->
+    <div id="char-list-view" class="hidden">
+      <div id="char-list-container" class="space-y-2"></div>
+      <p id="char-list-empty" class="hidden text-center py-12 text-gray-500 text-sm">
+        Aucun personnage. Créez-en un avec le bouton ci-dessus.
+      </p>
+    </div>
+
+    <!-- Wizard -->
+    <div id="wizard-view" class="hidden">
+
+      <!-- Step indicator -->
+      <div class="flex items-center gap-1 mb-6">
+        <div id="step-dots" class="flex gap-2 items-center"></div>
+        <span id="step-label" class="ml-3 text-sm text-gray-400"></span>
+      </div>
+
+      <!-- Step content -->
+      <div id="wizard-step" class="bg-gray-800 border border-gray-700 rounded-xl p-5 min-h-[300px]"></div>
+
+      <!-- Navigation -->
+      <div class="flex items-center justify-between mt-5">
+        <button id="btn-prev" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm disabled:opacity-40">
+          ← Précédent
+        </button>
+        <button id="btn-cancel" class="text-gray-500 hover:text-gray-300 text-sm px-3">Annuler</button>
+        <button id="btn-next" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm disabled:opacity-40">
+          Suivant →
+        </button>
+      </div>
+    </div>
+
+    <!-- Character sheet view (read/edit) -->
+    <div id="sheet-view" class="hidden"></div>
+
+  </main>
+
+  <script src="/js/personnage/personnage-app.js" type="module"></script>
+</body>
+</html>

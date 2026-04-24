@@ -7,7 +7,6 @@ const router = Router();
 const LEGACY_PAGES = [
   ['/compendium.html', 'Compendium',          '/univers.html',    "l'Univers"],
   ['/peril.html',      'Tables de Périls',    '/univers.html',    "l'Univers"],
-  ['/personnage.html', 'Personnages',          '/univers.html',    "l'Univers"],
   ['/revolte.html',    'Révolte',             '/',                "l'accueil"],
   ['/calendrier.html', 'Calendrier',          '/',                "l'accueil"],
 ];

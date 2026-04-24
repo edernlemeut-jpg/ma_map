@@ -796,10 +796,28 @@ function openFactionModal(faction) {
         </div>
       </div>
 
-      <div class="mb-5">
+      <div class="mb-4">
         <label class="block text-xs text-gray-400 mb-1">Description</label>
         <textarea id="fmf-desc" rows="4"
           class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 resize-y">${esc(String(faction?.description ?? ''))}</textarea>
+      </div>
+
+      <!-- Lien Origine (outil création de personnage) -->
+      <div class="mb-5">
+        <label class="block text-xs text-gray-400 mb-1">Nation liée (outil création de personnage)</label>
+        <select id="fmf-origin-nation"
+          class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+          <option value="">— Aucune (origines cachées aux joueurs) —</option>
+          <option value="Barrens"                   ${faction?.origin_nation_id === 'Barrens'                   ? 'selected' : ''}>Barrens</option>
+          <option value="Daemon"                    ${faction?.origin_nation_id === 'Daemon'                    ? 'selected' : ''}>Daemon</option>
+          <option value="Empire de Sol"             ${faction?.origin_nation_id === 'Empire de Sol'             ? 'selected' : ''}>Empire de Sol</option>
+          <option value="Empire Galactique"         ${faction?.origin_nation_id === 'Empire Galactique'         ? 'selected' : ''}>Empire Galactique</option>
+          <option value="Enfants maudits"           ${faction?.origin_nation_id === 'Enfants maudits'           ? 'selected' : ''}>Enfants maudits</option>
+          <option value="Havana"                    ${faction?.origin_nation_id === 'Havana'                    ? 'selected' : ''}>Havana (Pirates)</option>
+          <option value="Ligue des Planètes Libres" ${faction?.origin_nation_id === 'Ligue des Planètes Libres' ? 'selected' : ''}>Ligue des Planètes Libres</option>
+          <option value="OCG"                       ${faction?.origin_nation_id === 'OCG'                       ? 'selected' : ''}>OCG</option>
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Si cette faction est cachée aux joueurs, l'origine correspondante sera masquée lors de la création de personnage.</p>
       </div>
 
       <div class="flex gap-3">
@@ -862,6 +880,7 @@ function openFactionModal(faction) {
       color: overlay.querySelector('#fmf-color').value,
       icon_url: overlay.querySelector('#fmf-icon-url').value.trim() || null,
       description: overlay.querySelector('#fmf-desc').value.trim(),
+      origin_nation_id: overlay.querySelector('#fmf-origin-nation').value || null,
     };
     try {
       const url = isNew ? '/api/factions' : `/api/factions/${faction.id}`;
