@@ -823,6 +823,7 @@ function renderSystems(panel, systems) {
   panel.innerHTML = `
     ${canEdit ? `<div class="mb-4 flex justify-end gap-2">
       <input type="file" id="import-systems-file" accept=".json" class="hidden">
+      <button id="btn-export-systems" class="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm transition-colors min-h-[40px]">⬇ Exporter JSON</button>
       <button id="btn-import-systems" class="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm transition-colors min-h-[40px]">⬆ Importer JSON</button>
       <button id="btn-new-system" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors min-h-[40px]">+ Nouveau système</button>
     </div>` : ''}
@@ -872,6 +873,15 @@ function renderSystems(panel, systems) {
   render();
   if (canEdit) {
     panel.querySelector('#btn-new-system')?.addEventListener('click', () => openSystemModal(null));
+    panel.querySelector('#btn-export-systems')?.addEventListener('click', () => {
+      const exportData = state.systems.map(({ id, visible, ...rest }) => rest);
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `systemes-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
     panel.querySelector('#btn-import-systems')?.addEventListener('click', () => {
       panel.querySelector('#import-systems-file').click();
     });
