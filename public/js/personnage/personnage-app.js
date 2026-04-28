@@ -1120,6 +1120,9 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
   const pxTotal   = d.px_total   ?? 0;
   const pxDepense = d.px_depense ?? 0;
   const hasGenesEvolutifs = (d.mutations_ids || []).includes('mutation-genes-evolutifs');
+  const isMutant   = !!d.is_mutant;
+  const origChar   = d.origine_id ? (REF?.origines?.find(o => o.id === d.origine_id) || null) : null;
+  const charNation = origChar?.nation || null;
 
   // XP cost for next skill level
   function compCost(currentLevel, isPriv) {
@@ -1170,8 +1173,17 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
   ];
   function isQualiteBuyable(q) {
     if (!q || !q.id || !q.id.startsWith('qualite-')) return false;
+    // Toujours masqué (auto-accordé aux non-mutants)
+    if (q.id === 'qualite-violent') return false;
+    // PNJ uniquement
+    if (q.pnj_only) return false;
+    // Réservée aux mutants
+    if (String(q.restriction || '').toLowerCase().includes('mutant') && !isMutant) return false;
+    // Nation spécifique (la valeur "Aucune" signifie universel)
+    if (q.nation && q.nation !== 'Aucune' && q.nation !== charNation) return false;
+    // Non-achetables par XP (marquées *)
     for (const p of NO_PX_QUALITY_PREFIXES) if (q.id.startsWith(p)) return false;
-    // Skip variable/unset costs ("+X", "X", NaN, 0)
+    // Coût variable/absent (+X, X, NaN, 0)
     const c = String(q.cost || '');
     const n = parseInt(c);
     if (isNaN(n) || n === 0) return false;
