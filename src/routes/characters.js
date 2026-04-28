@@ -197,7 +197,7 @@ router.patch('/:id/awards', (req, res) => {
   let d = {};
   try { d = JSON.parse(row.data_json); } catch { /* ignore */ }
 
-  const { gloire_delta, panache_delta, px_spend } = req.body;
+  const { gloire_delta, panache_delta, px_spend, px_delta } = req.body;
   if (gloire_delta !== undefined)  d.gloire   = Math.max(0, (d.gloire  ?? 0) + parseInt(gloire_delta  ?? 0));
   if (panache_delta !== undefined) d.panache  = Math.max(1, (d.panache ?? 3) + parseInt(panache_delta ?? 0));
   if (px_spend !== undefined) {
@@ -205,6 +205,11 @@ router.patch('/:id/awards', (req, res) => {
     if (spend < 0) return validationError(res, 'px_spend doit être positif');
     d.px_actuel = Math.max(0, (d.px_actuel ?? 0) - spend);
     d.px_depense = (d.px_depense ?? 0) + spend;
+  }
+  if (px_delta !== undefined) {
+    const amt = parseInt(px_delta ?? 0);
+    d.px_actuel = (d.px_actuel ?? 0) + amt;
+    if (amt > 0) d.px_total = (d.px_total ?? 0) + amt;
   }
 
   const now = new Date().toISOString();

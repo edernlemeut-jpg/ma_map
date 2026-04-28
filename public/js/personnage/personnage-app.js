@@ -286,45 +286,25 @@ function renderCharList(chars) {
 
     // Panneau MJ — expérience et récompenses (onglet Joueurs uniquement)
     if (LIST_TAB === 'joueurs') {
-      let pxTable = 0;
-      try {
-        const rpx = await fetchWithTable(`/api/game_tables/${TABLE_ID}/px`, { credentials: 'include' });
-        if (rpx.ok) { const { data } = await rpx.json(); pxTable = data?.px_table ?? 0; }
-      } catch { /* ignore */ }
-
       const mjPanel = document.createElement('div');
       mjPanel.className = 'bg-gray-800/80 border border-yellow-700/40 rounded-xl p-4 mb-4';
       mjPanel.innerHTML = `
         <p class="text-sm font-semibold text-yellow-300 mb-3">🎖 Récompenses — Table de jeu</p>
-        <div class="flex flex-wrap gap-4 items-end mb-3">
-          <div>
-            <p class="text-xs text-gray-400 mb-1">Total PX attribués à la table</p>
-            <p class="text-2xl font-bold text-yellow-400" id="px-table-display">${pxTable} PX</p>
-          </div>
-          <div class="flex-1 min-w-[140px]">
-            <label class="text-xs text-gray-400 block mb-1">Modifier les PX (à tous les PJs)</label>
-            <div class="flex gap-2">
-              <input type="number" id="px-award-input" min="1" value="500"
-                class="w-24 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm">
-              <button id="btn-award-px" data-sign="1"
-                class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 rounded text-sm font-medium text-white transition-colors">
-                ✚ Donner
-              </button>
-              <button id="btn-remove-px" data-sign="-1"
-                class="px-3 py-1.5 bg-red-800 hover:bg-red-700 rounded text-sm font-medium text-white transition-colors">
-                − Retirer
-              </button>
-            </div>
-          </div>
-        </div>
         ${list.length ? `
         <div>
-          <p class="text-xs text-gray-400 mb-2">Gloire &amp; Panache par joueur</p>
+          <p class="text-xs text-gray-400 mb-2">Récompenses par joueur</p>
           <div class="space-y-2">
             ${list.map(c => `
             <div class="flex items-center gap-3 py-1 border-b border-gray-700/50">
               <span class="text-sm text-gray-300 flex-1 truncate">${esc(c.data?.nom_personnage || c.name)}</span>
-              <span class="text-xs text-gray-500">Gloire <strong class="text-gray-200">${c.data?.gloire ?? 0}</strong></span>
+              <span class="text-xs text-yellow-400">${c.data?.px_actuel ?? 0} PX</span>
+              <input type="number" data-px-for="${c.id}" min="1" value="500"
+                class="w-16 bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-xs text-center">
+              <button data-char-id="${c.id}" data-award="px" data-delta="-1"
+                class="award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-red-800/40 rounded text-xs border border-gray-600 hover:border-red-600 transition-colors">−</button>
+              <button data-char-id="${c.id}" data-award="px" data-delta="1"
+                class="award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-green-800/40 rounded text-xs border border-gray-600 hover:border-green-600 transition-colors">+</button>
+              <span class="text-xs text-gray-500 ml-2">Gloire <strong class="text-gray-200">${c.data?.gloire ?? 0}</strong></span>
               <div class="flex gap-1">
                 <button data-char-id="${c.id}" data-award="gloire" data-delta="-1"
                   class="award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-red-800/40 rounded text-xs border border-gray-600 hover:border-red-600 transition-colors">−</button>
@@ -338,36 +318,23 @@ function renderCharList(chars) {
                 <button data-char-id="${c.id}" data-award="panache" data-delta="1"
                   class="award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-green-800/40 rounded text-xs border border-gray-600 hover:border-green-600 transition-colors">+</button>
               </div>
-              <span class="text-xs text-yellow-400 ml-2">${c.data?.px_actuel ?? 0} PX</span>
             </div>`).join('')}
           </div>
         </div>` : ''}`;
       content.appendChild(mjPanel);
 
-      const handlePxBtn = async (sign) => {
-        const amount = parseInt(mjPanel.querySelector('#px-award-input').value) || 0;
-        if (amount <= 0) return;
-        const delta = sign * amount;
-        const r = await fetchWithTable(`/api/game_tables/${TABLE_ID}/px`, {
-          method: 'PATCH', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ delta }),
-        });
-        if (r.ok) {
-          const { data } = await r.json();
-          mjPanel.querySelector('#px-table-display').textContent = `${data.px_table} PX`;
-          showListView();
-        }
-      };
-      mjPanel.querySelector('#btn-award-px')?.addEventListener('click', () => handlePxBtn(1));
-      mjPanel.querySelector('#btn-remove-px')?.addEventListener('click', () => handlePxBtn(-1));
-
       mjPanel.querySelectorAll('.award-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
           const { charId, award, delta } = btn.dataset;
-          const body = award === 'gloire'
-            ? { gloire_delta: parseInt(delta) }
-            : { panache_delta: parseInt(delta) };
+          let body;
+          if (award === 'gloire')       body = { gloire_delta:  parseInt(delta) };
+          else if (award === 'panache') body = { panache_delta: parseInt(delta) };
+          else if (award === 'px') {
+            const input = mjPanel.querySelector(`[data-px-for="${charId}"]`);
+            const amount = parseInt(input?.value || 500);
+            body = { px_delta: parseInt(delta) * amount };
+          }
+          if (!body) return;
           const r = await fetchWithTable(`/api/characters/${charId}/awards`, {
             method: 'PATCH', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
