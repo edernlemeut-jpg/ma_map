@@ -2621,14 +2621,20 @@ function openBodyModal(body, onSave) {
           </div>
         </div>
         <div class="col-span-2">
-          <label class="block text-xs text-gray-400 mb-1">Astroport</label>
-          <div class="flex gap-2">
-            <input type="text" id="bm-astroport-nom" placeholder="Nom de l'astroport" value="${esc(Array.isArray(body.astroports) && body.astroports[0] ? body.astroports[0].nom || '' : '')}"
-              class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
-            <select id="bm-astroport-qualite" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
-              <option value="">— Qualité —</option>
-              ${['Rudimentaire (D+1)','Standard','Première classe (+1d)'].map(q => `<option value="${esc(q)}" ${Array.isArray(body.astroports) && body.astroports[0]?.type === q ? 'selected' : ''}>${esc(q)}</option>`).join('')}
-            </select>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs text-gray-400">Astroports</label>
+            <button type="button" id="bm-add-astroport" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1 rounded transition-colors">+ Ajouter</button>
+          </div>
+          <div id="bm-astroports-list" class="space-y-1.5">
+            ${(Array.isArray(body.astroports) ? body.astroports : []).map((a, i) => `
+              <div class="bm-astroport-row flex gap-2 items-center">
+                <input type="text" class="bm-ap-nom flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Nom de l'astroport" value="${esc(a.nom || '')}">
+                <select class="bm-ap-qualite bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+                  <option value="">— Qualité —</option>
+                  ${['Rudimentaire (D+1)','Standard','Première classe (+1d)'].map(q => `<option value="${esc(q)}" ${a.type === q ? 'selected' : ''}>${esc(q)}</option>`).join('')}
+                </select>
+                <button type="button" class="bm-del-astroport flex-shrink-0 text-red-500 hover:text-red-400 px-2 py-1 text-xs">✕</button>
+              </div>`).join('')}
           </div>
         </div>
         <div class="col-span-2">
@@ -2686,17 +2692,40 @@ function openBodyModal(body, onSave) {
     });
   }
 
+  // Astroports dynamic list
+  const bindAstroDeleteBtns = () => {
+    subOverlay.querySelectorAll('.bm-del-astroport').forEach(btn => {
+      btn.addEventListener('click', () => btn.closest('.bm-astroport-row').remove());
+    });
+  };
+  bindAstroDeleteBtns();
+  subOverlay.querySelector('#bm-add-astroport').addEventListener('click', () => {
+    const list = subOverlay.querySelector('#bm-astroports-list');
+    const row = document.createElement('div');
+    row.className = 'bm-astroport-row flex gap-2 items-center';
+    row.innerHTML = `
+      <input type="text" class="bm-ap-nom flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Nom de l'astroport">
+      <select class="bm-ap-qualite bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+        <option value="">— Qualité —</option>
+        ${['Rudimentaire (D+1)','Standard','Premi\u00e8re classe (+1d)'].map(q => `<option value="${esc(q)}">${esc(q)}</option>`).join('')}
+      </select>
+      <button type="button" class="bm-del-astroport flex-shrink-0 text-red-500 hover:text-red-400 px-2 py-1 text-xs">✕</button>`;
+    list.appendChild(row);
+    row.querySelector('.bm-del-astroport').addEventListener('click', () => row.remove());
+    row.querySelector('.bm-ap-nom').focus();
+  });
+
   subOverlay.querySelector('#bm-save').addEventListener('click', () => {
     const nom = subOverlay.querySelector('#bm-nom').value.trim();
     if (!nom) { subOverlay.querySelector('#bm-nom').focus(); return; }
     const str = id => subOverlay.querySelector(id)?.value?.trim() || undefined;
     const num = id => { const v = subOverlay.querySelector(id)?.value?.trim(); return v ? Number(v) : undefined; };
     const envChecked = [...subOverlay.querySelectorAll('.bm-env-chk:checked')].map(c => c.value);
-    const astroNom = subOverlay.querySelector('#bm-astroport-nom')?.value?.trim();
-    const astroQualite = subOverlay.querySelector('#bm-astroport-qualite')?.value?.trim();
-    const astroports = astroNom ? [{ nom: astroNom, type: astroQualite || undefined }] : (body.astroports || undefined);
-    const gouvSel = subOverlay.querySelector('#bm-gouv')?.value?.trim();
-    const gouvVal = gouvSel === 'Autre' ? (subOverlay.querySelector('#bm-gouv-autre')?.value?.trim() || undefined) : (gouvSel || undefined);
+    const astroports = [...subOverlay.querySelectorAll('.bm-astroport-row')]
+      .map(row => ({ nom: row.querySelector('.bm-ap-nom')?.value?.trim() || '', type: row.querySelector('.bm-ap-qualite')?.value?.trim() || undefined }))
+      .filter(a => a.nom);
+    const gouvSel2 = subOverlay.querySelector('#bm-gouv')?.value?.trim();
+    const gouvVal = gouvSel2 === 'Autre' ? (subOverlay.querySelector('#bm-gouv-autre')?.value?.trim() || undefined) : (gouvSel2 || undefined);
     const updated = {
       ...body, nom,
       orbite: num('#bm-orbite'), diametre: num('#bm-diametre'),
@@ -2706,7 +2735,7 @@ function openBodyModal(body, onSave) {
       securite: num('#bm-securite'), population: str('#bm-pop'),
       gouvernement: gouvVal,
       environnements: envChecked.length ? envChecked : undefined,
-      astroports: astroports && (Array.isArray(astroports) ? astroports.length : true) ? (Array.isArray(astroports) ? astroports : [astroports]) : undefined,
+      astroports: astroports.length ? astroports : undefined,
       commerce: str('#bm-commerce'),
       marchandiseA: str('#bm-mA'), marchandiseB: str('#bm-mB'), marchandiseC: str('#bm-mC'),
       illegal: str('#bm-illegal'),
