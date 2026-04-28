@@ -1167,7 +1167,7 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
   const NON_XP_QUALITY_IDS = new Set([
     'qualite-beni','qualite-beni-par-la-nature','qualite-carac-exceptionnel',
     'qualite-chanceux','qualite-chromosomes-hyperdenses',
-    'qualite-contact','qualite-contact-boss','qualite-contact-heros','qualite-contact-elite',
+    'qualite-contact',
     'qualite-combattant-des-rues','qualite-defenseur-de-lhumanite-*',
     'qualite-discipline','qualite-dur-en-affaire',
     'qualite-entraînement','qualite-entrainement',

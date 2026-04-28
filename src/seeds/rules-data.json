@@ -1619,48 +1619,6 @@
       "restriction": null
     },
     {
-      "id": "qualite-contact-elite",
-      "type": "Qualité",
-      "name": "Contact Élite",
-      "cost": "+1",
-      "description": "Le personnage dispose dès le début du jeu d'un contact de niveau Élite.",
-      "effects": "Le personnage débute le jeu en disposant déjà d'un contact de niveau Élite.",
-      "prerequisites": null,
-      "references": [
-        "R&P"
-      ],
-      "nation": "Aucune",
-      "restriction": null
-    },
-    {
-      "id": "qualite-contact-heros",
-      "type": "Qualité",
-      "name": "Contact Héros",
-      "cost": "+3",
-      "description": "Le personnage dispose dès le début du jeu d'un contact de niveau Héros.",
-      "effects": "Le personnage débute le jeu en disposant déjà d'un contact de niveau Héros.",
-      "prerequisites": null,
-      "references": [
-        "R&P"
-      ],
-      "nation": "Aucune",
-      "restriction": null
-    },
-    {
-      "id": "qualite-contact-boss",
-      "type": "Qualité",
-      "name": "Contact Boss",
-      "cost": "+5",
-      "description": "Le personnage dispose dès le début du jeu d'un contact de niveau Boss.",
-      "effects": "Le personnage débute le jeu en disposant déjà d'un contact de niveau Boss.",
-      "prerequisites": null,
-      "references": [
-        "R&P"
-      ],
-      "nation": "Aucune",
-      "restriction": null
-    },
-    {
       "id": "qualite-route-dhavanna-illegal",
       "type": "Qualité",
       "name": "Route d'Havanna illégal",

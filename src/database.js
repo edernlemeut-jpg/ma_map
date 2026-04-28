@@ -224,6 +224,11 @@ function upsertTraitsFromSeed() {
        VALUES (?, ?, ?, ?, ?, NULL, 'system')`
     );
     const run = db.transaction(() => {
+      // Supprimer les entrées obsolètes (doublons supprimés)
+      const obsoleteIds = ['qualite-contact-boss', 'qualite-contact-heros', 'qualite-contact-elite'];
+      const del = db.prepare('DELETE FROM rules_entries WHERE id = ? AND table_id IS NULL');
+      for (const id of obsoleteIds) del.run(id);
+
       for (const cat of ['qualites', 'defauts', 'competences']) {
         for (const e of (raw[cat] || [])) {
           const desc = e.description || null;
