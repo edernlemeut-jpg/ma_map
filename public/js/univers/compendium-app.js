@@ -2638,6 +2638,23 @@ function openBodyModal(body, onSave) {
           </div>
         </div>
         <div class="col-span-2">
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs text-gray-400">Système orbital</label>
+            <button type="button" id="bm-add-satellite" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1 rounded transition-colors">+ Ajouter</button>
+          </div>
+          <div id="bm-satellites-list" class="space-y-2">
+            ${(Array.isArray(body.satellites) ? body.satellites : []).map((s, i) => `
+              <div class="bm-satellite-row bg-gray-750 border border-gray-700 rounded p-2 space-y-1.5">
+                <div class="flex gap-2 items-center">
+                  <input type="text" class="bm-sat-nom flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Nom" value="${esc(s.nom || '')}">
+                  <input type="number" class="bm-sat-dist w-28 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Distance (K)" value="${esc(String(s.distance ?? ''))}">
+                  <button type="button" class="bm-del-satellite flex-shrink-0 text-red-500 hover:text-red-400 px-2 py-1 text-xs">✕</button>
+                </div>
+                <input type="text" class="bm-sat-desc w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-400 focus:outline-none focus:border-blue-500" placeholder="Description" value="${esc(s.description || '')}">
+              </div>`).join('')}
+          </div>
+        </div>
+        <div class="col-span-2">
           <label class="block text-xs text-gray-400 mb-1">Commerce</label>
           <select id="bm-commerce" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 mb-2">
             <option value="">— Choisir —</option>
@@ -2715,6 +2732,29 @@ function openBodyModal(body, onSave) {
     row.querySelector('.bm-ap-nom').focus();
   });
 
+  // Système orbital (satellites) dynamic list
+  const bindSatDeleteBtns = () => {
+    subOverlay.querySelectorAll('.bm-del-satellite').forEach(btn => {
+      btn.addEventListener('click', () => btn.closest('.bm-satellite-row').remove());
+    });
+  };
+  bindSatDeleteBtns();
+  subOverlay.querySelector('#bm-add-satellite').addEventListener('click', () => {
+    const list = subOverlay.querySelector('#bm-satellites-list');
+    const row = document.createElement('div');
+    row.className = 'bm-satellite-row bg-gray-750 border border-gray-700 rounded p-2 space-y-1.5';
+    row.innerHTML = `
+      <div class="flex gap-2 items-center">
+        <input type="text" class="bm-sat-nom flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Nom">
+        <input type="number" class="bm-sat-dist w-28 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Distance (K)">
+        <button type="button" class="bm-del-satellite flex-shrink-0 text-red-500 hover:text-red-400 px-2 py-1 text-xs">✕</button>
+      </div>
+      <input type="text" class="bm-sat-desc w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-400 focus:outline-none focus:border-blue-500" placeholder="Description">`;
+    list.appendChild(row);
+    row.querySelector('.bm-del-satellite').addEventListener('click', () => row.remove());
+    row.querySelector('.bm-sat-nom').focus();
+  });
+
   subOverlay.querySelector('#bm-save').addEventListener('click', () => {
     const nom = subOverlay.querySelector('#bm-nom').value.trim();
     if (!nom) { subOverlay.querySelector('#bm-nom').focus(); return; }
@@ -2724,6 +2764,9 @@ function openBodyModal(body, onSave) {
     const astroports = [...subOverlay.querySelectorAll('.bm-astroport-row')]
       .map(row => ({ nom: row.querySelector('.bm-ap-nom')?.value?.trim() || '', type: row.querySelector('.bm-ap-qualite')?.value?.trim() || undefined }))
       .filter(a => a.nom);
+    const satellites = [...subOverlay.querySelectorAll('.bm-satellite-row')]
+      .map(row => ({ nom: row.querySelector('.bm-sat-nom')?.value?.trim() || '', distance: row.querySelector('.bm-sat-dist')?.value?.trim() ? Number(row.querySelector('.bm-sat-dist').value.trim()) : undefined, description: row.querySelector('.bm-sat-desc')?.value?.trim() || undefined }))
+      .filter(s => s.nom);
     const gouvSel2 = subOverlay.querySelector('#bm-gouv')?.value?.trim();
     const gouvVal = gouvSel2 === 'Autre' ? (subOverlay.querySelector('#bm-gouv-autre')?.value?.trim() || undefined) : (gouvSel2 || undefined);
     const updated = {
@@ -2736,6 +2779,7 @@ function openBodyModal(body, onSave) {
       gouvernement: gouvVal,
       environnements: envChecked.length ? envChecked : undefined,
       astroports: astroports.length ? astroports : undefined,
+      satellites: satellites.length ? satellites : undefined,
       commerce: str('#bm-commerce'),
       marchandiseA: str('#bm-mA'), marchandiseB: str('#bm-mB'), marchandiseC: str('#bm-mC'),
       illegal: str('#bm-illegal'),
