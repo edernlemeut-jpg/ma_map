@@ -91,6 +91,24 @@ function origineChoixTypeOptions(compName) {
   return null; // texte libre
 }
 
+// ── Variable-cost trait levels (accessible partout dans le module) ────────────
+const VARIABLE_TRAIT_LEVELS = {
+  'qualite-contact':         [1, 3, 5],
+  'qualite-entraînement':    [1, 2, 3, 4, 5],
+  'qualite-gloire':          [1, 2, 3, 4, 5],
+  'qualite-heroïque':        [1, 2, 3, 4, 5],
+  'qualite-pacifiste':       [1, 3, 5],
+  'qualite-riche':           [1, 2, 3, 4, 5],
+  'qualite-route-dhavana':   [1, 3, 5],
+  'qualite-tresor':          [1, 2, 3, 4, 5],
+  'defaut-dettes':           [1, 2, 3, 4, 5],
+  'defaut-dette-dhonneur':   [1, 2, 3, 4, 5],
+  'defaut-hook ':            [1, 3, 5],
+  'defaut-signe-distinctif': [1, 3, 5],
+  'defaut-vengeance ':       [1, 3, 5],
+  'defaut-wanted':           [1, 3, 5],
+};
+
 // ── State global ──────────────────────────────────────────────────────────────
 let REF = null;          // données de référence
 let MODE = null;         // 'list' | 'wizard-pj' | 'wizard-pnj' | 'sheet'
@@ -1141,24 +1159,6 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
     const n = Math.abs(parseInt(q.cost) || 0);
     return n * 1000;
   }
-
-  // Variable-cost trait IDs and their selectable point levels
-  const VARIABLE_TRAIT_LEVELS = {
-    'qualite-contact':         [1, 3, 5],
-    'qualite-entraînement':    [1, 2, 3, 4, 5],
-    'qualite-gloire':          [1, 2, 3, 4, 5],
-    'qualite-heroïque':        [1, 2, 3, 4, 5],
-    'qualite-pacifiste':       [1, 3, 5],
-    'qualite-riche':           [1, 2, 3, 4, 5],
-    'qualite-route-dhavana':   [1, 3, 5],
-    'qualite-tresor':          [1, 2, 3, 4, 5],
-    'defaut-dettes':           [1, 2, 3, 4, 5],
-    'defaut-dette-dhonneur':   [1, 2, 3, 4, 5],
-    'defaut-hook ':            [1, 3, 5],
-    'defaut-signe-distinctif': [1, 3, 5],
-    'defaut-vengeance ':       [1, 3, 5],
-    'defaut-wanted':           [1, 3, 5],
-  };
 
   // Non-buyable quality ids (wildcard suffix or variable-cost)
   const NON_XP_QUALITY_PREFIXES = new Set([
