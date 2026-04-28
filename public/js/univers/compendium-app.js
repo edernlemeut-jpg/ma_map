@@ -354,7 +354,7 @@ function openDetailSheet(entityType, entity) {
         ${corps.length ? buildCollapsible('ds-corps', `🪐 Corps célestes (${corps.length})`,
           `<div class="space-y-2">${corps.map(b => bodyRowHtml(b)).join('')}</div>`, false) : ''}
         ${(corps.length || hasSoleil) ? buildCollapsible('ds-matrix', '📐 Matrice des distances', buildDistanceMatrix(soleil, corps), false) : ''}
-      </div>;
+      </div>`;
 
   } else if (entityType === 'factions') {
     const f = entity;
