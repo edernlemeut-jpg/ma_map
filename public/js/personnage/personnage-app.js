@@ -1120,9 +1120,6 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
   const pxTotal   = d.px_total   ?? 0;
   const pxDepense = d.px_depense ?? 0;
   const hasGenesEvolutifs = (d.mutations_ids || []).includes('mutation-genes-evolutifs');
-  const isMutant   = !!d.is_mutant;
-  const origChar   = d.origine_id ? (REF?.origines?.find(o => o.id === d.origine_id) || null) : null;
-  const charNation = origChar?.nation || null;
 
   // XP cost for next skill level
   function compCost(currentLevel, isPriv) {
@@ -1136,57 +1133,47 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
     return n * 1000;
   }
 
-  // Qualités non-achetables par XP (marquées * dans les règles)
-  const NO_PX_QUALITY_PREFIXES = [
-    'qualite-beni',                   // Béni, Béni par la nature
-    'qualite-buveur-emerite',
-    'qualite-chanceux',
-    'qualite-chromosomes-hyperdenses',
-    'qualite-combattant-des-rues',
-    'qualite-contact',
-    'qualite-defenseur',              // Défenseur de l'humanité
-    'qualite-discipline',             // Discipliné
-    'qualite-dur-en-affaire',
-    'qualite-entrainement',           // Entraînement
-    'qualite-entraînement',
-    'qualite-escrimeur',
-    'qualite-et-une-bouteille',       // Et une bouteille de rhum !
-    'qualite-genie',                  // Génie
-    'qualite-gloire',
-    'qualite-guerison-miraculeuse',   // Guérison miraculeuse
-    'qualite-guerison',               // variante sans accent
-    'qualite-idealiste',              // Idéaliste
-    'qualite-loup-de-mer',
-    'qualite-mutant-costaud',
-    'qualite-mutant-furtif',
-    'qualite-mutant-sympathique',
-    'qualite-mystique',
-    'qualite-parrain',
-    'qualite-prestige',
-    'qualite-riche',
-    'qualite-route-dhavana',
-    'qualite-taille-anormale',
-    'qualite-teigneux',
-    'qualite-terrifiant',
-    'qualite-tireur',                 // Tireur d'élite
-    'qualite-vieux-routard',
-  ];
-  function isQualiteBuyable(q) {
-    if (!q || !q.id || !q.id.startsWith('qualite-')) return false;
-    // Toujours masqué (auto-accordé aux non-mutants)
-    if (q.id === 'qualite-violent') return false;
-    // PNJ uniquement
+  // IDs non-achetables par XP (marqués * dans la liste officielle)
+  const NON_XP_QUALITY_IDS = new Set([
+    'qualite-beni','qualite-beni-par-la-nature','qualite-carac-exceptionnel',
+    'qualite-chanceux','qualite-chromosomes-hyperdenses',
+    'qualite-contact','qualite-contact-boss','qualite-contact-heros','qualite-contact-elite',
+    'qualite-combattant-des-rues','qualite-defenseur-de-lhumanite-*',
+    'qualite-discipline','qualite-dur-en-affaire',
+    'qualite-entraînement','qualite-entrainement',
+    'qualite-escrimeur','qualite-et-une-bouteille-de-rhum-',
+    'qualite-genie','qualite-gloire','qualite-guerison-miraculeuse',
+    'qualite-idealiste','qualite-loup-de-mer',
+    'qualite-mutant-sympathique','qualite-mutant-costaud','qualite-mutant-furtif',
+    'qualite-mystique','qualite-parrain','qualite-prestige',
+    'qualite-riche','qualite-route-dhavana',
+    'qualite-taille-anormale','qualite-teigneux','qualite-terrifiant',
+    'qualite-tireur-delite','qualite-vieux-routard',
+  ]);
+
+  const charOrig     = REF?.origines?.find(o => o.id === d.origine_id) ?? null;
+  const charNation   = charOrig?.nation ?? null;
+  const charIsMutant = !!d.is_mutant;
+
+  // Nation label → faction_icon_url
+  const nationIconMap = {};
+  for (const n of (REF?.nations || [])) {
+    if (n.name && n.faction_icon_url) nationIconMap[n.name] = n.faction_icon_url;
+  }
+
+  function qualityVisibleForChar(q) {
+    if (!q?.id || !q.id.startsWith('qualite-')) return false;
     if (q.pnj_only) return false;
-    // Réservée aux mutants
-    if (String(q.restriction || '').toLowerCase().includes('mutant') && !isMutant) return false;
-    // Nation spécifique (la valeur "Aucune" signifie universel)
+    if (NON_XP_QUALITY_IDS.has(q.id)) return false;
+    // Mutant-only (champ restriction)
+    const restr = String(q.restriction || '').toLowerCase();
+    if (restr.includes('mutant') && !charIsMutant) return false;
+    // Nation-spécifique : visible seulement si même nation que le personage
     if (q.nation && q.nation !== 'Aucune' && q.nation !== charNation) return false;
-    // Non-achetables par XP (marquées *)
-    for (const p of NO_PX_QUALITY_PREFIXES) if (q.id.startsWith(p)) return false;
-    // Coût variable/absent (+X, X, NaN, 0)
+    // Coût variable ou nul
     const c = String(q.cost || '');
     const n = parseInt(c);
-    if (isNaN(n) || n === 0) return false;
+    if (c.toUpperCase().includes('X') || isNaN(n) || n === 0) return false;
     return true;
   }
 
@@ -1287,34 +1274,38 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
   }).join('');
 
   // ── Qualités ───────────────────────────────────────────────────────────────
-  const listableQ = (REF?.qualites || []).filter(q => isQualiteBuyable(q));
-  const qRows = listableQ.length
-    ? listableQ.map(q => {
-        const owned = ownedQualites.has(q.id);
-        const cost  = qualityCost(q);
-        const badge = owned
-          ? `<span class="text-xs px-2 py-1 rounded bg-gray-700 text-green-400">✓ Acquise</span>`
-          : buyBtn('qualite', q.id, cost);
-        // Icône de faction si qualité liée à une nation
-        const nationObj = q.nation && q.nation !== 'Aucune'
-          ? (REF?.nations?.find(n => n.nom === q.nation || n.id === q.nation) || null)
-          : null;
-        const iconHtml = nationObj?.faction_icon_url
-          ? `<img src="${esc(nationObj.faction_icon_url)}" alt="${esc(q.nation)}" title="${esc(q.nation)}" class="w-4 h-4 object-contain flex-shrink-0">`
-          : (nationObj ? `<span title="${esc(q.nation)}" class="text-xs">⚓</span>` : '');
-        // Restriction
-        const restr = q.restriction ? `<span class="text-gray-500 italic truncate max-w-[110px]" title="${esc(q.restriction)}">${esc(q.restriction)}</span>` : '';
-        return `<div class="flex items-center gap-2 py-1.5 border-b border-gray-800 text-xs">
-          ${iconHtml}
+  const visibleQ = (REF?.qualites || []).filter(qualityVisibleForChar);
+  const qRows = visibleQ.length
+    ? visibleQ.map(q => {
+        const cost    = qualityCost(q);
+        const owned   = ownedQualites.has(q.id);
+        const tooExp  = !owned && pxActuel < cost;
+        const factionIcon = (q.nation && q.nation !== 'Aucune' && nationIconMap[q.nation])
+          ? `<img src="${esc(nationIconMap[q.nation])}" alt="${esc(q.nation)}" class="w-4 h-4 rounded-sm object-cover flex-shrink-0" title="${esc(q.nation)}">`
+          : '<span class="w-4 h-4 flex-shrink-0"></span>';
+        const restrictText = q.restriction
+          ? `<span class="text-orange-400 truncate max-w-[140px] text-right" title="${esc(q.restriction)}">${esc(q.restriction)}</span>`
+          : '';
+        let btnHtml;
+        if (owned) {
+          btnHtml = `<button disabled class="text-xs px-2 py-1 rounded bg-gray-700 text-green-600 cursor-not-allowed" title="Déjà possédée">✔ Acquise</button>`;
+        } else {
+          const tit = tooExp ? 'PX insuffisants' : `Acheter pour ${cost.toLocaleString('fr-FR')} PX`;
+          btnHtml = `<button class="xp-buy-btn text-xs px-2 py-1 rounded ${ tooExp ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-purple-700 hover:bg-purple-600 text-white'}" ${ tooExp ? 'disabled' : ''} data-xp-type="qualite" data-xp-key="${encodeURIComponent(q.id)}" data-xp-cost="${cost}" title="${esc(tit)}">${cost.toLocaleString('fr-FR')} PX</button>`;
+        }
+        return `<div class="flex items-center gap-2 py-1.5 border-b border-gray-800 text-xs${owned ? ' opacity-50' : ''}">
+          ${factionIcon}
           <div class="flex-1 min-w-0">
-            <span class="${owned ? 'text-gray-500' : 'text-blue-300'}">${esc(q.name)}</span>
+            <span class="${owned ? 'text-gray-400 line-through' : 'text-blue-300'}">${esc(q.name)}</span>
             ${q.description ? `<p class="text-gray-500 mt-0.5 truncate">${esc(q.description)}</p>` : ''}
           </div>
-          ${restr}
-          ${badge}
+          <div class="flex items-center gap-2 flex-shrink-0">
+            ${restrictText}
+            ${btnHtml}
+          </div>
         </div>`;
       }).join('')
-    : '<p class="text-gray-500 text-xs">Aucune qualité disponible à l\'achat.</p>';
+    : '<p class="text-gray-500 text-xs">Aucune qualité disponible pour ce personnage.</p>';
 
   // ── Mutations ──────────────────────────────────────────────────────────────
   let mutSection = '';
