@@ -335,6 +335,7 @@ function openDetailSheet(entityType, entity) {
         ${s.route ? `<span class="bg-gray-700 px-2 py-1 rounded text-gray-300 text-xs">🛣️ ${esc(s.route)}</span>` : ''}
         ${s.is_frontiere ? `<span class="bg-amber-900/60 text-amber-300 px-2 py-1 rounded text-xs">⚠️ Zone frontière</span>` : ''}
       </div>
+      ${s.texte_ambiance ? `<p class="text-sm text-gray-400 italic mb-2 leading-relaxed">${esc(s.texte_ambiance)}</p>` : ''}
       ${s.description ? `<p class="text-sm text-gray-300 mb-4 leading-relaxed">${esc(s.description)}</p>` : ''}
       <div class="space-y-3">
         ${hasSoleil ? buildCollapsible('ds-soleil', `☀️ Étoile${soleil.nom ? ' : ' + esc(soleil.nom) : ''}`, `
@@ -343,6 +344,7 @@ function openDetailSheet(entityType, entity) {
             ${soleil.diametre ? `<div><dt class="text-gray-500 text-xs">Diamètre</dt><dd>${esc(String(soleil.diametre))} K</dd></div>` : ''}
             ${soleil.distanceSaut ? `<div><dt class="text-gray-500 text-xs">Limite de saut</dt><dd class="text-blue-300 font-semibold">${esc(String(soleil.distanceSaut))} US</dd></div>` : ''}
           </dl>
+          ${soleil.texte_ambiance ? `<p class="text-xs text-gray-400 italic mb-2 leading-relaxed">${esc(soleil.texte_ambiance)}</p>` : ''}
           ${soleil.description ? `<p class="text-xs text-gray-400 leading-relaxed">${esc(soleil.description)}</p>` : ''}
           ${Array.isArray(soleil.activiteSolaire) && soleil.activiteSolaire.length ? `
             <p class="text-xs text-gray-400 font-semibold mt-3 mb-1">Activité solaire :</p>
@@ -501,6 +503,7 @@ function renderPlanets(panel, _ignore) {
         ${sys.gouvernement ? `<div><dt class="text-gray-500 text-xs">Gouvernement</dt><dd class="text-gray-200">${esc(sys.gouvernement)}</dd></div>` : ''}
         ${sys.route ? `<div><dt class="text-gray-500 text-xs">Route</dt><dd class="text-gray-200">${esc(sys.route)}</dd></div>` : ''}
         ${sys.is_frontiere ? `<div class="col-span-2"><dd class="text-amber-400 text-xs mt-1">⚠️ Zone de Frontière</dd></div>` : ''}
+        ${sys.texte_ambiance ? `<div class="col-span-2 mt-1"><dt class="text-gray-500 text-xs mb-1">Texte d'ambiance</dt><dd class="text-gray-400 italic leading-relaxed">${esc(sys.texte_ambiance)}</dd></div>` : ''}
         ${sys.description ? `<div class="col-span-2 mt-1"><dt class="text-gray-500 text-xs mb-1">Description</dt><dd class="text-gray-300 leading-relaxed">${esc(sys.description)}</dd></div>` : (!sys.gouvernement && !sys.route ? '<div class="col-span-2"><dd class="text-gray-600 italic text-xs">Aucune donnée.</dd></div>' : '')}
       </dl>`;
 
@@ -512,6 +515,7 @@ function renderPlanets(panel, _ignore) {
         ${soleil.diametre ? `<div><dt class="text-gray-500 text-xs">Diamètre</dt><dd class="text-gray-200">${esc(String(soleil.diametre))} K</dd></div>` : ''}
         ${soleil.distanceSaut ? `<div><dt class="text-gray-500 text-xs">Limite de saut</dt><dd class="text-blue-300 font-semibold">${esc(String(soleil.distanceSaut))} US</dd></div>` : ''}
       </dl>
+      ${soleil.texte_ambiance ? `<p class="text-sm text-gray-400 italic mb-2 leading-relaxed">${esc(soleil.texte_ambiance)}</p>` : ''}
       ${soleil.description ? `<p class="text-sm text-gray-400 mb-3 leading-relaxed">${esc(soleil.description)}</p>` : ''}
       ${Array.isArray(soleil.activiteSolaire) && soleil.activiteSolaire.length ? `
         <p class="text-xs text-gray-400 font-semibold mb-2">Activité solaire :</p>
@@ -2319,6 +2323,7 @@ function openSystemModal(system) {
           </select>
         </div>
         <div class="flex items-end">${chk('fms-frontiere', 'Zone frontière', system?.is_frontiere)}</div>
+        <div class="col-span-2">${ta('fms-texte-ambiance', 'Texte d\'ambiance', system?.texte_ambiance)}</div>
         <div class="col-span-2">${ta('fms-description', 'Description', system?.description)}</div>
       </div>
 
@@ -2338,6 +2343,7 @@ function openSystemModal(system) {
           </div>
           ${field('fms-sol-diametre', 'Diamètre', 'number', soleil.diametre, 'K')}
           ${field('fms-sol-saut', 'Limite de saut', 'number', soleil.distanceSaut, 'US')}
+          <div class="col-span-2">${ta('fms-sol-texte-ambiance', 'Texte d\'ambiance étoile', soleil.texte_ambiance)}</div>
           <div class="col-span-2">${ta('fms-sol-desc', 'Description étoile', soleil.description)}</div>
         </div>
       </div>
@@ -2509,9 +2515,10 @@ function openSystemModal(system) {
     // Build soleil_json
     const solNom = str('#fms-sol-nom');
     const solClasse = readDropdownAutre('#fms-sol-classe', '#fms-sol-classe-autre');
-    const solDiam = num('#fms-sol-diametre'), solSaut = num('#fms-sol-saut'), solDesc = str('#fms-sol-desc');
-    const soleilObj = (solNom || solClasse || solDiam || solSaut || solDesc)
-      ? { nom: solNom, classe: solClasse, diametre: solDiam, distanceSaut: solSaut, description: solDesc, ...((soleil.activiteSolaire) ? { activiteSolaire: soleil.activiteSolaire } : {}) }
+    const solDiam = num('#fms-sol-diametre'), solSaut = num('#fms-sol-saut');
+    const solTexteAmbiance = str('#fms-sol-texte-ambiance'), solDesc = str('#fms-sol-desc');
+    const soleilObj = (solNom || solClasse || solDiam || solSaut || solTexteAmbiance || solDesc)
+      ? { nom: solNom, classe: solClasse, diametre: solDiam, distanceSaut: solSaut, texte_ambiance: solTexteAmbiance, description: solDesc, ...((soleil.activiteSolaire) ? { activiteSolaire: soleil.activiteSolaire } : {}) }
       : {};
 
     const body = {
@@ -2520,6 +2527,7 @@ function openSystemModal(system) {
       gouvernement: readDropdownAutre('#fms-gouvernement', '#fms-gouvernement-autre') || null,
       route: overlay.querySelector('#fms-route')?.value?.trim() || null,
       is_frontiere: overlay.querySelector('#fms-frontiere').checked ? 1 : 0,
+      texte_ambiance: str('#fms-texte-ambiance') || null,
       description: str('#fms-description') || null,
       soleil_json: Object.keys(soleilObj).length ? JSON.stringify(soleilObj) : null,
       corps_celestes_json: corps.length ? JSON.stringify(corps) : null,
