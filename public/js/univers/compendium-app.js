@@ -2593,7 +2593,7 @@ function openBodyModal(body, onSave) {
         </div>
         <div>
           <label class="block text-xs text-gray-400 mb-1">Niveau technologique</label>
-          <input type="number" id="bm-techno" value="${esc(String(body.techno ?? ''))}" min="1" max="16"
+          <input type="text" id="bm-techno" value="${esc(String(body.techno ?? ''))}" placeholder="A, B, C…"
             class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
         </div>
         <div>
@@ -2602,7 +2602,15 @@ function openBodyModal(body, onSave) {
             class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
         </div>
         ${sf('bm-pop', 'Population', 'text', body.population)}
-        ${sf('bm-gouv', 'Gouvernement', 'text', body.gouvernement)}
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Gouvernement</label>
+          <select id="bm-gouv" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+            <option value="">— Aucun —</option>
+            ${['Anarchie','Collectivisme','Corporatiste','Démocratie','Dictature','Monarchie','Autre'].map(g => `<option value="${esc(g)}" ${body.gouvernement === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}
+          </select>
+          <input type="text" id="bm-gouv-autre" placeholder="Préciser…" value="${esc(body.gouvernement && !['Anarchie','Collectivisme','Corporatiste','Démocratie','Dictature','Monarchie','Autre'].includes(body.gouvernement) ? body.gouvernement : '')}"
+            class="mt-1 w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 ${body.gouvernement && !['Anarchie','Collectivisme','Corporatiste','Démocratie','Dictature','Monarchie','Autre'].includes(body.gouvernement) ? '' : 'hidden'}">
+        </div>
         <div class="col-span-2">
           <label class="block text-xs text-gray-400 mb-1">Environnements</label>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
@@ -2669,6 +2677,15 @@ function openBodyModal(body, onSave) {
   subOverlay.querySelector('#bm-cancel').addEventListener('click', closeBody);
   subOverlay.addEventListener('click', e => { if (e.target === subOverlay) closeBody(); });
 
+  // Wire gouvernement Autre dropdown
+  const gouvSel = subOverlay.querySelector('#bm-gouv');
+  const gouvAutre = subOverlay.querySelector('#bm-gouv-autre');
+  if (gouvSel && gouvAutre) {
+    gouvSel.addEventListener('change', () => {
+      gouvAutre.classList.toggle('hidden', gouvSel.value !== 'Autre');
+    });
+  }
+
   subOverlay.querySelector('#bm-save').addEventListener('click', () => {
     const nom = subOverlay.querySelector('#bm-nom').value.trim();
     if (!nom) { subOverlay.querySelector('#bm-nom').focus(); return; }
@@ -2678,14 +2695,16 @@ function openBodyModal(body, onSave) {
     const astroNom = subOverlay.querySelector('#bm-astroport-nom')?.value?.trim();
     const astroQualite = subOverlay.querySelector('#bm-astroport-qualite')?.value?.trim();
     const astroports = astroNom ? [{ nom: astroNom, type: astroQualite || undefined }] : (body.astroports || undefined);
+    const gouvSel = subOverlay.querySelector('#bm-gouv')?.value?.trim();
+    const gouvVal = gouvSel === 'Autre' ? (subOverlay.querySelector('#bm-gouv-autre')?.value?.trim() || undefined) : (gouvSel || undefined);
     const updated = {
       ...body, nom,
       orbite: num('#bm-orbite'), diametre: num('#bm-diametre'),
       atmosphere: str('#bm-atmos'),
       gravite: str('#bm-gravite'),
-      techno: num('#bm-techno'),
+      techno: str('#bm-techno'),
       securite: num('#bm-securite'), population: str('#bm-pop'),
-      gouvernement: str('#bm-gouv'),
+      gouvernement: gouvVal,
       environnements: envChecked.length ? envChecked : undefined,
       astroports: astroports && (Array.isArray(astroports) ? astroports.length : true) ? (Array.isArray(astroports) ? astroports : [astroports]) : undefined,
       commerce: str('#bm-commerce'),
