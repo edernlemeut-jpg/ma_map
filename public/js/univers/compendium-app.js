@@ -821,7 +821,11 @@ function renderSystems(panel, systems) {
   const ss = state.systemsSort;
 
   panel.innerHTML = `
-    ${canEdit ? `<div class="mb-4 flex justify-end"><button id="btn-new-system" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors min-h-[40px]">+ Nouveau système</button></div>` : ''}
+    ${canEdit ? `<div class="mb-4 flex justify-end gap-2">
+      <input type="file" id="import-systems-file" accept=".json" class="hidden">
+      <button id="btn-import-systems" class="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm transition-colors min-h-[40px]">⬆ Importer JSON</button>
+      <button id="btn-new-system" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors min-h-[40px]">+ Nouveau système</button>
+    </div>` : ''}
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead>
@@ -868,6 +872,31 @@ function renderSystems(panel, systems) {
   render();
   if (canEdit) {
     panel.querySelector('#btn-new-system')?.addEventListener('click', () => openSystemModal(null));
+    panel.querySelector('#btn-import-systems')?.addEventListener('click', () => {
+      panel.querySelector('#import-systems-file').click();
+    });
+    panel.querySelector('#import-systems-file')?.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!Array.isArray(data)) throw new Error('Le fichier doit contenir un tableau JSON.');
+        const r = await fetchWithTable('/api/systems/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const json = await r.json();
+        if (!r.ok) throw new Error(json.error?.message || `Erreur ${r.status}`);
+        state.systems.push(...json.data);
+        renderActiveTab();
+      } catch (ex) {
+        alert(`Erreur d'import : ${ex.message}`);
+      } finally {
+        e.target.value = '';
+      }
+    });
   }
 }
 

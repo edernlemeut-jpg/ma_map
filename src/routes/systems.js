@@ -35,6 +35,31 @@ router.post('/', (req, res) => {
   success(res, result);
 });
 
+router.post('/bulk', (req, res) => {
+  if (!req.table || req.table.role !== 'mj') {
+    return forbidden(res);
+  }
+  const items = req.body;
+  if (!Array.isArray(items) || items.length === 0) {
+    return validationError(res, 'Un tableau de systèmes non vide est requis');
+  }
+  const JSON_FIELDS = ['soleil_json', 'corps_celestes_json', 'patrouilles_json'];
+  const results = [];
+  for (const fields of items) {
+    if (!fields.nom || !String(fields.nom).trim()) continue;
+    if (!fields.quadrant || !String(fields.quadrant).trim()) continue;
+    const safe = { ...fields };
+    delete safe.id;
+    delete safe.visible;
+    for (const f of JSON_FIELDS) {
+      if (safe[f] !== undefined && typeof safe[f] !== 'string') safe[f] = JSON.stringify(safe[f]);
+    }
+    const r = createSystem(safe);
+    if (r) results.push(r);
+  }
+  success(res, results);
+});
+
 router.patch('/:id', (req, res) => {
   if (!req.table || req.table.role !== 'mj') {
     return forbidden(res);
