@@ -502,15 +502,6 @@ function renderAndAttachSheet(container, char) {
         return;
       }
       const d = char.data;
-      try {
-        const r = await fetchWithTable(`${API.characters}/${char.id}/awards`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ px_spend: cost }),
-        });
-        if (!r.ok) { alert('Erreur lors de la dépense de PX.'); return; }
-      } catch { alert('Erreur réseau.'); return; }
       d.specialites_xp = d.specialites_xp || {};
       d.specialites_xp[compName] = specValue;
       d.px_actuel  = Math.max(0, (d.px_actuel  || 0) - cost);
@@ -569,17 +560,7 @@ function renderAndAttachSheet(container, char) {
       const type = btn.dataset.xpType;
       const key  = decodeURIComponent(btn.dataset.xpKey);
       const d = char.data;
-      // 1. Deduct PX
-      try {
-        const r = await fetchWithTable(`${API.characters}/${char.id}/awards`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ px_spend: cost }),
-        });
-        if (!r.ok) { alert('Erreur lors de la dépense de PX.'); return; }
-      } catch { alert('Erreur réseau.'); return; }
-      // 2. Apply purchase to char.data
+      // 1. Apply purchase to char.data
       if (type === 'attr') {
         d.attributs_xp = d.attributs_xp || {};
         d.attributs_xp[key] = (d.attributs_xp[key] || 0) + 1;
@@ -593,7 +574,7 @@ function renderAndAttachSheet(container, char) {
       }
       d.px_actuel  = (d.px_actuel  || 0) - cost;
       d.px_depense = (d.px_depense || 0) + cost;
-      // 3. Save & re-render
+      // 2. Save & re-render
       await patchSheet(char);
       renderAndAttachSheet(container, char);
     });
