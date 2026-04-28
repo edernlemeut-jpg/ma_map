@@ -311,12 +311,14 @@ function openDetailSheet(entityType, entity) {
         body.techno ? `Tech : ${body.techno}` : null,
         body.gouvernement ? `Gouv : ${body.gouvernement}` : null,
         body.population ? `Pop : ${body.population}` : null,
-        body.securite != null ? `Sécu : ${body.securite}/20` : null,
+        body.securite != null ? `Sécu : ${body.securite}` : null,
         body.commerce ? `Commerce : ${body.commerce}` : null,
       ].filter(Boolean);
       const inner = `
+        ${body.texte_ambiance ? `<p class="text-xs text-gray-400 italic mb-1 leading-relaxed">${esc(body.texte_ambiance)}</p>` : ''}
         ${body.description ? `<p class="text-xs text-gray-400 mb-2 leading-relaxed">${esc(body.description)}</p>` : ''}
         ${stats.length ? `<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-300 mb-2">${stats.map(v => `<span>${esc(v)}</span>`).join('')}</div>` : ''}
+        ${Array.isArray(body.environnements) && body.environnements.length ? `<p class="text-xs text-gray-400 mb-1">🌍 ${body.environnements.map(e => esc(e)).join(', ')}</p>` : ''}
         ${Array.isArray(body.lunes) && body.lunes.length ? `<div class="mt-2 space-y-1.5 pl-2 border-l border-gray-700">${body.lunes.map(l => bodyRowHtml(l, depth + 1)).join('')}</div>` : ''}`;
       const uid = `ds-b-${depth}-${Math.random().toString(36).slice(2, 8)}`;
       return buildCollapsible(uid, `${icon} ${esc(body.nom || '?')}${orbStr}`, inner, true);
@@ -337,7 +339,7 @@ function openDetailSheet(entityType, entity) {
       <div class="space-y-3">
         ${hasSoleil ? buildCollapsible('ds-soleil', `☀️ Étoile${soleil.nom ? ' : ' + esc(soleil.nom) : ''}`, `
           <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-3">
-            ${soleil.classe ? `<div><dt class="text-gray-500 text-xs">Classe spectrale</dt><dd class="text-yellow-300">${esc(soleil.classe)}</dd></div>` : ''}
+            ${soleil.classe ? `<div><dt class="text-gray-500 text-xs">Classe</dt><dd class="text-yellow-300">${esc(soleil.classe)}</dd></div>` : ''}
             ${soleil.diametre ? `<div><dt class="text-gray-500 text-xs">Diamètre</dt><dd>${esc(String(soleil.diametre))} K</dd></div>` : ''}
             ${soleil.distanceSaut ? `<div><dt class="text-gray-500 text-xs">Limite de saut</dt><dd class="text-blue-300 font-semibold">${esc(String(soleil.distanceSaut))} US</dd></div>` : ''}
           </dl>
@@ -352,12 +354,7 @@ function openDetailSheet(entityType, entity) {
         ${corps.length ? buildCollapsible('ds-corps', `🪐 Corps célestes (${corps.length})`,
           `<div class="space-y-2">${corps.map(b => bodyRowHtml(b)).join('')}</div>`, false) : ''}
         ${(corps.length || hasSoleil) ? buildCollapsible('ds-matrix', '📐 Matrice des distances', buildDistanceMatrix(soleil, corps), false) : ''}
-        ${patrouilles.length ? buildCollapsible('ds-patr', '👮 Patrouilles système', `
-          <table class="w-full text-xs border-collapse">
-            <thead><tr class="border-b border-gray-700"><th class="text-left pb-1 pr-6 text-gray-500">Vaisseaux</th><th class="text-left pb-1 text-gray-500">Coût</th></tr></thead>
-            <tbody>${patrouilles.map(p => `<tr class="border-b border-gray-800"><td class="py-1 pr-6 text-gray-400">${esc(p.vaisseaux || '—')}</td><td class="py-1 text-gray-400">${esc(p.cout || '—')}</td></tr>`).join('')}</tbody>
-          </table>`, false) : ''}
-      </div>`;
+      </div>;
 
   } else if (entityType === 'factions') {
     const f = entity;
@@ -511,7 +508,7 @@ function renderPlanets(panel, _ignore) {
     const soleilContent = hasSoleil ? `
       <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-3">
         ${soleil.nom ? `<div><dt class="text-gray-500 text-xs">Nom</dt><dd class="text-gray-200">${esc(soleil.nom)}</dd></div>` : ''}
-        ${soleil.classe ? `<div><dt class="text-gray-500 text-xs">Classe spectrale</dt><dd class="text-yellow-300">${esc(soleil.classe)}</dd></div>` : ''}
+        ${soleil.classe ? `<div><dt class="text-gray-500 text-xs">Classe</dt><dd class="text-yellow-300">${esc(soleil.classe)}</dd></div>` : ''}
         ${soleil.diametre ? `<div><dt class="text-gray-500 text-xs">Diamètre</dt><dd class="text-gray-200">${esc(String(soleil.diametre))} K</dd></div>` : ''}
         ${soleil.distanceSaut ? `<div><dt class="text-gray-500 text-xs">Limite de saut</dt><dd class="text-blue-300 font-semibold">${esc(String(soleil.distanceSaut))} US</dd></div>` : ''}
       </dl>
@@ -534,11 +531,11 @@ function renderPlanets(panel, _ignore) {
       const stats = [
         ['Atmosphère', body.atmosphere ? `${body.atmosphere}${body.atmosphereDetail ? ` (${body.atmosphereDetail})` : ''}` : null],
         ['Gravité', body.gravite],
-        ['Technologie', body.techno],
+        ['Niveau technologique', body.techno],
         ['Gouvernement', body.gouvernement],
         ['Commerce', body.commerce],
         ['Population', body.population],
-        ['Sécurité', body.securite != null ? `${body.securite}/20` : null],
+        ['Sécurité', body.securite != null ? `${body.securite}` : null],
         ['Diamètre', body.diametre ? `${body.diametre} K` : null],
       ].filter(([, v]) => v != null && v !== '');
 
@@ -550,8 +547,10 @@ function renderPlanets(panel, _ignore) {
       ].filter(Boolean).join(' · ');
 
       const inner = `
+        ${body.texte_ambiance ? `<p class="text-xs text-gray-400 italic mb-2 leading-relaxed">${esc(body.texte_ambiance)}</p>` : ''}
         ${body.description ? `<p class="text-xs text-gray-400 mb-3 leading-relaxed">${esc(body.description)}</p>` : ''}
         ${stats.length ? `<dl class="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs mb-3">${stats.map(([k, v]) => `<div><dt class="text-gray-500">${esc(k)}</dt><dd class="text-gray-300">${esc(String(v))}</dd></div>`).join('')}</dl>` : ''}
+        ${Array.isArray(body.environnements) && body.environnements.length ? `<p class="text-xs text-gray-400 mb-2">🌍 Environnements : ${body.environnements.map(e => esc(e)).join(', ')}</p>` : ''}
         ${marches ? `<p class="text-xs text-gray-500 mb-2">Marchés : ${esc(marches)}</p>` : ''}
         ${Array.isArray(body.astroports) && body.astroports.length ? `<p class="text-xs text-gray-400 mb-2">🛸 Astroports : ${body.astroports.map(a => esc((a.nom || '?') + (a.type ? ` (${a.type})` : ''))).join(', ')}</p>` : ''}
         ${Array.isArray(body.lieux) && body.lieux.length ? `<p class="text-xs text-gray-400 mb-2">📍 Lieux : ${body.lieux.map(l => esc(l.nom || '?')).join(', ')}</p>` : ''}
@@ -591,7 +590,6 @@ function renderPlanets(panel, _ignore) {
           ${buildCollapsible(`${sid}-soleil`, '☀️ Étoile / Soleil', soleilContent, true)}
           ${buildCollapsible(`${sid}-corps`, `🪐 Corps célestes (${corpsCount})`, corpsContent, true)}
           ${buildCollapsible(`${sid}-matrix`, '📐 Matrice des distances', buildDistanceMatrix(soleil, corps), true)}
-          ${patrContent ? buildCollapsible(`${sid}-patr`, '👮 Patrouilles système', patrContent, true) : ''}
         </div>
       </div>`;
   });
@@ -2304,8 +2302,22 @@ function openSystemModal(system) {
             ${state.factions.map(f => `<option value="${esc(f.name)}" ${system?.faction === f.name ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}
           </select>
         </div>
-        ${field('fms-gouvernement', 'Gouvernement', 'text', system?.gouvernement)}
-        ${field('fms-route', 'Route', 'text', system?.route)}
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Gouvernement</label>
+          <select id="fms-gouvernement" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+            <option value="">— Aucun —</option>
+            ${['Anarchie','Collectivisme','Corporatiste','Démocratie','Dictature','Monarchie','Autre'].map(g => `<option value="${esc(g)}" ${system?.gouvernement === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}
+          </select>
+          <input type="text" id="fms-gouvernement-autre" placeholder="Préciser…" value="${esc(system?.gouvernement && !['Anarchie','Collectivisme','Corporatiste','Démocratie','Dictature','Monarchie','Autre'].includes(system.gouvernement) ? system.gouvernement : '')}"
+            class="mt-1 w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 ${system?.gouvernement && !['Anarchie','Collectivisme','Corporatiste','Démocratie','Dictature','Monarchie','Autre'].includes(system.gouvernement) ? '' : 'hidden'}">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Route</label>
+          <select id="fms-route" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+            <option value="">— Aucune —</option>
+            ${['Route galactique (+1d)','Route commerciale','Hors des routes (D+1)','Mystérieux (TD)'].map(r => `<option value="${esc(r)}" ${system?.route === r ? 'selected' : ''}>${esc(r)}</option>`).join('')}
+          </select>
+        </div>
         <div class="flex items-end">${chk('fms-frontiere', 'Zone frontière', system?.is_frontiere)}</div>
         <div class="col-span-2">${ta('fms-description', 'Description', system?.description)}</div>
       </div>
@@ -2315,7 +2327,15 @@ function openSystemModal(system) {
         <h3 class="text-sm font-semibold text-gray-300 mb-3">☀️ Étoile</h3>
         <div class="grid grid-cols-2 gap-3">
           ${field('fms-sol-nom', 'Nom étoile', 'text', soleil.nom)}
-          ${field('fms-sol-classe', 'Classe spectrale', 'text', soleil.classe)}
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Classe</label>
+            <select id="fms-sol-classe" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+              <option value="">— Aucune —</option>
+              ${['Naine rouge','Naine jaune','Géante rouge','Etoile variable','Etoiles binaires','Autre'].map(c => `<option value="${esc(c)}" ${soleil.classe === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+            </select>
+            <input type="text" id="fms-sol-classe-autre" placeholder="Préciser…" value="${esc(soleil.classe && !['Naine rouge','Naine jaune','Géante rouge','Etoile variable','Etoiles binaires','Autre'].includes(soleil.classe) ? soleil.classe : '')}"
+              class="mt-1 w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 ${soleil.classe && !['Naine rouge','Naine jaune','Géante rouge','Etoile variable','Etoiles binaires','Autre'].includes(soleil.classe) ? '' : 'hidden'}">
+          </div>
           ${field('fms-sol-diametre', 'Diamètre', 'number', soleil.diametre, 'K')}
           ${field('fms-sol-saut', 'Limite de saut', 'number', soleil.distanceSaut, 'US')}
           <div class="col-span-2">${ta('fms-sol-desc', 'Description étoile', soleil.description)}</div>
@@ -2329,24 +2349,6 @@ function openSystemModal(system) {
           <button id="btn-add-body" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1.5 rounded transition-colors">+ Ajouter</button>
         </div>
         <div id="fms-bodies-list" class="space-y-0.5 min-h-[24px]">${renderBodyList()}</div>
-      </div>
-
-      <!-- Patrouilles -->
-      <div class="border-t border-gray-700 pt-4 mb-4">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-sm font-semibold text-gray-300">👮 Patrouilles système</h3>
-          <button id="btn-add-patr" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1.5 rounded transition-colors">+ Ajouter</button>
-        </div>
-        <div id="fms-patr-list" class="space-y-1 min-h-[24px]">${renderPatrList()}</div>
-      </div>
-
-      <!-- Patrouilles -->
-      <div class="border-t border-gray-700 pt-4 mb-4">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-sm font-semibold text-gray-300">👮 Patrouilles système</h3>
-          <button id="btn-add-patr" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1.5 rounded transition-colors">+ Ajouter</button>
-        </div>
-        <div id="fms-patr-list" class="space-y-1 min-h-[24px]">${renderPatrList()}</div>
       </div>
 
       <!-- Matrice de distances -->
@@ -2475,30 +2477,17 @@ function openSystemModal(system) {
   overlay.querySelector('#fms-sol-saut').addEventListener('change', refreshMatrix);
   overlay.querySelector('#fms-sol-nom').addEventListener('change', refreshMatrix);
 
-  // Patrouilles — inline editing (no sub-modal needed)
-  const refreshPatrList = () => {
-    overlay.querySelector('#fms-patr-list').innerHTML = renderPatrList();
-    bindPatrButtons();
-  };
-  const bindPatrButtons = () => {
-    overlay.querySelectorAll('.btn-del-patr').forEach(btn => {
-      btn.addEventListener('click', () => { patrouilles.splice(Number(btn.dataset.idx), 1); refreshPatrList(); });
-    });
-    overlay.querySelectorAll('.patr-vaisseaux').forEach(inp => {
-      inp.addEventListener('change', () => { patrouilles[Number(inp.dataset.idx)].vaisseaux = inp.value; });
-    });
-    overlay.querySelectorAll('.patr-cout').forEach(inp => {
-      inp.addEventListener('change', () => { patrouilles[Number(inp.dataset.idx)].cout = inp.value; });
+  // Wire "Autre" free-text fields
+  const wireAutreDropdown = (selId, inputId) => {
+    const sel = overlay.querySelector(selId);
+    const inp = overlay.querySelector(inputId);
+    if (!sel || !inp) return;
+    sel.addEventListener('change', () => {
+      inp.classList.toggle('hidden', sel.value !== 'Autre');
     });
   };
-  bindPatrButtons();
-  overlay.querySelector('#btn-add-patr').addEventListener('click', () => {
-    patrouilles.push({ vaisseaux: '', cout: '' });
-    refreshPatrList();
-    // focus last row
-    const rows = overlay.querySelectorAll('.patr-vaisseaux');
-    rows[rows.length - 1]?.focus();
-  });
+  wireAutreDropdown('#fms-gouvernement', '#fms-gouvernement-autre');
+  wireAutreDropdown('#fms-sol-classe', '#fms-sol-classe-autre');
 
   overlay.querySelector('#fms-save').addEventListener('click', async () => {
     const errEl = overlay.querySelector('#fms-error');
@@ -2506,20 +2495,20 @@ function openSystemModal(system) {
     const nom = overlay.querySelector('#fms-nom').value.trim();
     if (!nom) { errEl.textContent = 'Le nom est requis'; errEl.classList.remove('hidden'); return; }
 
-    // Sync patrouilles from inputs before saving
-    overlay.querySelectorAll('.patr-row').forEach((row, i) => {
-      patrouilles[i] = {
-        vaisseaux: row.querySelector('.patr-vaisseaux')?.value.trim() || '',
-        cout: row.querySelector('.patr-cout')?.value.trim() || '',
-      };
-    });
-    const finalPatrouilles = patrouilles.filter(p => p.vaisseaux || p.cout);
-
     const str = id => overlay.querySelector(id)?.value?.trim() || undefined;
     const num = id => { const v = overlay.querySelector(id)?.value?.trim(); return v ? Number(v) : undefined; };
 
+    // Read dropdown+autre fields
+    const readDropdownAutre = (selId, autreId) => {
+      const sel = overlay.querySelector(selId)?.value?.trim();
+      if (!sel) return undefined;
+      if (sel === 'Autre') return overlay.querySelector(autreId)?.value?.trim() || undefined;
+      return sel;
+    };
+
     // Build soleil_json
-    const solNom = str('#fms-sol-nom'), solClasse = str('#fms-sol-classe');
+    const solNom = str('#fms-sol-nom');
+    const solClasse = readDropdownAutre('#fms-sol-classe', '#fms-sol-classe-autre');
     const solDiam = num('#fms-sol-diametre'), solSaut = num('#fms-sol-saut'), solDesc = str('#fms-sol-desc');
     const soleilObj = (solNom || solClasse || solDiam || solSaut || solDesc)
       ? { nom: solNom, classe: solClasse, diametre: solDiam, distanceSaut: solSaut, description: solDesc, ...((soleil.activiteSolaire) ? { activiteSolaire: soleil.activiteSolaire } : {}) }
@@ -2528,13 +2517,12 @@ function openSystemModal(system) {
     const body = {
       nom, quadrant: str('#fms-quadrant') || null,
       faction: overlay.querySelector('#fms-faction').value || null,
-      gouvernement: str('#fms-gouvernement') || null,
-      route: str('#fms-route') || null,
+      gouvernement: readDropdownAutre('#fms-gouvernement', '#fms-gouvernement-autre') || null,
+      route: overlay.querySelector('#fms-route')?.value?.trim() || null,
       is_frontiere: overlay.querySelector('#fms-frontiere').checked ? 1 : 0,
       description: str('#fms-description') || null,
       soleil_json: Object.keys(soleilObj).length ? JSON.stringify(soleilObj) : null,
       corps_celestes_json: corps.length ? JSON.stringify(corps) : null,
-      patrouilles_json: finalPatrouilles.length ? JSON.stringify(finalPatrouilles) : null,
     };
 
     try {
@@ -2581,19 +2569,83 @@ function openBodyModal(body, onSave) {
         <div class="col-span-2">${sf('bm-nom', 'Nom *', 'text', body.nom)}</div>
         ${sf('bm-orbite', 'Orbite (US)', 'number', body.orbite)}
         ${sf('bm-diametre', 'Diamètre (K)', 'number', body.diametre)}
-        ${sf('bm-atmos', 'Atmosphère', 'text', body.atmosphere)}
-        ${sf('bm-atmos-det', 'Détail atmosphère', 'text', body.atmosphereDetail)}
-        ${sf('bm-gravite', 'Gravité', 'text', body.gravite)}
-        ${sf('bm-techno', 'Technologie', 'text', body.techno)}
-        ${sf('bm-securite', 'Sécurité (/20)', 'number', body.securite)}
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Atmosphère</label>
+          <select id="bm-atmos" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+            <option value="">— Choisir —</option>
+            ${['Respirable','Toxique (MdJ p.218)','Irrespirable (MdJ p.215)','Dangereux (MdJ p.216)','Aucun (vitesse x1.5, propulsion énergétique)'].map(a => `<option value="${esc(a)}" ${body.atmosphere === a ? 'selected' : ''}>${esc(a)}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Gravité</label>
+          <select id="bm-gravite" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+            <option value="">— Choisir —</option>
+            ${['Ecrasante (Survie/Technique TD, 1S/heure)','Forte (Survie/Technique D+1)','Normale','Faible','Très Faible','Aucune'].map(g => `<option value="${esc(g)}" ${body.gravite === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Niveau technologique</label>
+          <input type="number" id="bm-techno" value="${esc(String(body.techno ?? ''))}" min="1" max="16"
+            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Sécurité</label>
+          <input type="number" id="bm-securite" value="${esc(String(body.securite ?? ''))}"
+            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+        </div>
         ${sf('bm-pop', 'Population', 'text', body.population)}
         ${sf('bm-gouv', 'Gouvernement', 'text', body.gouvernement)}
-        ${sf('bm-commerce', 'Commerce', 'text', body.commerce)}
-        ${sf('bm-mA', 'Marchandise A', 'text', body.marchandiseA)}
-        ${sf('bm-mB', 'Marchandise B', 'text', body.marchandiseB)}
-        ${sf('bm-mC', 'Marchandise C', 'text', body.marchandiseC)}
-        ${sf('bm-illegal', 'Illégal', 'text', body.illegal)}
-        <div class="col-span-2">${sta('bm-desc', 'Description', body.description)}</div>
+        <div class="col-span-2">
+          <label class="block text-xs text-gray-400 mb-1">Environnements</label>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+            ${['Arctique','Désert','Espace','Jungle','Marécages','Mer','Montagne','Roche','Tempéré','Urbain'].map(env => {
+              const envList = Array.isArray(body.environnements) ? body.environnements : (body.environnement ? String(body.environnement).split(',').map(s => s.trim()) : []);
+              return `<label class="flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer"><input type="checkbox" value="${esc(env)}" ${envList.includes(env) ? 'checked' : ''} class="bm-env-chk w-3.5 h-3.5 rounded bg-gray-700 border-gray-600 text-blue-500"> ${esc(env)}</label>`;
+            }).join('')}
+          </div>
+        </div>
+        <div class="col-span-2">
+          <label class="block text-xs text-gray-400 mb-1">Astroport</label>
+          <div class="flex gap-2">
+            <input type="text" id="bm-astroport-nom" placeholder="Nom de l'astroport" value="${esc(Array.isArray(body.astroports) && body.astroports[0] ? body.astroports[0].nom || '' : '')}"
+              class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+            <select id="bm-astroport-qualite" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+              <option value="">— Qualité —</option>
+              ${['Rudimentaire (D+1)','Standard','Première classe (+1d)'].map(q => `<option value="${esc(q)}" ${Array.isArray(body.astroports) && body.astroports[0]?.type === q ? 'selected' : ''}>${esc(q)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="col-span-2">
+          <label class="block text-xs text-gray-400 mb-1">Commerce</label>
+          <select id="bm-commerce" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 mb-2">
+            <option value="">— Choisir —</option>
+            ${['Planète primitive (TD)','Planète pauvre (D+1)','Standard','Carrefour galactique (TF)','Impossible','Aucun'].map(c => `<option value="${esc(c)}" ${body.commerce === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+          </select>
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">Cours A</label>
+              <input type="text" id="bm-mA" value="${esc(String(body.marchandiseA ?? ''))}" placeholder="Marchandise A"
+                class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">Cours B</label>
+              <input type="text" id="bm-mB" value="${esc(String(body.marchandiseB ?? ''))}" placeholder="Marchandise B"
+                class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">Cours C</label>
+              <input type="text" id="bm-mC" value="${esc(String(body.marchandiseC ?? ''))}" placeholder="Marchandise C"
+                class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500">
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="block text-xs text-gray-500 mb-1">Marchandise illégale</label>
+            <input type="text" id="bm-illegal" value="${esc(String(body.illegal ?? ''))}"
+              class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500">
+          </div>
+        </div>
+        <div class="col-span-2">${sta('bm-desc', 'Texte d\'ambiance', body.texte_ambiance)}</div>
+        <div class="col-span-2">${sta('bm-description', 'Description', body.description)}</div>
       </div>
       <div class="flex gap-3 mt-4">
         <button id="bm-save" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors">OK</button>
@@ -2614,15 +2666,25 @@ function openBodyModal(body, onSave) {
     if (!nom) { subOverlay.querySelector('#bm-nom').focus(); return; }
     const str = id => subOverlay.querySelector(id)?.value?.trim() || undefined;
     const num = id => { const v = subOverlay.querySelector(id)?.value?.trim(); return v ? Number(v) : undefined; };
+    const envChecked = [...subOverlay.querySelectorAll('.bm-env-chk:checked')].map(c => c.value);
+    const astroNom = subOverlay.querySelector('#bm-astroport-nom')?.value?.trim();
+    const astroQualite = subOverlay.querySelector('#bm-astroport-qualite')?.value?.trim();
+    const astroports = astroNom ? [{ nom: astroNom, type: astroQualite || undefined }] : (body.astroports || undefined);
     const updated = {
       ...body, nom,
       orbite: num('#bm-orbite'), diametre: num('#bm-diametre'),
-      atmosphere: str('#bm-atmos'), atmosphereDetail: str('#bm-atmos-det'),
-      gravite: str('#bm-gravite'), techno: str('#bm-techno'),
+      atmosphere: str('#bm-atmos'),
+      gravite: str('#bm-gravite'),
+      techno: num('#bm-techno'),
       securite: num('#bm-securite'), population: str('#bm-pop'),
-      gouvernement: str('#bm-gouv'), commerce: str('#bm-commerce'),
+      gouvernement: str('#bm-gouv'),
+      environnements: envChecked.length ? envChecked : undefined,
+      astroports: astroports && (Array.isArray(astroports) ? astroports.length : true) ? (Array.isArray(astroports) ? astroports : [astroports]) : undefined,
+      commerce: str('#bm-commerce'),
       marchandiseA: str('#bm-mA'), marchandiseB: str('#bm-mB'), marchandiseC: str('#bm-mC'),
-      illegal: str('#bm-illegal'), description: str('#bm-desc'),
+      illegal: str('#bm-illegal'),
+      texte_ambiance: str('#bm-desc'),
+      description: str('#bm-description'),
     };
     // Remove undefined keys
     Object.keys(updated).forEach(k => updated[k] === undefined && delete updated[k]);
