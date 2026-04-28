@@ -12,6 +12,7 @@ export function mountMiddleware(app) {
   app.use('/css', express.static('public/css', { maxAge: ASSET_MAX_AGE }));
   app.use('/js', express.static('public/js', { maxAge: ASSET_MAX_AGE }));
   app.use(express.static('public'));
+  app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
   // 2. Body parser (10 MB limit for admin import)
   app.use(express.json({ limit: '10mb' }));
