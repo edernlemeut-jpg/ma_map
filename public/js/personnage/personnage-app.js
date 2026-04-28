@@ -1295,11 +1295,22 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
         const badge = owned
           ? `<span class="text-xs px-2 py-1 rounded bg-gray-700 text-green-400">✓ Acquise</span>`
           : buyBtn('qualite', q.id, cost);
-        return `<div class="flex items-center justify-between py-1.5 border-b border-gray-800 text-xs">
-          <div>
+        // Icône de faction si qualité liée à une nation
+        const nationObj = q.nation && q.nation !== 'Aucune'
+          ? (REF?.nations?.find(n => n.nom === q.nation || n.id === q.nation) || null)
+          : null;
+        const iconHtml = nationObj?.faction_icon_url
+          ? `<img src="${esc(nationObj.faction_icon_url)}" alt="${esc(q.nation)}" title="${esc(q.nation)}" class="w-4 h-4 object-contain flex-shrink-0">`
+          : (nationObj ? `<span title="${esc(q.nation)}" class="text-xs">⚓</span>` : '');
+        // Restriction
+        const restr = q.restriction ? `<span class="text-gray-500 italic truncate max-w-[110px]" title="${esc(q.restriction)}">${esc(q.restriction)}</span>` : '';
+        return `<div class="flex items-center gap-2 py-1.5 border-b border-gray-800 text-xs">
+          ${iconHtml}
+          <div class="flex-1 min-w-0">
             <span class="${owned ? 'text-gray-500' : 'text-blue-300'}">${esc(q.name)}</span>
-            ${q.description ? `<p class="text-gray-500 mt-0.5 max-w-xs truncate">${esc(q.description)}</p>` : ''}
+            ${q.description ? `<p class="text-gray-500 mt-0.5 truncate">${esc(q.description)}</p>` : ''}
           </div>
+          ${restr}
           ${badge}
         </div>`;
       }).join('')
