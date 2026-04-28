@@ -124,6 +124,30 @@ router.get('/', (req, res) => {
   success(res, rows.map(r => parseCharacter(r)));
 });
 
+// GET /api/characters/port-attache — MJ : liste des PJs avec port d'attache (pour la carte)
+router.get('/port-attache', (req, res) => {
+  if (!isMJ(req) && !req.user?.is_admin) return forbidden(res, 'Accès MJ requis');
+  const tableId = getTableId(req);
+  if (!tableId) return validationError(res, 'Aucune table sélectionnée');
+  const rows = db.prepare(`
+    SELECT c.id, c.name, c.data_json,
+           s.id AS system_id, s.nom AS system_nom, s.quadrant
+    FROM characters c
+    LEFT JOIN systems s ON s.id = CAST(json_extract(c.data_json, '$.port_attache_system_id') AS INTEGER)
+    WHERE c.table_id = ?
+      AND json_extract(c.data_json, '$.port_attache_system_id') IS NOT NULL
+    ORDER BY c.name COLLATE NOCASE
+  `).all(tableId);
+  success(res, rows.map(r => ({
+    id: r.id,
+    name: r.name,
+    system_id: r.system_id,
+    system_nom: r.system_nom,
+    quadrant: r.quadrant,
+    lieu: JSON.parse(r.data_json || '{}').port_attache_lieu || null,
+  })));
+});
+
 // GET /api/characters/:id
 router.get('/:id', (req, res) => {
   const tableId = getTableId(req);

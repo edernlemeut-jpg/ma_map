@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 
 function migrate() {
   const currentVersion = db.pragma('user_version', { simple: true });
@@ -29,6 +29,7 @@ function migrate() {
   if (currentVersion < 8) migrateV8();
   if (currentVersion < 9) migrateV9();
   if (currentVersion < 10) migrateV10();
+  if (currentVersion < 11) migrateV11();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
   console.log(`✅ Migrated to schema version ${SCHEMA_VERSION}`);
@@ -466,6 +467,15 @@ function migrateV9() {
     db.exec("ALTER TABLE ships ADD COLUMN position_json TEXT DEFAULT NULL");
   }
   console.log('✅ v9: ships.position_json column added');
+}
+
+function migrateV11() {
+  console.log('🔧 Applying migration v11...');
+  const shipCols = db.prepare('PRAGMA table_info(ships)').all().map(c => c.name);
+  if (!shipCols.includes('owner_character_id')) {
+    db.exec("ALTER TABLE ships ADD COLUMN owner_character_id TEXT DEFAULT NULL");
+  }
+  console.log('✅ v11: ships.owner_character_id column added');
 }
 
 function migrateV10() {

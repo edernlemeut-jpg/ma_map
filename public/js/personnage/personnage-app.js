@@ -581,6 +581,9 @@ function renderAndAttachSheet(container, char) {
   });
   // Champs éditables (background, notes, inventaire, crédits)
   attachSheetEditListeners(container, char);
+
+  // Onglet Liens : chargement async des données
+  if (SHEET_TAB === 'liens') populateLiensTab(container, char);
 }
 
 async function patchSheet(char) {
@@ -594,6 +597,167 @@ async function patchSheet(char) {
     const ind = document.getElementById('sheet-save-indicator');
     if (ind) { ind.classList.remove('opacity-0'); setTimeout(() => ind.classList.add('opacity-0'), 1800); }
   } catch { /* silent */ }
+}
+
+function renderSheetTabLiens() {
+  return `
+  <div class="space-y-6">
+    <div class="bg-gray-800/60 rounded-lg p-4">
+      <h3 class="text-sm font-semibold text-gray-300 mb-3">🌍 Port d'attache</h3>
+      <div id="port-attache-content" class="text-gray-500 text-sm">Chargement…</div>
+    </div>
+    <div class="bg-gray-800/60 rounded-lg p-4">
+      <h3 class="text-sm font-semibold text-gray-300 mb-3">🚀 Vaisseau lié</h3>
+      <div id="ship-link-content" class="text-gray-500 text-sm">Chargement…</div>
+    </div>
+  </div>`;
+}
+
+function renderPortAttacheContent(char, systems) {
+  const d = char.data || {};
+  const systemId = d.port_attache_system_id ? Number(d.port_attache_system_id) : null;
+  const lieu = d.port_attache_lieu || '';
+
+  const selSys = systems.find(s => s.id === systemId);
+  let corps = [];
+  if (selSys?.corps_celestes_json) {
+    try { corps = JSON.parse(selSys.corps_celestes_json); } catch { /* ignore */ }
+  }
+
+  const planetsOptions = [
+    `<option value="">— Corps céleste —</option>`,
+    ...corps.map(c => `<option value="${esc(c.nom)}" ${lieu === c.nom ? 'selected' : ''}>${esc(c.nom)}${c.classe ? ' (' + esc(c.classe) + ')' : ''}</option>`),
+  ].join('');
+
+  return `
+  <div class="space-y-3">
+    <div class="flex gap-3 flex-wrap">
+      <div class="flex-1 min-w-[200px]">
+        <label class="text-xs text-gray-400 block mb-1">Système stellaire</label>
+        <select id="port-system-sel" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white">
+          <option value="">— Aucun port d'attache —</option>
+          ${systems.map(s => `<option value="${s.id}" ${s.id === systemId ? 'selected' : ''}>${esc(s.nom)} (${esc(s.quadrant)})</option>`).join('')}
+        </select>
+      </div>
+      <div class="flex-1 min-w-[180px]">
+        <label class="text-xs text-gray-400 block mb-1">Corps céleste (optionnel)</label>
+        <select id="port-planet-sel" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white">
+          ${planetsOptions}
+        </select>
+      </div>
+    </div>
+    <div>
+      <label class="text-xs text-gray-400 block mb-1">Lieu précis (ou saisie libre)</label>
+      <input id="port-lieu-input" type="text" value="${esc(lieu)}" maxlength="120"
+        class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white"
+        placeholder="Ex: Station Orbitale, Dôme-7, Quartier des Docks…">
+    </div>
+    <button id="port-save-btn" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 rounded text-sm font-medium text-white">
+      💾 Enregistrer le port d'attache
+    </button>
+    ${systemId ? `<p class="text-xs text-gray-500 mt-1">📍 ${esc(selSys?.nom || '')} — ${esc(lieu || 'lieu non précisé')}</p>` : ''}
+  </div>`;
+}
+
+function renderShipLinkContent(char, ships) {
+  const ownedShip = ships.find(s => s.owner_character_id === char.id);
+
+  const shipOptions = [
+    `<option value="">— Aucun vaisseau —</option>`,
+    ...ships.map(s => {
+      const other = s.owner_character_id && s.owner_character_id !== char.id;
+      return `<option value="${esc(s.id)}" ${s.id === ownedShip?.id ? 'selected' : ''}>${esc(s.name)}${other ? ' (prop. : ' + esc(s.owner_name || '?') + ')' : ''}</option>`;
+    }),
+  ].join('');
+
+  return `
+  <div class="space-y-3">
+    ${ownedShip ? `
+      <div class="flex items-center gap-3 bg-gray-700/40 rounded p-3">
+        <span class="text-xl">🚀</span>
+        <div class="min-w-0">
+          <div class="font-medium text-sm text-white">${esc(ownedShip.name)}</div>
+          <div class="text-xs text-gray-400">${esc(ownedShip.model_name || 'Modèle non défini')}</div>
+        </div>
+      </div>` : `<p class="text-sm text-gray-500 italic">Aucun vaisseau lié.</p>`}
+    <div class="flex gap-2 flex-wrap">
+      <select id="ship-link-sel" class="flex-1 min-w-[200px] bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-white">
+        ${shipOptions}
+      </select>
+      <button id="ship-link-save-btn" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 rounded text-sm font-medium text-white whitespace-nowrap">
+        💾 Enregistrer
+      </button>
+    </div>
+  </div>`;
+}
+
+async function populateLiensTab(container, char) {
+  try {
+    const [sysr, shipsr] = await Promise.all([
+      fetchWithTable('/api/systems', { credentials: 'include' }),
+      fetchWithTable('/api/ships', { credentials: 'include' }),
+    ]);
+    const systems = sysr.ok ? (await sysr.json()).data ?? [] : [];
+    const ships   = shipsr.ok ? (await shipsr.json()).data ?? [] : [];
+    systems.sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr'));
+
+    const portEl = container.querySelector('#port-attache-content');
+    if (portEl) portEl.innerHTML = renderPortAttacheContent(char, systems);
+
+    const shipEl = container.querySelector('#ship-link-content');
+    if (shipEl) shipEl.innerHTML = renderShipLinkContent(char, ships);
+
+    // System selector → repopulate planet dropdown
+    const systemSel = container.querySelector('#port-system-sel');
+    const planetSel = container.querySelector('#port-planet-sel');
+    const lieuInput  = container.querySelector('#port-lieu-input');
+
+    if (systemSel && planetSel) {
+      systemSel.addEventListener('change', () => {
+        const sys = systems.find(s => s.id === Number(systemSel.value));
+        let corps = [];
+        if (sys?.corps_celestes_json) { try { corps = JSON.parse(sys.corps_celestes_json); } catch { /* ignore */ } }
+        planetSel.innerHTML = [
+          `<option value="">— Corps céleste —</option>`,
+          ...corps.map(c => `<option value="${esc(c.nom)}">${esc(c.nom)}${c.classe ? ' (' + esc(c.classe) + ')' : ''}</option>`),
+        ].join('');
+        if (lieuInput) lieuInput.value = '';
+      });
+      planetSel.addEventListener('change', () => {
+        if (lieuInput && planetSel.value) lieuInput.value = planetSel.value;
+      });
+    }
+
+    // Save port d'attache
+    container.querySelector('#port-save-btn')?.addEventListener('click', async () => {
+      const sysId = systemSel ? (Number(systemSel.value) || null) : null;
+      const lieu  = lieuInput ? lieuInput.value.trim() : '';
+      char.data.port_attache_system_id = sysId;
+      char.data.port_attache_lieu = lieu || null;
+      await patchSheet(char);
+      renderAndAttachSheet(container, char);
+    });
+
+    // Save ship link
+    const shipSel     = container.querySelector('#ship-link-sel');
+    container.querySelector('#ship-link-save-btn')?.addEventListener('click', async () => {
+      const newShipId  = shipSel?.value || null;
+      const ownedShip  = ships.find(s => s.owner_character_id === char.id);
+      if (ownedShip && ownedShip.id !== newShipId) {
+        await fetchWithTable(`/api/ships/${ownedShip.id}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          credentials: 'include', body: JSON.stringify({ owner_character_id: null }),
+        });
+      }
+      if (newShipId && newShipId !== ownedShip?.id) {
+        await fetchWithTable(`/api/ships/${newShipId}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          credentials: 'include', body: JSON.stringify({ owner_character_id: char.id }),
+        });
+      }
+      renderAndAttachSheet(container, char);
+    });
+  } catch { /* silent — tab just stays as loading state */ }
 }
 
 function attachSheetEditListeners(container, char) {
@@ -642,6 +806,7 @@ function renderSheet(char) {
     { id: 'notes',            label: '📝 Notes' },
     { id: 'inventaire',       label: '🎒 Inventaire' },
     ...(d.type === 'pj' ? [{ id: 'experience', label: '💎 Expérience' }] : []),
+    ...(ROLE === 'mj' ? [{ id: 'liens', label: '🔗 Liens' }] : []),
   ];
   const tabBar = `<div class="flex gap-1 flex-wrap border-b border-gray-700 mb-5 pb-1">
     ${TABS.map(t => `<button data-sheet-tab="${t.id}"
@@ -659,6 +824,7 @@ function renderSheet(char) {
     case 'notes':       content = renderSheetTabNotes(d, editable); break;
     case 'inventaire':  content = renderSheetTabInventaire(d, editable); break;
     case 'experience':  content = renderSheetTabExperience(char, d, finalAttrs, domPriv); break;
+    case 'liens':       content = renderSheetTabLiens(); break;
     default:            content = renderSheetTabCaracteristiques(d, finalAttrs, attrBonus, attrs, sante, energieX, arch, domPriv);
   }
 
