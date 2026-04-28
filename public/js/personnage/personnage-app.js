@@ -124,6 +124,7 @@ const newState = () => ({
   // PJ étape 7 : traits
   qualites_ids: [],
   defauts_ids: [],
+  traits_niveaux: {},
   // PJ étape 8 : finitions
   nom_personnage: '',
   age: '',
@@ -834,17 +835,34 @@ function renderCompetencesSheet(comps, finalAttrs, domPriv) {
 }
 
 function renderTraitsSheet(d) {
-  const qs = (d.qualites_ids || []).map(qid => REF?.qualites?.find(x => x.id === qid)).filter(Boolean);
-  const ds = (d.defauts_ids  || []).map(did => REF?.defauts?.find(x => x.id === did)).filter(Boolean);
+  const niveaux  = d.traits_niveaux || {};
+  const violentQ = !d.is_mutant ? (REF?.qualites?.find(q => q.id === 'qualite-violent') || null) : null;
+  const qs = [
+    ...(violentQ ? [violentQ] : []),
+    ...(d.qualites_ids || [])
+      .filter(qid => qid !== 'qualite-violent')
+      .map(qid => REF?.qualites?.find(x => x.id === qid)).filter(Boolean),
+  ];
+  const ds = (d.defauts_ids || []).map(did => REF?.defauts?.find(x => x.id === did)).filter(Boolean);
   if (!qs.length && !ds.length) return '';
-  const traitCard = (t, isDefaut) => `
+  const traitCard = (t, isDefaut, isAuto = false) => {
+    const niv = niveaux[t.id];
+    let costStr;
+    if (isAuto) {
+      costStr = `<span class="text-green-400 shrink-0">auto</span>`;
+    } else if (niv != null) {
+      costStr = `<span class="${isDefaut ? 'text-yellow-400' : 'text-blue-400'} shrink-0">${isDefaut ? '+' : '−'}${niv} pts</span>`;
+    } else {
+      costStr = `<span class="${isDefaut ? 'text-yellow-400' : 'text-blue-400'} shrink-0">${isDefaut ? '+' : ''}${esc(String(t.cost || ''))} pts</span>`;
+    }
+    return `
   <div class="text-xs bg-gray-800 border ${isDefaut ? 'border-yellow-800/40' : 'border-blue-800/40'} rounded-lg px-3 py-2">
     <div class="flex items-center justify-between gap-2 flex-wrap mb-1">
       <span class="${isDefaut ? 'text-yellow-300' : 'text-blue-300'} font-medium">${esc(t.name)}</span>
       <div class="flex gap-1.5 items-center">
         ${t.nation ? `<span class="text-xs px-1.5 py-px rounded bg-gray-700 text-gray-300">⛳ ${esc(t.nation)}</span>` : ''}
         ${String(t.restriction || '').toLowerCase().includes('mutant') ? `<span class="text-xs px-1.5 py-px rounded bg-cyan-900/60 text-cyan-400">🦠 Mutant</span>` : ''}
-        <span class="${isDefaut ? 'text-yellow-400' : 'text-blue-400'} shrink-0">${isDefaut ? '+' : ''}${esc(String(t.cost || ''))} pts</span>
+        ${costStr}
       </div>
     </div>
     ${t.description ? `<p class="text-gray-400 mb-1">${esc(t.description)}</p>` : ''}
@@ -853,6 +871,7 @@ function renderTraitsSheet(d) {
     ${t.restriction ? `<p class="text-gray-500 mt-0.5"><span class="text-gray-600">Restriction : </span>${esc(t.restriction)}</p>` : ''}
     ${t.references  ? `<p class="text-gray-600 mt-0.5">${esc(t.references)}</p>` : ''}
   </div>`;
+  };
   return `
   <div class="grid md:grid-cols-2 gap-4">
     ${ ds.length ? `<div>
@@ -861,7 +880,7 @@ function renderTraitsSheet(d) {
     </div>` : '' }
     ${ qs.length ? `<div>
       <h4 class="text-sm font-semibold text-gray-300 mb-2">Qualités</h4>
-      <div class="space-y-2">${qs.map(q => traitCard(q, false)).join('')}</div>
+      <div class="space-y-2">${qs.map(q => traitCard(q, false, q.id === 'qualite-violent')).join('')}</div>
     </div>` : '' }
   </div>`;
 }
@@ -1122,6 +1141,24 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
     const n = Math.abs(parseInt(q.cost) || 0);
     return n * 1000;
   }
+
+  // Variable-cost trait IDs and their selectable point levels
+  const VARIABLE_TRAIT_LEVELS = {
+    'qualite-contact':         [1, 3, 5],
+    'qualite-entraînement':    [1, 2, 3, 4, 5],
+    'qualite-gloire':          [1, 2, 3, 4, 5],
+    'qualite-heroïque':        [1, 2, 3, 4, 5],
+    'qualite-pacifiste':       [1, 3, 5],
+    'qualite-riche':           [1, 2, 3, 4, 5],
+    'qualite-route-dhavana':   [1, 3, 5],
+    'qualite-tresor':          [1, 2, 3, 4, 5],
+    'defaut-dettes':           [1, 2, 3, 4, 5],
+    'defaut-dette-dhonneur':   [1, 2, 3, 4, 5],
+    'defaut-hook ':            [1, 3, 5],
+    'defaut-signe-distinctif': [1, 3, 5],
+    'defaut-vengeance ':       [1, 3, 5],
+    'defaut-wanted':           [1, 3, 5],
+  };
 
   // Non-buyable quality ids (wildcard suffix or variable-cost)
   const NON_XP_QUALITY_PREFIXES = new Set([
@@ -2064,6 +2101,7 @@ function renderStepTraits() {
     if (DRAFT.type === 'pj' && t.pnj_only) return false;
     if (isMutantOnly(t) && !isMutant) return false;
     if (traitHasNation(t) && t.nation !== charNation) return false;
+    if (t.id === 'qualite-violent') return false; // auto-granté aux non-mutants, caché de la liste
     return true;
   };
 
@@ -2082,8 +2120,8 @@ function renderStepTraits() {
   const curGroups = isDefaut ? dGroups : qGroups;
   const curAll    = isDefaut ? allD    : allQ;
 
-  const qPts   = traitPoints(DRAFT.qualites_ids, REF?.qualites, 'cost');
-  const dPts   = traitPoints(DRAFT.defauts_ids,  REF?.defauts,  'cost');
+  const qPts   = traitPoints(DRAFT.qualites_ids, REF?.qualites, 'cost', DRAFT.traits_niveaux);
+  const dPts   = traitPoints(DRAFT.defauts_ids,  REF?.defauts,  'cost', DRAFT.traits_niveaux);
   const dTotal = dPts;
   const qTotal = qPts;
   const balance = dTotal - qTotal;
@@ -2124,6 +2162,31 @@ function renderStepTraits() {
     </button>`;
 
   const renderCard = t => {
+    const varLevels = VARIABLE_TRAIT_LEVELS[t.id];
+    if (varLevels) {
+      const selVar = isDefaut ? DRAFT.defauts_ids.includes(t.id) : DRAFT.qualites_ids.includes(t.id);
+      const chosen  = DRAFT.traits_niveaux?.[t.id] ?? null;
+      const checkWouldExceedVar = lv => {
+        const curNiv = selVar ? (DRAFT.traits_niveaux?.[t.id] || 0) : 0;
+        return isDefaut ? (dTotal - curNiv + lv > maxDef) : (balance + curNiv < lv);
+      };
+      return `
+    <div class="trait-btn w-full text-left ${selVar ? (isDefaut ? 'selected-d' : 'selected-q') : ''}">
+      <div class="flex justify-between items-center gap-2 flex-wrap mb-1">
+        <span class="${selVar ? (isDefaut ? 'text-yellow-300' : 'text-blue-300') : 'text-gray-300'} font-medium text-xs">${esc(t.name)}</span>
+        <div class="flex items-center gap-1.5 shrink-0">
+          ${isMutantOnly(t) ? `<span class="text-xs px-1 py-px rounded bg-cyan-900/40 text-cyan-500">🧬</span>` : ''}
+          <select data-trait-level="${t.id}" data-ttype="${isDefaut ? 'd' : 'q'}"
+            class="bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-xs text-gray-200">
+            <option value="">— niveau —</option>
+            ${varLevels.map(lv => `<option value="${lv}" ${chosen === lv ? 'selected' : ''} ${checkWouldExceedVar(lv) ? 'disabled' : ''}>${isDefaut ? '+' : '−'}${lv} pts</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      ${t.description ? `<p class="text-xs text-gray-500">${esc(t.description)}</p>` : ''}
+      ${t.effet       ? `<p class="text-xs text-gray-400 mt-0.5"><span class="text-gray-500">Effet : </span>${esc(t.effet)}</p>` : ''}
+    </div>`;
+    }
     const sel = isDefaut ? DRAFT.defauts_ids.includes(t.id) : DRAFT.qualites_ids.includes(t.id);
     const pts = Math.abs(parseInt(t.cost) || 0);
     const wouldExceed = isDefaut ? (!sel && dTotal + pts > maxDef) : (!sel && balance < pts);
@@ -2164,6 +2227,12 @@ function renderStepTraits() {
     ${sectionTab('q', '② Avantages',    qTotal, DRAFT.qualites_ids.length || '')}
   </div>
 
+  ${!isMutant && !isDefaut ? `
+  <div class="mb-3 px-3 py-2 bg-gray-800/80 border border-gray-700 rounded-lg flex items-center gap-2 text-xs">
+    <span class="text-green-400 font-semibold">✔ Violent</span>
+    <span class="text-gray-500">Accordé automatiquement à tous les non-mutants (gratuit)</span>
+  </div>` : ''}
+
   ${hasMultiCat ? `
   <div class="flex gap-1.5 mb-3 flex-wrap">
     ${filterBtn('all',     'Tous')}
@@ -2179,11 +2248,12 @@ function renderStepTraits() {
   </div>`;
 }
 
-function traitPoints(ids, list, field) {
+function traitPoints(ids, list, field, niveaux = {}) {
   if (!ids || !list) return 0;
   return ids.reduce((sum, id) => {
     const item = list.find(x => x.id === id);
-    const val = Math.abs(parseInt(item?.[field] || 0));
+    const niv = niveaux?.[id];
+    const val = niv != null ? niv : Math.abs(parseInt(item?.[field] || 0));
     return sum + val;
   }, 0);
 }
@@ -2911,18 +2981,50 @@ function attachStepListeners() {
       if (ttype === 'q') {
         const idx = DRAFT.qualites_ids.indexOf(id);
         const cost = parseInt(REF?.qualites?.find(q => q.id === id)?.cost || 0);
-        const qPts = traitPoints(DRAFT.qualites_ids, REF?.qualites, 'cost');
-        const dPs  = traitPoints(DRAFT.defauts_ids, REF?.defauts, 'cost');
+        const qPts = traitPoints(DRAFT.qualites_ids, REF?.qualites, 'cost', DRAFT.traits_niveaux);
+        const dPs  = traitPoints(DRAFT.defauts_ids, REF?.defauts, 'cost', DRAFT.traits_niveaux);
         const balance = dPs - qPts;
         if (idx >= 0) { DRAFT.qualites_ids.splice(idx, 1); }
         else if (balance >= cost) { DRAFT.qualites_ids.push(id); }
       } else {
         const idx = DRAFT.defauts_ids.indexOf(id);
         const pts  = Math.abs(parseInt(REF?.defauts?.find(d => d.id === id)?.cost || 0));
-        const dPs  = traitPoints(DRAFT.defauts_ids, REF?.defauts, 'cost');
+        const dPs  = traitPoints(DRAFT.defauts_ids, REF?.defauts, 'cost', DRAFT.traits_niveaux);
         const maxDef = 10;
         if (idx >= 0) { DRAFT.defauts_ids.splice(idx, 1); }
         else if (dPs + pts <= maxDef) { DRAFT.defauts_ids.push(id); }
+      }
+      document.getElementById('wizard-step').innerHTML = renderStepTraits();
+      attachStepListeners();
+    });
+  });
+
+  // Traits — sélection du niveau pour traits à coût variable
+  step.querySelectorAll('[data-trait-level]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const id = sel.dataset.traitLevel;
+      const ttype = sel.dataset.ttype;
+      const lv = parseInt(sel.value) || 0;
+      const arr    = ttype === 'q' ? DRAFT.qualites_ids : DRAFT.defauts_ids;
+      DRAFT.traits_niveaux = DRAFT.traits_niveaux || {};
+      const niveaux = DRAFT.traits_niveaux;
+      const idx = arr.indexOf(id);
+      if (!lv) {
+        if (idx >= 0) arr.splice(idx, 1);
+        delete niveaux[id];
+      } else {
+        const dPts = traitPoints(DRAFT.defauts_ids, REF?.defauts, 'cost', niveaux);
+        const qPts = traitPoints(DRAFT.qualites_ids, REF?.qualites, 'cost', niveaux);
+        if (ttype === 'd') {
+          const curD = idx >= 0 ? (niveaux[id] || 0) : 0;
+          if (dPts - curD + lv > 10) { sel.value = niveaux[id] || ''; return; }
+        } else {
+          const curQ = idx >= 0 ? (niveaux[id] || 0) : 0;
+          const balance = dPts - qPts + curQ;
+          if (balance < lv) { sel.value = niveaux[id] || ''; return; }
+        }
+        niveaux[id] = lv;
+        if (idx < 0) arr.push(id);
       }
       document.getElementById('wizard-step').innerHTML = renderStepTraits();
       attachStepListeners();
@@ -2948,6 +3050,7 @@ function attachStepListeners() {
   step.querySelector('#btn-rand-traits')?.addEventListener('click', () => {
     DRAFT.defauts_ids  = [];
     DRAFT.qualites_ids = [];
+    DRAFT.traits_niveaux = {};
     const isMutant = DRAFT.is_mutant;
     const orig = REF?.origines?.find(o => o.id === DRAFT.origine_id);
     const charNation = orig?.nation || null;
