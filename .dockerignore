@@ -1,6 +1,8 @@
 node_modules/
 .env
 db/
+uploads/
+public/uploads/
 public/css/tailwind.css
 .git/
 .gitignore

@@ -7,3 +7,5 @@ playwright-results.txt
 test-results/
 public/uploads/
 .claude/
+
+uploads/

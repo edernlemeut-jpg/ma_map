@@ -5,6 +5,7 @@ services:
       - "3200:3000"
     volumes:
       - ./db:/app/db
+      - ./uploads:/app/public/uploads
     environment:
       - NODE_ENV=production
       - JWT_SECRET=${JWT_SECRET}
