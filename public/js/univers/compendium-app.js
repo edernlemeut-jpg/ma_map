@@ -2650,7 +2650,7 @@ function openBodyModal(body, onSave) {
                   <input type="number" class="bm-sat-dist w-28 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Distance (K)" value="${esc(String(s.distance ?? ''))}">
                   <button type="button" class="bm-del-satellite flex-shrink-0 text-red-500 hover:text-red-400 px-2 py-1 text-xs">✕</button>
                 </div>
-                <input type="text" class="bm-sat-desc w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-400 focus:outline-none focus:border-blue-500" placeholder="Description" value="${esc(s.description || '')}">
+                <textarea class="bm-sat-desc w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-400 focus:outline-none focus:border-blue-500 resize-y" rows="2" placeholder="Description">${esc(s.description || '')}</textarea>
               </div>`).join('')}
           </div>
         </div>
@@ -2749,7 +2749,7 @@ function openBodyModal(body, onSave) {
         <input type="number" class="bm-sat-dist w-28 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Distance (K)">
         <button type="button" class="bm-del-satellite flex-shrink-0 text-red-500 hover:text-red-400 px-2 py-1 text-xs">✕</button>
       </div>
-      <input type="text" class="bm-sat-desc w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-400 focus:outline-none focus:border-blue-500" placeholder="Description">`;
+      <textarea class="bm-sat-desc w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-400 focus:outline-none focus:border-blue-500 resize-y" rows="2" placeholder="Description"></textarea>`;
     list.appendChild(row);
     row.querySelector('.bm-del-satellite').addEventListener('click', () => row.remove());
     row.querySelector('.bm-sat-nom').focus();
