@@ -1133,19 +1133,45 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
     return n * 1000;
   }
 
-  // Non-buyable quality ids (wildcard suffix or variable-cost)
-  const NON_XP_QUALITY_PREFIXES = new Set([
-    'qualite-contact','qualite-entraînement','qualite-entrainement',
-    'qualite-gloire','qualite-grand-voyageur-2',
-    'qualite-heroique','qualite-héroïque',
-    'qualite-pacifiste','qualite-riche',
-    'qualite-route-dhavana','qualite-tresor',
-  ]);
+  // Qualités non-achetables par XP (marquées * dans les règles)
+  const NO_PX_QUALITY_PREFIXES = [
+    'qualite-beni',                   // Béni, Béni par la nature
+    'qualite-buveur-emerite',
+    'qualite-chanceux',
+    'qualite-chromosomes-hyperdenses',
+    'qualite-combattant-des-rues',
+    'qualite-contact',
+    'qualite-defenseur',              // Défenseur de l'humanité
+    'qualite-discipline',             // Discipliné
+    'qualite-dur-en-affaire',
+    'qualite-entrainement',           // Entraînement
+    'qualite-entraînement',
+    'qualite-escrimeur',
+    'qualite-et-une-bouteille',       // Et une bouteille de rhum !
+    'qualite-genie',                  // Génie
+    'qualite-gloire',
+    'qualite-guerison-miraculeuse',   // Guérison miraculeuse
+    'qualite-guerison',               // variante sans accent
+    'qualite-idealiste',              // Idéaliste
+    'qualite-loup-de-mer',
+    'qualite-mutant-costaud',
+    'qualite-mutant-furtif',
+    'qualite-mutant-sympathique',
+    'qualite-mystique',
+    'qualite-parrain',
+    'qualite-prestige',
+    'qualite-riche',
+    'qualite-route-dhavana',
+    'qualite-taille-anormale',
+    'qualite-teigneux',
+    'qualite-terrifiant',
+    'qualite-tireur',                 // Tireur d'élite
+    'qualite-vieux-routard',
+  ];
   function isQualiteBuyable(q) {
     if (!q || !q.id || !q.id.startsWith('qualite-')) return false;
-    if (q.id.includes('defenseur-de-lhumanite')) return false;
-    for (const p of NON_XP_QUALITY_PREFIXES) if (q.id.startsWith(p)) return false;
-    // Skip variable costs ("+X", "X" non-integer)
+    for (const p of NO_PX_QUALITY_PREFIXES) if (q.id.startsWith(p)) return false;
+    // Skip variable/unset costs ("+X", NaN, 0)
     const c = String(q.cost || '');
     if (c.startsWith('+') || isNaN(parseInt(c)) || parseInt(c) === 0) return false;
     return true;
