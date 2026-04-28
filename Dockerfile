@@ -5,9 +5,6 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-# Force cache invalidation à chaque deploy (passé via docker-compose build-args)
-ARG CACHEBUST=1
-
 COPY . .
 RUN npm run build:css
 

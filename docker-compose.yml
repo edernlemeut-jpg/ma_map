@@ -1,9 +1,6 @@
 services:
   metal-adventures:
-    build:
-      context: .
-      args:
-        CACHEBUST: ${CACHEBUST:-1}
+    build: .
     ports:
       - "3200:3000"
     volumes:
