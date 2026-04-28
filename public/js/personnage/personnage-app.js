@@ -1171,9 +1171,10 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
   function isQualiteBuyable(q) {
     if (!q || !q.id || !q.id.startsWith('qualite-')) return false;
     for (const p of NO_PX_QUALITY_PREFIXES) if (q.id.startsWith(p)) return false;
-    // Skip variable/unset costs ("+X", NaN, 0)
+    // Skip variable/unset costs ("+X", "X", NaN, 0)
     const c = String(q.cost || '');
-    if (c.startsWith('+') || isNaN(parseInt(c)) || parseInt(c) === 0) return false;
+    const n = parseInt(c);
+    if (isNaN(n) || n === 0) return false;
     return true;
   }
 
