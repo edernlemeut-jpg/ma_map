@@ -340,7 +340,12 @@ function renderCharList(chars) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
           });
-          if (r.ok) showListView();
+          if (r.ok) { showListView(); }
+          else {
+            const err = await r.json().catch(() => ({}));
+            console.error('awards error', r.status, err);
+            alert(`Erreur ${r.status} : ${err?.message || 'Impossible de modifier le personnage'}`);
+          }
         });
       });
     }
