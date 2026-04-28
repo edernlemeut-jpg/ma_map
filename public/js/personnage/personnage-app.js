@@ -1274,19 +1274,23 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
   }).join('');
 
   // ── Qualités ───────────────────────────────────────────────────────────────
-  const buyableQ = (REF?.qualites || []).filter(q => isQualiteBuyable(q) && !ownedQualites.has(q.id));
-  const qRows = buyableQ.length
-    ? buyableQ.map(q => {
-        const cost = qualityCost(q);
+  const listableQ = (REF?.qualites || []).filter(q => isQualiteBuyable(q));
+  const qRows = listableQ.length
+    ? listableQ.map(q => {
+        const owned = ownedQualites.has(q.id);
+        const cost  = qualityCost(q);
+        const badge = owned
+          ? `<span class="text-xs px-2 py-1 rounded bg-gray-700 text-green-400">✓ Acquise</span>`
+          : buyBtn('qualite', q.id, cost);
         return `<div class="flex items-center justify-between py-1.5 border-b border-gray-800 text-xs">
           <div>
-            <span class="text-blue-300">${esc(q.name)}</span>
+            <span class="${owned ? 'text-gray-500' : 'text-blue-300'}">${esc(q.name)}</span>
             ${q.description ? `<p class="text-gray-500 mt-0.5 max-w-xs truncate">${esc(q.description)}</p>` : ''}
           </div>
-          ${buyBtn('qualite', q.id, cost)}
+          ${badge}
         </div>`;
       }).join('')
-    : '<p class="text-gray-500 text-xs">Toutes les qualités disponibles ont été acquises.</p>';
+    : '<p class="text-gray-500 text-xs">Aucune qualité disponible à l\'achat.</p>';
 
   // ── Mutations ──────────────────────────────────────────────────────────────
   let mutSection = '';
