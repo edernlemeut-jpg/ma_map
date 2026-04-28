@@ -530,6 +530,38 @@ function renderAndAttachSheet(container, char) {
     });
   });
 
+  // Boutons de suppression XP (remboursement)
+  container.querySelectorAll('.xp-remove-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cost = parseInt(btn.dataset.xpCost);
+      const type = btn.dataset.xpType;
+      const key  = decodeURIComponent(btn.dataset.xpKey);
+      const d = char.data;
+      // Rembourser les PX
+      d.px_actuel  = (d.px_actuel  || 0) + cost;
+      d.px_depense = Math.max(0, (d.px_depense || 0) - cost);
+      // Annuler la progression
+      if (type === 'attr') {
+        d.attributs_xp = d.attributs_xp || {};
+        d.attributs_xp[key] = Math.max(0, (d.attributs_xp[key] || 0) - 1);
+        if (d.attributs_xp[key] === 0) delete d.attributs_xp[key];
+      } else if (type === 'comp') {
+        d.competences_xp = d.competences_xp || {};
+        d.competences_xp[key] = Math.max(0, (d.competences_xp[key] || 0) - 1);
+        if (d.competences_xp[key] === 0) delete d.competences_xp[key];
+      } else if (type === 'qualite') {
+        d.qualites_ids = (d.qualites_ids || []).filter(id => id !== key);
+      } else if (type === 'mutation') {
+        d.mutations_ids = (d.mutations_ids || []).filter(id => id !== key);
+      } else if (type === 'spec') {
+        d.specialites_xp = d.specialites_xp || {};
+        delete d.specialites_xp[key];
+      }
+      await patchSheet(char);
+      renderAndAttachSheet(container, char);
+    });
+  });
+
   // Boutons d'achat XP
   container.querySelectorAll('.xp-buy-btn:not([disabled])').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -1232,14 +1264,22 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
       ${dis ? 'disabled' : ''} data-xp-type="${type}" data-xp-key="${encodeURIComponent(key)}" data-xp-cost="${cost}"
       title="${esc(title)}">${cost.toLocaleString('fr-FR')} PX</button>`;
   }
+  // ── Helper: remove (refund) button ────────────────────────────────────────
+  function removeBtn(type, key, cost) {
+    return `<button class="xp-remove-btn text-xs px-1.5 py-1 rounded bg-red-900/50 hover:bg-red-800 text-red-400 border border-red-800/60"
+      data-xp-type="${type}" data-xp-key="${encodeURIComponent(key)}" data-xp-cost="${cost}"
+      title="Annuler — rembourse ${cost.toLocaleString('fr-FR')} PX">↩</button>`;
+  }
 
   // ── Caractéristiques ───────────────────────────────────────────────────────
   const attrRows = attrs.map(a => {
-    const cur = finalAttrs[a.id] || 0;
+    const cur      = finalAttrs[a.id] || 0;
+    const xpBought = (d.attributs_xp || {})[a.id] || 0;
     return `<div class="flex items-center justify-between py-1.5 border-b border-gray-800 text-sm">
       <span class="text-gray-300">${esc(a.nom || a.id)}</span>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
         <span class="font-mono text-gray-400 text-xs">${cur} → <span class="text-white">${cur + 1}</span></span>
+        ${xpBought > 0 ? removeBtn('attr', a.id, 5000) : ''}
         ${buyBtn('attr', a.id, 5000)}
       </div>
     </div>`;
@@ -1257,12 +1297,15 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
     const domLabel = REF?.domaines?.find(x => x.id === domId)?.nom || domId;
     const isPriv = domPriv.includes(domId);
     const rows = comps.map(comp => {
-      const cur = competences[comp.name]?.total || 0;
-      const cost = compCost(cur, isPriv);
+      const cur       = competences[comp.name]?.total || 0;
+      const xpBought  = (d.competences_xp || {})[comp.name] || 0;
+      const cost      = compCost(cur, isPriv);
+      const refundCost = xpBought > 0 ? compCost(cur - 1, isPriv) : 0;
       return `<div class="flex items-center justify-between py-1 border-b border-gray-800 text-xs pl-3">
         <span class="${isPriv ? 'text-yellow-300' : 'text-gray-300'}">${esc(comp.name)}</span>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
           <span class="font-mono text-gray-400">${cur} → <span class="text-white">${cur + 1}</span></span>
+          ${xpBought > 0 ? removeBtn('comp', comp.name, refundCost) : ''}
           ${buyBtn('comp', comp.name, cost)}
         </div>
       </div>`;
@@ -1288,15 +1331,15 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
           : '';
         let btnHtml;
         if (owned) {
-          btnHtml = `<button disabled class="text-xs px-2 py-1 rounded bg-gray-700 text-green-600 cursor-not-allowed" title="Déjà possédée">✔ Acquise</button>`;
+          btnHtml = removeBtn('qualite', q.id, cost);
         } else {
           const tit = tooExp ? 'PX insuffisants' : `Acheter pour ${cost.toLocaleString('fr-FR')} PX`;
           btnHtml = `<button class="xp-buy-btn text-xs px-2 py-1 rounded ${ tooExp ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-purple-700 hover:bg-purple-600 text-white'}" ${ tooExp ? 'disabled' : ''} data-xp-type="qualite" data-xp-key="${encodeURIComponent(q.id)}" data-xp-cost="${cost}" title="${esc(tit)}">${cost.toLocaleString('fr-FR')} PX</button>`;
         }
-        return `<div class="flex items-center gap-2 py-1.5 border-b border-gray-800 text-xs${owned ? ' opacity-50' : ''}">
+        return `<div class="flex items-center gap-2 py-1.5 border-b border-gray-800 text-xs">
           ${factionIcon}
           <div class="flex-1 min-w-0">
-            <span class="${owned ? 'text-gray-400 line-through' : 'text-blue-300'}">${esc(q.name)}</span>
+            <span class="${owned ? 'text-green-400' : 'text-blue-300'}">${esc(q.name)}${owned ? ' ✔' : ''}</span>
             ${q.description ? `<p class="text-gray-500 mt-0.5 truncate">${esc(q.description)}</p>` : ''}
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
@@ -1312,20 +1355,24 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
   if (!hasGenesEvolutifs) {
     mutSection = `<p class="text-gray-500 text-xs">Requiert la mutation <span class="text-cyan-400">Gènes évolutifs</span>.</p>`;
   } else {
-    const buyableM = (REF?.mutations || []).filter(m => !ownedMutations.has(m.id));
-    mutSection = buyableM.length
-      ? buyableM.map(m => {
-          const isAvancee = String(m.type || '').toLowerCase().includes('avanc');
-          const cost = isAvancee ? 5000 : 2500;
-          return `<div class="flex items-center justify-between py-1.5 border-b border-gray-800 text-xs">
-            <div>
-              <span class="text-cyan-300">${esc(m.name || m.nom || m.id)}</span>
-              <span class="ml-2 text-xs px-1.5 py-px rounded ${isAvancee ? 'bg-cyan-900/60 text-cyan-400' : 'bg-teal-900/60 text-teal-300'}">${isAvancee ? 'Avancée' : 'Basique'}</span>
-            </div>
-            ${buyBtn('mutation', m.id, cost)}
-          </div>`;
-        }).join('')
-      : '<p class="text-gray-500 text-xs">Toutes les mutations disponibles ont été acquises.</p>';
+    const allMuts   = REF?.mutations || [];
+    const buyableM  = allMuts.filter(m => !ownedMutations.has(m.id));
+    const ownedMuts = allMuts.filter(m =>  ownedMutations.has(m.id));
+    const mutRow = (m, isOwned) => {
+      const isAvancee = String(m.type || '').toLowerCase().includes('avanc');
+      const cost = isAvancee ? 5000 : 2500;
+      return `<div class="flex items-center justify-between py-1.5 border-b border-gray-800 text-xs">
+        <div class="flex items-center gap-2">
+          <span class="${isOwned ? 'text-green-400' : 'text-cyan-300'}">${esc(m.name || m.nom || m.id)}${isOwned ? ' ✔' : ''}</span>
+          <span class="text-xs px-1.5 py-px rounded ${isAvancee ? 'bg-cyan-900/60 text-cyan-400' : 'bg-teal-900/60 text-teal-300'}">${isAvancee ? 'Avancée' : 'Basique'}</span>
+        </div>
+        ${isOwned ? removeBtn('mutation', m.id, cost) : buyBtn('mutation', m.id, cost)}
+      </div>`;
+    };
+    const ownedMRows  = ownedMuts.map(m => mutRow(m, true)).join('');
+    const buyableMRows = buyableM.map(m => mutRow(m, false)).join('');
+    mutSection = ownedMRows + buyableMRows
+      || '<p class="text-gray-500 text-xs">Aucune mutation disponible.</p>';
   }
 
   function section(title, content) {
@@ -1374,11 +1421,13 @@ function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
             class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 w-40"
             value="${esc(current || '')}">`;
         }
+        const hasXpSpec = !!ownedSpecs[name];
         return `<div class="flex items-center flex-wrap gap-2 py-2 border-b border-gray-800 text-xs">
           <span class="text-yellow-300 font-medium flex-1 min-w-[120px]">${esc(name)}</span>
           ${current ? `<span class="text-green-400 text-xs italic">Actuelle : ${esc(current)}</span>` : ''}
           <span class="text-gray-500 text-xs">niv.${v.total}</span>
           ${inputHtml}
+          ${hasXpSpec ? removeBtn('spec', name, cost) : ''}
           <button class="xp-buy-spec-btn text-xs px-2 py-1 rounded ${tooExp ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-purple-700 hover:bg-purple-600 text-white'}"
             ${tooExp ? 'disabled' : ''}
             data-xp-cost="${cost}" data-comp-name="${encodeURIComponent(name)}"
