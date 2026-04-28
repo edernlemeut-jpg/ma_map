@@ -345,4 +345,13 @@ function ensureXpColumns() {
 }
 ensureXpColumns();
 
+// ── Systems texte_ambiance migration ─────────────────────────────────────────────
+function ensureSystemsTextAmbiance() {
+  const cols = new Set(db.prepare("PRAGMA table_info('systems')").all().map(c => c.name));
+  if (!cols.has('texte_ambiance')) {
+    db.exec('ALTER TABLE systems ADD COLUMN texte_ambiance TEXT');
+  }
+}
+ensureSystemsTextAmbiance();
+
 export default db;
