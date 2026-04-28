@@ -189,6 +189,57 @@ function seedRulesEntries() {
 
 seedRulesEntries();
 
+function upsertMutationsFromSeed() {
+  const seedPath = resolve(__dirname, 'seeds/rules-data.json');
+  if (!existsSync(seedPath)) return;
+  try {
+    const raw = JSON.parse(readFileSync(seedPath, 'utf8'));
+    const mutations = raw.mutations || [];
+    const upsert = db.prepare(
+      `INSERT OR REPLACE INTO rules_entries (id, category, name, description, extra, table_id, created_by)
+       VALUES (?, 'mutations', ?, ?, ?, NULL, 'system')`
+    );
+    const run = db.transaction(() => {
+      for (const m of mutations) {
+        const desc = m.effect || null;
+        upsert.run(m.id, m.name, desc, JSON.stringify(m));
+      }
+    });
+    run();
+    console.log('[DB] Mutations upserted.');
+  } catch (err) {
+    console.error('[DB] Upsert mutations failed:', err.message);
+  }
+}
+
+upsertMutationsFromSeed();
+
+function upsertTraitsFromSeed() {
+  const seedPath = resolve(__dirname, 'seeds/rules-data.json');
+  if (!existsSync(seedPath)) return;
+  try {
+    const raw = JSON.parse(readFileSync(seedPath, 'utf8'));
+    const upsert = db.prepare(
+      `INSERT OR REPLACE INTO rules_entries (id, category, name, description, extra, table_id, created_by)
+       VALUES (?, ?, ?, ?, ?, NULL, 'system')`
+    );
+    const run = db.transaction(() => {
+      for (const cat of ['qualites', 'defauts', 'competences']) {
+        for (const e of (raw[cat] || [])) {
+          const desc = e.description || null;
+          upsert.run(e.id, cat, e.name, desc, JSON.stringify(e));
+        }
+      }
+    });
+    run();
+    console.log('[DB] Traits upserted.');
+  } catch (err) {
+    console.error('[DB] Upsert traits failed:', err.message);
+  }
+}
+
+upsertTraitsFromSeed();
+
 // ── Calendar feature ──────────────────────────────────────────────────────────
 function ensureCalendarTables() {
   // Add campaign_date / campaign_year to game_tables if missing
@@ -279,5 +330,14 @@ function ensureCharactersTable() {
 }
 
 ensureCharactersTable();
+
+// ── Expérience de la table de jeu ─────────────────────────────────────────────
+function ensureXpColumns() {
+  const gtCols = new Set(db.prepare("PRAGMA table_info('game_tables')").all().map(c => c.name));
+  if (!gtCols.has('px_table')) {
+    db.exec("ALTER TABLE game_tables ADD COLUMN px_table INTEGER NOT NULL DEFAULT 0");
+  }
+}
+ensureXpColumns();
 
 export default db;

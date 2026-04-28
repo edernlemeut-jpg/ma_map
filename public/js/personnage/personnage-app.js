@@ -11,7 +11,85 @@ const API = {
 };
 
 const ATTR_POOL_PJ = [4, 3, 3, 3, 3, 2]; // doit être assigné exactement
-const FREE_COMPETENCES_PJ = 18;
+
+// Distribution libre compétences PJ : 2×+3 (dom. principal), 4×+2 (dom. privil.), 4×+1 (libre)
+const COMP_SLOTS = { plus3: 2, plus2: 4, plus1: 4 };
+// Types disponibles pour compétences "Au choix"
+const ENV_TYPES      = ['Arctique','Désert','Espace','Jungle','Marécages','Mer','Montagne','Roche','Tempéré','Urbain'];
+const PILOTAGE_TYPES = ['Bateau à voiles','Véhicule maritime','Véhicule spatial','Véhicule aérien','Véhicule terrestre'];
+
+/** Retourne +1 si skName est une compétence de départ de l'archétype (direct ou via choix Au choix). */
+function getArchBonusForSkill(skName, compArch, choix) {
+  if (compArch.includes(skName)) return 1;
+  for (const ac of compArch) {
+    if (!ac.includes('(Au choix)')) continue;
+    const chosen = choix[ac];
+    if (!chosen) continue;
+    const base = ac.split('(')[0].trim().toLowerCase();
+    if (skName.toLowerCase().startsWith(base) && skName.toLowerCase().includes(chosen.toLowerCase())) return 1;
+  }
+  return 0;
+}
+
+/** Résout le nom final d'un bonus_competences d'origine.
+ * - bc.au_choix=true → le joueur choisit dans origine_choix
+ * - compétence "(Au choix)" avec bc.specialite → type pré-défini dans les données
+ * - sinon → nom direct
+ * Retourne null si le type n'est pas encore choisi.
+ */
+function resolveOrigineComp(bc, origineChoix) {
+  if (bc.au_choix) {
+    return resolveAuChoixKey(bc.competence, (origineChoix || {})[bc.competence]) || null;
+  }
+  if (/\(au choix/i.test(bc.competence) && bc.specialite) {
+    return resolveAuChoixKey(bc.competence, bc.specialite) || bc.competence;
+  }
+  return bc.competence;
+}
+
+/** Retourne les options de type pour une compétence "(Au choix)" ou null sinon. */
+function archChoixTypeOptions(sk) {
+  if (sk.startsWith('Environnement')) return ENV_TYPES;
+  if (sk.startsWith('Pilotage'))      return PILOTAGE_TYPES;
+  return null; // texte libre
+}
+
+/**
+ * Résout une compétence "(Au choix)" en son nom réel dans REF.competences,
+ * en utilisant le type choisi par l'utilisateur.
+ * Ex: resolveAuChoixKey('Environnement (Au choix)', 'Espace') → 'Environnement (espace)'
+ * ou 'Artisanat (Au choix)' + 'Armes' → 'Artisanat (Armes)' (clé libre, pas dans REF)
+ */
+function resolveAuChoixKey(baseComp, chosen) {
+  if (!chosen) return null;
+  const base = baseComp.replace(/\s*\(Au choix\)\s*/i, '').trim();
+  // Chercher une correspondance exacte dans REF
+  const match = (REF?.competences || []).find(c =>
+    c.name.toLowerCase().startsWith(base.toLowerCase() + ' (') &&
+    c.name.toLowerCase().includes(chosen.toLowerCase()) &&
+    !c.name.toLowerCase().includes('au choix')
+  );
+  return match ? match.name : `${base} (${chosen})`;
+}
+
+/**
+ * Retourne les options de type pour une compétence d'origine "(Au choix)",
+ * en cherchant les variantes existant dans REF.competences.
+ */
+function origineChoixTypeOptions(compName) {
+  const base = compName.replace(/\s*\(Au choix\)\s*/i, '').trim().toLowerCase();
+  const variants = (REF?.competences || [])
+    .filter(c => {
+      const n = c.name.toLowerCase();
+      return n.startsWith(base + ' (') && !n.includes('au choix');
+    })
+    .map(c => { const m = c.name.match(/\(([^)]+)\)/); return m ? m[1] : c.name; });
+  if (variants.length > 0) return variants;
+  // Fallback connu
+  if (base === 'environnement') return ENV_TYPES;
+  if (base === 'pilotage')      return PILOTAGE_TYPES;
+  return null; // texte libre
+}
 
 // ── State global ──────────────────────────────────────────────────────────────
 let REF = null;          // données de référence
@@ -39,8 +117,10 @@ const newState = () => ({
   action_archetype: null,
   // PJ étape 5 : attributs — map { agilite: null|3, ... }
   attributs: { agilite: null, carrure: null, perception: null, intelligence: null, presence: null, sang_froid: null },
-  // PJ étape 6 : compétences libres — map { 'Navigation': 2, ... }
+  // PJ étape 6 : compétences libres — map { 'Navigation': 2, ... } — valeur = 1|2|3 (slots libres)
   competences_libres: {},
+  // PJ étape 6 : choix de type pour compétences d'archétype "Au choix"
+  competences_archetype_choix: {},
   // PJ étape 7 : traits
   qualites_ids: [],
   defauts_ids: [],
@@ -50,6 +130,8 @@ const newState = () => ({
   description: '',
   mutations_ids: [],
   avatar_url: '',       // image de profil (URL)
+  // Genre
+  genre: 'homme',
   // PNJ spécifique
   pnj_niveau: 'normal',
   pnj_is_pirate: false,
@@ -62,6 +144,12 @@ const newState = () => ({
 let DRAFT = newState();
 let CURRENT_STEP = 0;
 let EDITING_ID = null;   // si on édite un personnage existant
+let TRAITS_TAB    = { section: 'd', filter: 'all' }; // UI-only : onglets de l'étape Traits
+let LIST_TAB      = 'joueurs';   // UI-only : onglet actif de la liste MJ ('joueurs' | 'mj')
+let CHARS_CACHE   = [];          // dernier fetch de la liste (pour changer d'onglet sans re-fetch)
+let MUTATION_TAB  = 'basique';               // UI-only : onglet actif de l'étape Mutations
+let SHEET_TAB     = 'caracteristiques';      // UI-only : onglet actif de la fiche
+let CURRENT_SHEET_CHAR = null;               // char courant affiché en fiche
 
 // ── Initialisation ────────────────────────────────────────────────────────────
 async function init() {
@@ -120,8 +208,10 @@ async function showListView() {
     const r = await fetchWithTable(API.characters, { credentials: 'include' });
     if (!r.ok) throw new Error();
     const { data: chars } = await r.json();
+    CHARS_CACHE = chars;
     renderCharList(chars);
   } catch {
+    CHARS_CACHE = [];
     renderCharList([]);
   }
 }
@@ -138,17 +228,167 @@ function renderCharList(chars) {
   }
   empty.classList.add('hidden');
 
-  const pjs  = chars.filter(c => c.type === 'pj');
-  const pnjs = chars.filter(c => c.type === 'pnj');
+  if (ROLE !== 'mj' && ROLE !== 'admin') {
+    // Joueur : uniquement les PJs de la table
+    chars.forEach(c => container.appendChild(charCard(c)));
+    return;
+  }
 
-  if (pjs.length) {
-    container.insertAdjacentHTML('beforeend', '<p class="text-xs text-gray-500 uppercase mb-2">Personnages-Joueurs</p>');
-    pjs.forEach(c => container.appendChild(charCard(c)));
-  }
-  if (pnjs.length) {
-    container.insertAdjacentHTML('beforeend', '<p class="text-xs text-gray-500 uppercase mt-4 mb-2">Personnages Non-Joueurs (MJ)</p>');
-    pnjs.forEach(c => container.appendChild(charCard(c)));
-  }
+  // MJ : onglets séparés
+  const pjsJoueurs = chars.filter(c => c.type === 'pj'  && c.created_by !== USER_ID);
+  const mesCreas   = chars.filter(c => c.created_by === USER_ID || c.type === 'pnj');
+  // Dédupliquer (PNJ créé par le MJ compte une seule fois)
+  const mesCreaUniq = [...new Map(mesCreas.map(c => [c.id, c])).values()];
+
+  const tabBtn = (key, label, count) => `
+    <button data-list-tab="${key}"
+      class="flex-1 px-3 py-2 text-xs font-medium rounded-t transition-colors border-b-2 flex items-center justify-center gap-2
+        ${LIST_TAB === key
+          ? 'text-white border-yellow-400 bg-gray-700/60'
+          : 'text-gray-400 border-transparent hover:text-gray-200 hover:bg-gray-800'}">
+      ${label}
+      <span class="text-xs px-1.5 py-0.5 rounded-full
+        ${LIST_TAB === key ? 'bg-yellow-500/20 text-yellow-300' : 'bg-gray-700 text-gray-500'}">${count}</span>
+    </button>`;
+
+  container.insertAdjacentHTML('beforeend', `
+    <div class="flex gap-0 border-b border-gray-700 mb-3">
+      ${tabBtn('joueurs', '🧑‍🤝‍🧑 PJs des joueurs', pjsJoueurs.length)}
+      ${tabBtn('mj',      '🎲 Mes créations',        mesCreaUniq.length)}
+    </div>
+    <div id="list-tab-content" class="space-y-2"></div>
+  `);
+
+  const content = container.querySelector('#list-tab-content');
+  const renderTab = async () => {
+    content.innerHTML = '';
+    const list = LIST_TAB === 'joueurs' ? pjsJoueurs : mesCreaUniq;
+
+    // Panneau MJ — expérience et récompenses (onglet Joueurs uniquement)
+    if (LIST_TAB === 'joueurs') {
+      let pxTable = 0;
+      try {
+        const rpx = await fetchWithTable(`/api/game_tables/${TABLE_ID}/px`, { credentials: 'include' });
+        if (rpx.ok) { const { data } = await rpx.json(); pxTable = data?.px_table ?? 0; }
+      } catch { /* ignore */ }
+
+      const mjPanel = document.createElement('div');
+      mjPanel.className = 'bg-gray-800/80 border border-yellow-700/40 rounded-xl p-4 mb-4';
+      mjPanel.innerHTML = `
+        <p class="text-sm font-semibold text-yellow-300 mb-3">🎖 Récompenses — Table de jeu</p>
+        <div class="flex flex-wrap gap-4 items-end mb-3">
+          <div>
+            <p class="text-xs text-gray-400 mb-1">Total PX attribués à la table</p>
+            <p class="text-2xl font-bold text-yellow-400" id="px-table-display">${pxTable} PX</p>
+          </div>
+          <div class="flex-1 min-w-[140px]">
+            <label class="text-xs text-gray-400 block mb-1">Modifier les PX (à tous les PJs)</label>
+            <div class="flex gap-2">
+              <input type="number" id="px-award-input" min="1" value="500"
+                class="w-24 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm">
+              <button id="btn-award-px" data-sign="1"
+                class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 rounded text-sm font-medium text-white transition-colors">
+                ✚ Donner
+              </button>
+              <button id="btn-remove-px" data-sign="-1"
+                class="px-3 py-1.5 bg-red-800 hover:bg-red-700 rounded text-sm font-medium text-white transition-colors">
+                − Retirer
+              </button>
+            </div>
+          </div>
+        </div>
+        ${list.length ? `
+        <div>
+          <p class="text-xs text-gray-400 mb-2">Gloire &amp; Panache par joueur</p>
+          <div class="space-y-2">
+            ${list.map(c => `
+            <div class="flex items-center gap-3 py-1 border-b border-gray-700/50">
+              <span class="text-sm text-gray-300 flex-1 truncate">${esc(c.data?.nom_personnage || c.name)}</span>
+              <span class="text-xs text-gray-500">Gloire <strong class="text-gray-200">${c.data?.gloire ?? 0}</strong></span>
+              <div class="flex gap-1">
+                <button data-char-id="${c.id}" data-award="gloire" data-delta="-1"
+                  class="award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-red-800/40 rounded text-xs border border-gray-600 hover:border-red-600 transition-colors">−</button>
+                <button data-char-id="${c.id}" data-award="gloire" data-delta="1"
+                  class="award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-green-800/40 rounded text-xs border border-gray-600 hover:border-green-600 transition-colors">+</button>
+              </div>
+              <span class="text-xs text-gray-500 ml-2">Panache <strong class="text-gray-200">${c.data?.panache ?? 3}</strong></span>
+              <div class="flex gap-1">
+                <button data-char-id="${c.id}" data-award="panache" data-delta="-1"
+                  class="award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-red-800/40 rounded text-xs border border-gray-600 hover:border-red-600 transition-colors">−</button>
+                <button data-char-id="${c.id}" data-award="panache" data-delta="1"
+                  class="award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-green-800/40 rounded text-xs border border-gray-600 hover:border-green-600 transition-colors">+</button>
+              </div>
+              <span class="text-xs text-yellow-400 ml-2">${c.data?.px_actuel ?? 0} PX</span>
+            </div>`).join('')}
+          </div>
+        </div>` : ''}`;
+      content.appendChild(mjPanel);
+
+      const handlePxBtn = async (sign) => {
+        const amount = parseInt(mjPanel.querySelector('#px-award-input').value) || 0;
+        if (amount <= 0) return;
+        const delta = sign * amount;
+        const r = await fetchWithTable(`/api/game_tables/${TABLE_ID}/px`, {
+          method: 'PATCH', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ delta }),
+        });
+        if (r.ok) {
+          const { data } = await r.json();
+          mjPanel.querySelector('#px-table-display').textContent = `${data.px_table} PX`;
+          showListView();
+        }
+      };
+      mjPanel.querySelector('#btn-award-px')?.addEventListener('click', () => handlePxBtn(1));
+      mjPanel.querySelector('#btn-remove-px')?.addEventListener('click', () => handlePxBtn(-1));
+
+      mjPanel.querySelectorAll('.award-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const { charId, award, delta } = btn.dataset;
+          const body = award === 'gloire'
+            ? { gloire_delta: parseInt(delta) }
+            : { panache_delta: parseInt(delta) };
+          const r = await fetchWithTable(`/api/characters/${charId}/awards`, {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          if (r.ok) showListView();
+        });
+      });
+    }
+
+    if (!list.length) {
+      const p = document.createElement('p');
+      p.className = 'text-gray-600 text-xs py-4 text-center';
+      p.textContent = 'Aucun personnage dans cette catégorie.';
+      content.appendChild(p);
+      return;
+    }
+    if (LIST_TAB === 'mj') {
+      const mjPjs  = mesCreaUniq.filter(c => c.type === 'pj');
+      const mjPnjs = mesCreaUniq.filter(c => c.type === 'pnj');
+      if (mjPjs.length) {
+        content.insertAdjacentHTML('beforeend', '<p class="text-xs text-gray-500 uppercase mb-2">PJs</p>');
+        mjPjs.forEach(c => content.appendChild(charCard(c)));
+      }
+      if (mjPnjs.length) {
+        content.insertAdjacentHTML('beforeend', `<p class="text-xs text-gray-500 uppercase ${mjPjs.length ? 'mt-4 ' : ''}mb-2">PNJs</p>`);
+        mjPnjs.forEach(c => content.appendChild(charCard(c)));
+      }
+    } else {
+      list.forEach(c => content.appendChild(charCard(c)));
+    }
+  };
+
+  renderTab();
+
+  container.addEventListener('click', e => {
+    const btn = e.target.closest('[data-list-tab]');
+    if (!btn) return;
+    LIST_TAB = btn.dataset.listTab;
+    renderCharList(CHARS_CACHE);
+  }, { once: true });
 }
 
 function charCard(c) {
@@ -158,10 +398,18 @@ function charCard(c) {
   const arch = d.archetype_id ? (REF?.archetypes?.find(a => a.id === d.archetype_id)?.nom || '') : '';
   const orig = d.origine_id   ? (REF?.origines?.find(o => o.id === d.origine_id)?.nom || '') : '';
   const sub  = [arch, orig].filter(Boolean).join(' · ') || (c.type === 'pnj' ? 'PNJ' : 'PJ');
+  const creatorTag = (ROLE === 'mj' || ROLE === 'admin') && c.creator_name && c.type === 'pj'
+    ? `<span class="text-xs text-yellow-500/80">👤 ${esc(c.creator_name)}</span>`
+    : '';
+  const avatarHtml = d.avatar_url
+    ? `<img src="${esc(d.avatar_url)}" class="w-10 h-10 rounded-full object-cover shrink-0" alt="">`
+    : `<div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-lg shrink-0">👤</div>`;
   div.innerHTML = `
-    <div>
-      <p class="font-medium">${esc(c.name)}</p>
+    ${avatarHtml}
+    <div class="flex-1 min-w-0">
+      <p class="font-medium truncate">${esc(c.name)}</p>
       <p class="text-xs text-gray-400">${esc(sub)}</p>
+      ${creatorTag}
     </div>
     <div class="flex gap-2 shrink-0">
       <button data-id="${c.id}" data-action="view"
@@ -188,198 +436,913 @@ function canDelete(c) { return canEdit(c); }
 // ── Fiche de personnage (lecture) ─────────────────────────────────────────────
 async function showSheet(id) {
   setView('sheet');
+  SHEET_TAB = 'caracteristiques';
   const container = document.getElementById('sheet-view');
-  container.innerHTML = '<p class="text-gray-400">Chargement…</p>';
-
+  container.innerHTML = '<p class="text-gray-400 py-8 text-center">Chargement…</p>';
   try {
     const r = await fetchWithTable(`${API.characters}/${id}`, { credentials: 'include' });
     if (!r.ok) throw new Error();
     const { data: char } = await r.json();
-    container.innerHTML = renderSheet(char);
+    CURRENT_SHEET_CHAR = char;
+    renderAndAttachSheet(container, char);
   } catch {
     container.innerHTML = '<p class="text-red-400">Impossible de charger le personnage.</p>';
   }
 }
 
+function renderAndAttachSheet(container, char) {
+  container.innerHTML = renderSheet(char);
+  // Trackers
+  const state = _loadTrackerState(char.id);
+  _applyTrackerState(container, state);
+  container.querySelectorAll('.tracker-box[data-tracker-id]').forEach(box => {
+    box.addEventListener('click', () => {
+      box.classList.toggle('checked');
+      _saveTrackerState(char.id, _collectTrackerState(container));
+    });
+  });
+  // Onglets de la fiche
+  container.querySelectorAll('[data-sheet-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      SHEET_TAB = btn.dataset.sheetTab;
+      renderAndAttachSheet(container, char);
+      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+  // Entités multiples (PNJ non-nommés)
+  if (char.data?.type === 'pnj' && !char.data?.pnj_is_named) {
+    container.querySelector('#btn-add-entity')?.addEventListener('click', () => {
+      const entities = _loadPnjEntities(char.id);
+      entities.names.push(`Figurant ${entities.names.length + 1}`);
+      _savePnjEntities(char.id, entities);
+      renderAndAttachSheet(container, char);
+    });
+    container.querySelectorAll('[data-del-entity]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.delEntity);
+        const entities = _loadPnjEntities(char.id);
+        entities.names.splice(idx, 1);
+        _savePnjEntities(char.id, entities);
+        renderAndAttachSheet(container, char);
+      });
+    });
+    container.querySelectorAll('.entity-name-input').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const idx = parseInt(inp.dataset.entityIdx);
+        const entities = _loadPnjEntities(char.id);
+        entities.names[idx] = inp.value.trim() || `Figurant ${idx + 1}`;
+        _savePnjEntities(char.id, entities);
+      });
+    });
+  }
+  // Boutons d'achat de spécialité
+  container.querySelectorAll('.xp-buy-spec-btn:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cost      = parseInt(btn.dataset.xpCost);
+      const compName  = decodeURIComponent(btn.dataset.compName);
+      const inputId   = btn.dataset.inputId;
+      const selEl     = container.querySelector(`#${CSS.escape(inputId)}`);
+      const libreEl   = container.querySelector(`#${CSS.escape(inputId)}_libre`);
+      let specValue   = selEl ? selEl.value.trim() : '';
+      if (specValue === '__libre__' && libreEl) specValue = libreEl.value.trim();
+      if (!specValue || specValue === '__libre__') {
+        alert('Veuillez saisir ou choisir une spécialité.');
+        return;
+      }
+      const d = char.data;
+      try {
+        const r = await fetchWithTable(`${API.characters}/${char.id}/awards`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ px_spend: cost }),
+        });
+        if (!r.ok) { alert('Erreur lors de la dépense de PX.'); return; }
+      } catch { alert('Erreur réseau.'); return; }
+      d.specialites_xp = d.specialites_xp || {};
+      d.specialites_xp[compName] = specValue;
+      d.px_actuel  = Math.max(0, (d.px_actuel  || 0) - cost);
+      d.px_depense = (d.px_depense || 0) + cost;
+      await patchSheet(char);
+      renderAndAttachSheet(container, char);
+    });
+  });
+  // Select spécialité → affiche/masque le champ texte libre
+  container.querySelectorAll('[id^="spec-inp-"]').forEach(sel => {
+    if (sel.tagName !== 'SELECT') return;
+    const libreId = CSS.escape(sel.id) + '_libre';
+    const libreEl = container.querySelector(`#${libreId}`);
+    if (!libreEl) return;
+    sel.addEventListener('change', () => {
+      libreEl.classList.toggle('hidden', sel.value !== '__libre__');
+    });
+  });
+
+  // Boutons d'achat XP
+  container.querySelectorAll('.xp-buy-btn:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cost = parseInt(btn.dataset.xpCost);
+      const type = btn.dataset.xpType;
+      const key  = decodeURIComponent(btn.dataset.xpKey);
+      const d = char.data;
+      // 1. Deduct PX
+      try {
+        const r = await fetchWithTable(`${API.characters}/${char.id}/awards`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ px_spend: cost }),
+        });
+        if (!r.ok) { alert('Erreur lors de la dépense de PX.'); return; }
+      } catch { alert('Erreur réseau.'); return; }
+      // 2. Apply purchase to char.data
+      if (type === 'attr') {
+        d.attributs_xp = d.attributs_xp || {};
+        d.attributs_xp[key] = (d.attributs_xp[key] || 0) + 1;
+      } else if (type === 'comp') {
+        d.competences_xp = d.competences_xp || {};
+        d.competences_xp[key] = (d.competences_xp[key] || 0) + 1;
+      } else if (type === 'qualite') {
+        d.qualites_ids = [...(d.qualites_ids || []), key];
+      } else if (type === 'mutation') {
+        d.mutations_ids = [...(d.mutations_ids || []), key];
+      }
+      d.px_actuel  = (d.px_actuel  || 0) - cost;
+      d.px_depense = (d.px_depense || 0) + cost;
+      // 3. Save & re-render
+      await patchSheet(char);
+      renderAndAttachSheet(container, char);
+    });
+  });
+  // Champs éditables (background, notes, inventaire, crédits)
+  attachSheetEditListeners(container, char);
+}
+
+async function patchSheet(char) {
+  try {
+    await fetchWithTable(`${API.characters}/${char.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name: char.name, type: char.type, data: char.data }),
+    });
+    const ind = document.getElementById('sheet-save-indicator');
+    if (ind) { ind.classList.remove('opacity-0'); setTimeout(() => ind.classList.add('opacity-0'), 1800); }
+  } catch { /* silent */ }
+}
+
+function attachSheetEditListeners(container, char) {
+  const wire = (id, field, isNumber = false) => {
+    const el = container.querySelector(`#${id}`);
+    if (!el) return;
+    let timer;
+    const handler = () => {
+      char.data[field] = isNumber ? (parseInt(el.value) || 0) : el.value;
+      clearTimeout(timer);
+      timer = setTimeout(() => patchSheet(char), isNumber ? 400 : 1200);
+    };
+    el.addEventListener('input', handler);
+  };
+  wire('sheet-background', 'background');
+  wire('sheet-notes',      'notes');
+  wire('sheet-inventaire', 'inventaire');
+  wire('sheet-credits',    'credits', true);
+}
+
 function renderSheet(char) {
-  const d = char.data || {};
-  const type = char.type === 'pnj' ? 'PNJ' : 'PJ';
-  const arch  = d.archetype_id ? REF?.archetypes?.find(a => a.id === d.archetype_id) : null;
-  const orig  = d.origine_id   ? REF?.origines?.find(o => o.id === d.origine_id)   : null;
-  const motiv = d.motivation_id? REF?.motivations?.find(m => m.id === d.motivation_id) : null;
+  const d     = char.data || {};
+  const arch  = d.archetype_id  ? REF?.archetypes?.find(a => a.id === d.archetype_id)  : null;
+  const orig  = d.origine_id    ? REF?.origines?.find(o => o.id === d.origine_id)       : null;
+  const motiv = d.motivation_id ? REF?.motivations?.find(m => m.id === d.motivation_id) : null;
 
-  // Calcul totaux
-  const attrs = d.attributs || {};
-  const attrBonus = orig?.bonus_attribut ? { [orig.bonus_attribut.attribut]: orig.bonus_attribut.valeur } : {};
-
+  const attrs      = d.type === 'pnj' ? (d.attributs_pnj || {}) : (d.attributs || {});
+  const attrBonus  = orig?.bonus_attribut ? { [orig.bonus_attribut.attribut]: orig.bonus_attribut.valeur } : {};
+  const traitFx    = applyTraitEffects(d);
   const finalAttrs = {};
   for (const a of REF?.attributs || []) {
-    finalAttrs[a.id] = (attrs[a.id] || 0) + (attrBonus[a.id] || 0);
+    finalAttrs[a.id] = (attrs[a.id] || 0) + (attrBonus[a.id] || 0) + (traitFx.attr[a.id] || 0) + ((d.attributs_xp || {})[a.id] || 0);
+  }
+  const competences = buildCompetences(d);
+  const sante       = (finalAttrs.carrure || 0) + (finalAttrs.sang_froid || 0);
+  const energieX    = (finalAttrs.perception || 0) + (finalAttrs.intelligence || 0);
+  const domPriv     = arch?.domaines_privileges || d.domaines_libres || [];
+  const editable    = canEdit(char);
+  const typeLabel   = char.type === 'pnj' ? 'PNJ' : 'PJ';
+
+  const TABS = [
+    { id: 'caracteristiques', label: '⚡ Carac.' },
+    { id: 'competences',      label: '🎯 Compétences' },
+    { id: 'traits',           label: '✦ Traits' },
+    { id: 'background',       label: '📖 Background' },
+    { id: 'notes',            label: '📝 Notes' },
+    { id: 'inventaire',       label: '🎒 Inventaire' },
+    ...(d.type === 'pj' ? [{ id: 'experience', label: '💎 Expérience' }] : []),
+  ];
+  const tabBar = `<div class="flex gap-1 flex-wrap border-b border-gray-700 mb-5 pb-1">
+    ${TABS.map(t => `<button data-sheet-tab="${t.id}"
+      class="px-3 py-1.5 text-xs font-medium rounded-t transition-colors border-b-2
+        ${SHEET_TAB === t.id
+          ? 'text-white border-yellow-400 bg-gray-700/60'
+          : 'text-gray-400 border-transparent hover:text-gray-200 hover:bg-gray-800'}">${t.label}</button>`).join('')}
+  </div>`;
+
+  let content = '';
+  switch (SHEET_TAB) {
+    case 'competences': content = renderSheetTabCompetences(competences, finalAttrs, domPriv); break;
+    case 'traits':      content = renderSheetTabTraits(d); break;
+    case 'background':  content = renderSheetTabBackground(d, editable); break;
+    case 'notes':       content = renderSheetTabNotes(d, editable); break;
+    case 'inventaire':  content = renderSheetTabInventaire(d, editable); break;
+    case 'experience':  content = renderSheetTabExperience(char, d, finalAttrs, domPriv); break;
+    default:            content = renderSheetTabCaracteristiques(d, finalAttrs, attrBonus, attrs, sante, energieX, arch, domPriv);
   }
 
-  const competences = buildCompetences(d);
-
-  const sante    = (finalAttrs.carrure || 0) + (finalAttrs.sang_froid || 0);
-  const energieX = d.is_mutant ? (finalAttrs.perception || 0) + (finalAttrs.intelligence || 0) : null;
-
-  const domPriv = arch?.domaines_privileges || d.domaines_libres || [];
+  const avatarHtml = d.avatar_url
+    ? `<img src="${esc(d.avatar_url)}" class="w-16 h-16 rounded-full object-cover border-2 border-gray-600 shrink-0" alt="">`
+    : `<div class="w-16 h-16 rounded-full bg-gray-700 border-2 border-gray-600 flex items-center justify-center text-2xl shrink-0">🧑‍🚀</div>`;
 
   return `
-  <div class="space-y-6">
-    <!-- En-tête -->
-    <div class="flex flex-wrap gap-4 justify-between">
-      <div>
-        <h3 class="text-2xl font-bold">${esc(d.nom_personnage || char.name)}</h3>
-        <p class="text-sm text-gray-400 mt-0.5">
-          ${esc(orig?.nom || '')}${orig ? ' · ' : ''}${esc(arch?.nom || '')}${motiv ? ' · ' + esc(motiv.nom) : ''}
-          ${ type === 'PNJ' ? ` · <span class="text-purple-400">PNJ ${esc(d.pnj_niveau || '')}</span>` : '' }
-        </p>
+  <div class="space-y-4">
+    <div class="flex flex-wrap gap-4 justify-between items-start">
+      <div class="flex gap-3 items-center min-w-0">
+        ${avatarHtml}
+        <div class="min-w-0">
+          <h3 class="text-2xl font-bold">${esc(d.nom_personnage || char.name)}</h3>
+          <p class="text-sm text-gray-400 mt-0.5">
+            ${esc(orig?.nom || '')}${orig ? ' · ' : ''}${esc(arch?.nom || '')}${motiv ? ' · ' + esc(motiv.nom) : ''}
+            ${ typeLabel === 'PNJ' ? ` · <span class="text-purple-400">PNJ ${esc(d.pnj_niveau || '')}</span>` : '' }
+          </p>
+          <p class="text-xs text-gray-600 mt-0.5">${typeLabel}${d.age ? ' · ' + esc(String(d.age)) + ' ans' : ''}</p>
+        </div>
       </div>
-      <div class="flex gap-3 text-sm">
-        ${ canEdit(char) ? `<button onclick="editChar('${char.id}')" class="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 rounded">Modifier</button>` : '' }
+      <div class="flex gap-2 text-sm items-center flex-wrap shrink-0">
+        <span id="sheet-save-indicator" class="text-xs text-green-400 opacity-0 transition-opacity duration-500">✓ Sauvegardé</span>
+        ${ editable ? `<button onclick="editChar('${char.id}')" class="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 rounded">Modifier</button>` : '' }
         <button onclick="showListView()" class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded">← Retour</button>
       </div>
     </div>
-
-    <!-- Attributs + trackers -->
-    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-      ${(REF?.attributs || []).map(a => {
-        const val = finalAttrs[a.id] || 0;
-        const base = attrs[a.id] || 0;
-        const bonus = attrBonus[a.id] || 0;
-        return `
-        <div class="bg-gray-800 border border-gray-700 rounded-lg p-3 text-center"
-             data-tip="${esc(a.description)}">
-          <p class="text-xs text-gray-400 mb-0.5">${esc(a.nom)}</p>
-          <p class="text-3xl font-bold" style="color:var(--gold)">${val}</p>
-          ${ bonus ? `<p class="text-xs text-green-400">(${base} + ${bonus})</p>` : '' }
-          <p class="text-xs text-gray-500">${esc(a.domaine)}</p>
-        </div>`;
-      }).join('')}
-    </div>
-
-    <!-- Santé / Énergie X / Panache / Gloire -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-      <div class="bg-gray-800 border border-gray-700 rounded-lg p-3">
-        <p class="text-xs text-gray-400 mb-1">Santé <span class="text-gray-500">(Car.+SC)</span></p>
-        <p class="font-bold text-xl text-red-400">${sante}</p>
-        <div class="tracker-boxes mt-2">${trackerBoxes(sante)}</div>
-      </div>
-      ${ energieX !== null ? `
-      <div class="bg-gray-800 border border-gray-700 rounded-lg p-3">
-        <p class="text-xs text-gray-400 mb-1">Énergie X <span class="text-gray-500">(Per.+Int.)</span></p>
-        <p class="font-bold text-xl text-cyan-400">${energieX}</p>
-        <div class="tracker-boxes mt-2">${trackerBoxes(energieX)}</div>
-      </div>` : '<div></div>' }
-      <div class="bg-gray-800 border border-gray-700 rounded-lg p-3">
-        <p class="text-xs text-gray-400 mb-1">Panache</p>
-        <p class="font-bold text-xl text-yellow-400">${d.panache ?? 3}</p>
-        <div class="tracker-boxes mt-2">${trackerBoxes(d.panache ?? 3)}</div>
-      </div>
-      <div class="bg-gray-800 border border-gray-700 rounded-lg p-3">
-        <p class="text-xs text-gray-400 mb-1">Gloire</p>
-        <p class="font-bold text-xl">${d.gloire ?? 0}</p>
-      </div>
-    </div>
-
-    <!-- Archétype + domaines -->
-    ${ arch ? `
-    <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
-      <p class="text-sm font-semibold mb-1" style="color:var(--gold)">Archétype : ${esc(arch.nom)}</p>
-      <p class="text-xs text-gray-400 mb-2">${esc(arch.description)}</p>
-      <p class="text-xs text-gray-500">Domaines privilégiés : ${arch.domaines_privileges.map(d => `<span class="text-gray-300">${esc(d)}</span>`).join(', ')}</p>
-      ${ d.action_archetype ? `<p class="text-xs text-gray-400 mt-1">Action choisie : <span class="text-blue-300">${esc(d.action_archetype)}</span></p>` : '' }
-    </div>` :
-    domPriv.length ? `<div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
-      <p class="text-xs text-gray-500">Domaines privilégiés : ${domPriv.map(x => `<span class="text-gray-300">${esc(x)}</span>`).join(', ')}</p>
-    </div>` : '' }
-
-    <!-- Compétences -->
-    <div>
-      <h4 class="text-sm font-semibold text-gray-300 mb-3">Compétences</h4>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-y-1 gap-x-4">
-        ${renderCompetencesSheet(competences, finalAttrs, domPriv)}
-      </div>
-    </div>
-
-    <!-- Qualités / Défauts -->
-    ${renderTraitsSheet(d)}
-
-    <!-- Mutations -->
-    ${d.is_mutant && d.mutations_ids?.length ? `
-    <div>
-      <h4 class="text-sm font-semibold text-gray-300 mb-2">Mutations</h4>
-      <div class="flex flex-wrap gap-2">
-        ${d.mutations_ids.map(mid => {
-          const m = REF?.mutations?.find(x => x.id === mid);
-          return `<span class="text-xs bg-cyan-900 border border-cyan-700 rounded px-2 py-0.5">${esc(m?.name || mid)}</span>`;
-        }).join('')}
-      </div>
-    </div>` : ''}
-
-    <!-- Équipement de départ -->
-    ${ arch?.equipement_depart ? `
-    <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
-      <p class="text-xs text-gray-400">Équipement de départ :</p>
-      <p class="text-sm mt-0.5">${esc(arch.equipement_depart)}</p>
-    </div>` : '' }
-
-    <!-- Notes narratives -->
-    ${ d.description ? `
-    <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
-      <p class="text-xs text-gray-400 mb-1">Description / Historique</p>
-      <p class="text-sm text-gray-300">${esc(d.description)}</p>
-    </div>` : '' }
+    ${tabBar}
+    ${content}
   </div>`;
 }
 
-function trackerBoxes(n) {
-  return Array.from({ length: Math.max(0, n) }, () => '<div class="tracker-box"></div>').join('');
+function applyTraitEffects(d) {
+  const attr = {};
+  const allTraits = [
+    ...(d.qualites_ids  || []).map(id => REF?.qualites?.find(x => x.id === id)),
+    ...(d.defauts_ids   || []).map(id => REF?.defauts?.find(x => x.id === id)),
+    ...(d.mutations_ids || []).map(id => REF?.mutations?.find(x => x.id === id)),
+  ].filter(Boolean);
+  for (const t of allTraits) {
+    if (t.attr_bonus) {
+      for (const [k, v] of Object.entries(t.attr_bonus)) {
+        attr[k] = (attr[k] || 0) + Number(v);
+      }
+    }
+  }
+  return { attr };
+}
+
+function trackerBoxes(n, trackerId = '', colorClass = '') {
+  const cls = colorClass ? ` tracker-box--${colorClass}` : '';
+  return Array.from({ length: Math.max(0, n) }, (_, i) => {
+    const id = trackerId ? ` data-tracker-id="${trackerId}-${i}"` : '';
+    return `<div class="tracker-box${cls}"${id}></div>`;
+  }).join('');
+}
+
+function _loadTrackerState(charId) {
+  try { return JSON.parse(localStorage.getItem(`tracker_${charId}`) || '{}'); } catch { return {}; }
+}
+function _saveTrackerState(charId, state) {
+  localStorage.setItem(`tracker_${charId}`, JSON.stringify(state));
+}
+function _applyTrackerState(container, state) {
+  container.querySelectorAll('.tracker-box[data-tracker-id]').forEach(box => {
+    if (state[box.dataset.trackerId]) box.classList.add('checked');
+  });
+}
+function _collectTrackerState(container) {
+  const state = {};
+  container.querySelectorAll('.tracker-box[data-tracker-id]').forEach(box => {
+    state[box.dataset.trackerId] = box.classList.contains('checked');
+  });
+  return state;
+}
+
+// ── Entités PNJ multiples (non-nommés) ────────────────────────────────────────
+function _loadPnjEntities(charId) {
+  try { return JSON.parse(localStorage.getItem(`pnj_entities_${charId}`) || 'null') || { names: [] }; }
+  catch { return { names: [] }; }
+}
+function _savePnjEntities(charId, data) {
+  localStorage.setItem(`pnj_entities_${charId}`, JSON.stringify(data));
+}
+
+function renderPnjEntityCard(idx, name, sante) {
+  const rows = [['Indemne','text-green-400'],['Blessé léger','text-yellow-400'],['Blessé grave','text-orange-400'],['Mort ?','text-red-500']];
+  return `
+  <div class="bg-gray-700/50 border border-gray-600 rounded-lg p-3">
+    <div class="flex items-center justify-between mb-2">
+      <input type="text" data-entity-idx="${idx}" value="${esc(name)}" placeholder="Nom de l'entité…"
+        class="entity-name-input flex-1 bg-transparent border-b border-gray-500 text-sm text-gray-200 px-1 py-0.5 focus:outline-none focus:border-yellow-400">
+      <button data-del-entity="${idx}" type="button"
+        class="ml-3 text-xs text-gray-500 hover:text-red-400 transition-colors" title="Supprimer">✕</button>
+    </div>
+    <div class="space-y-1">
+      ${rows.map(([label, cls], row) => `
+      <div class="flex items-center gap-2">
+        <span class="text-xs ${cls} w-24 shrink-0">${label}</span>
+        <div class="flex gap-1 flex-wrap">${trackerBoxes(sante, `pnj-e${idx}-sante-${row}`)}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function renderPnjEntitySection(sante) {
+  const charId = CURRENT_SHEET_CHAR?.id;
+  const entities = _loadPnjEntities(charId);
+  const names = entities.names || [];
+  return `
+  <div class="mt-4 bg-gray-800 border border-gray-700 rounded-lg p-4">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-sm font-semibold text-gray-300">👥 Entités en jeu</p>
+      <button id="btn-add-entity" type="button"
+        class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-green-700/30 border border-gray-600 hover:border-green-500 text-gray-300 hover:text-green-300 transition-colors">
+        ＋ Ajouter
+      </button>
+    </div>
+    ${names.length === 0 ? '<p class="text-xs text-gray-500">Aucune entité. Cliquez sur ＋ Ajouter pour suivre plusieurs figurants indépendamment.</p>' : ''}
+    <div class="space-y-3">
+      ${names.map((n, i) => renderPnjEntityCard(i, n, sante)).join('')}
+    </div>
+  </div>`;
 }
 
 function renderCompetencesSheet(comps, finalAttrs, domPriv) {
-  return Object.entries(comps)
-    .filter(([, v]) => v.total > 0)
-    .sort((a, b) => b[1].total - a[1].total || a[0].localeCompare(b[0], 'fr'))
-    .map(([name, v]) => {
-      const dom = REF?.competences?.find(c => c.name === name)?.domain || '';
-      const attrId = REF?.domaines?.find(d => d.id === dom)?.attribut || '';
-      const attrVal = finalAttrs[attrId] || 0;
+  const entries = Object.entries(comps).filter(([, v]) => v.total > 0);
+  if (!entries.length) return '<p class="text-gray-500 text-xs">Aucune compétence</p>';
+
+  // Group by domain, preserving REF domain order
+  const domOrder = (REF?.domaines || []).map(d => d.id);
+  const byDomain = {};
+  entries.forEach(([name, v]) => {
+    const dom = findCompDomain(name);
+    if (!byDomain[dom]) byDomain[dom] = [];
+    byDomain[dom].push([name, v]);
+  });
+  // Sort each domain's skills by level desc then alpha
+  Object.values(byDomain).forEach(arr =>
+    arr.sort((a, b) => b[1].total - a[1].total || a[0].localeCompare(b[0], 'fr'))
+  );
+  // Render domain groups in REF order, unknowns at end
+  const orderedDoms = [
+    ...domOrder.filter(id => byDomain[id]),
+    ...Object.keys(byDomain).filter(id => !domOrder.includes(id)),
+  ];
+
+  return orderedDoms.map(domId => {
+    const domInfo  = (REF?.domaines || []).find(d => d.id === domId);
+    const domLabel = domInfo?.nom || domId;
+    const attrId   = domInfo?.attribut || '';
+    const attrInfo = (REF?.attributs || []).find(a => a.id === attrId);
+    const attrLabel = attrInfo?.nom || attrId;
+    const attrVal  = finalAttrs[attrId] || 0;
+    const isPriv   = domPriv.includes(domId);
+
+    const rows = byDomain[domId].map(([name, v]) => {
       const dice = attrVal + v.total;
-      const priv = domPriv.includes(dom);
       return `
-      <div class="flex items-center justify-between py-0.5 border-b border-gray-700 text-xs">
-        <span class="${priv ? 'text-yellow-300' : 'text-gray-300'}">${esc(name)}${v.specialite ? ` (${esc(v.specialite)})` : ''}</span>
-        <span class="font-mono text-gray-200 shrink-0 ml-2">${dice}d <span class="text-gray-500">(${attrVal}+${v.total})</span></span>
+      <div class="py-0.5 border-b border-gray-700/60 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="${isPriv ? 'text-yellow-300' : 'text-gray-300'}">${esc(name)}</span>
+          <span class="font-mono text-gray-200 shrink-0 ml-2">${dice}d <span class="text-gray-500">(${attrVal}+${v.total})</span></span>
+        </div>
+        ${v.specialite ? `<div class="text-gray-500 mt-0.5">Spécialité : <span class="text-purple-300">${esc(v.specialite)}</span></div>` : ''}
       </div>`;
-    }).join('') || '<p class="text-gray-500 text-xs">Aucune compétence</p>';
+    }).join('');
+
+    return `
+    <div class="mb-3">
+      <div class="flex items-center justify-between px-1 py-1 mb-1 border-b border-gray-600">
+        <span class="text-xs font-semibold ${isPriv ? 'text-yellow-400' : 'text-gray-400'}">${esc(domLabel)}${isPriv ? ' ★' : ''}</span>
+        ${attrLabel ? `<span class="text-xs text-gray-500">${esc(attrLabel)} <span class="font-mono text-gray-300">${attrVal}</span></span>` : ''}
+      </div>
+      ${rows}
+    </div>`;
+  }).join('');
 }
 
 function renderTraitsSheet(d) {
   const qs = (d.qualites_ids || []).map(qid => REF?.qualites?.find(x => x.id === qid)).filter(Boolean);
-  const ds = (d.defauts_ids  || []).map(did => REF?.defauts?.find(x => x.id === did) ).filter(Boolean);
+  const ds = (d.defauts_ids  || []).map(did => REF?.defauts?.find(x => x.id === did)).filter(Boolean);
   if (!qs.length && !ds.length) return '';
+  const traitCard = (t, isDefaut) => `
+  <div class="text-xs bg-gray-800 border ${isDefaut ? 'border-yellow-800/40' : 'border-blue-800/40'} rounded-lg px-3 py-2">
+    <div class="flex items-center justify-between gap-2 flex-wrap mb-1">
+      <span class="${isDefaut ? 'text-yellow-300' : 'text-blue-300'} font-medium">${esc(t.name)}</span>
+      <div class="flex gap-1.5 items-center">
+        ${t.nation ? `<span class="text-xs px-1.5 py-px rounded bg-gray-700 text-gray-300">⛳ ${esc(t.nation)}</span>` : ''}
+        ${String(t.restriction || '').toLowerCase().includes('mutant') ? `<span class="text-xs px-1.5 py-px rounded bg-cyan-900/60 text-cyan-400">🦠 Mutant</span>` : ''}
+        <span class="${isDefaut ? 'text-yellow-400' : 'text-blue-400'} shrink-0">${isDefaut ? '+' : ''}${esc(String(t.cost || ''))} pts</span>
+      </div>
+    </div>
+    ${t.description ? `<p class="text-gray-400 mb-1">${esc(t.description)}</p>` : ''}
+    ${t.effet       ? `<p class="text-gray-300"><span class="text-gray-500">Effet : </span>${esc(t.effet)}</p>` : ''}
+    ${t.prerequis   ? `<p class="text-gray-500 mt-0.5"><span class="text-gray-600">Prérequis : </span>${esc(t.prerequis)}</p>` : ''}
+    ${t.restriction ? `<p class="text-gray-500 mt-0.5"><span class="text-gray-600">Restriction : </span>${esc(t.restriction)}</p>` : ''}
+    ${t.references  ? `<p class="text-gray-600 mt-0.5">${esc(t.references)}</p>` : ''}
+  </div>`;
   return `
   <div class="grid md:grid-cols-2 gap-4">
-    ${ qs.length ? `<div>
-      <h4 class="text-sm font-semibold text-gray-300 mb-2">Qualités</h4>
-      <div class="space-y-1">
-        ${qs.map(q => `<div class="text-xs bg-gray-800 border border-gray-700 rounded px-3 py-1.5">
-          <span class="text-blue-300 font-medium">${esc(q.name)}</span>
-          <span class="text-gray-500 ml-1">(${esc(q.cost || '')} pts)</span>
-        </div>`).join('')}
-      </div>
-    </div>` : '' }
     ${ ds.length ? `<div>
       <h4 class="text-sm font-semibold text-gray-300 mb-2">Défauts</h4>
-      <div class="space-y-1">
-        ${ds.map(d => `<div class="text-xs bg-gray-800 border border-gray-700 rounded px-3 py-1.5">
-          <span class="text-yellow-300 font-medium">${esc(d.name)}</span>
-          <span class="text-gray-500 ml-1">(${esc(d.cost || '')} pts)</span>
-        </div>`).join('')}
-      </div>
+      <div class="space-y-2">${ds.map(d => traitCard(d, true)).join('')}</div>
+    </div>` : '' }
+    ${ qs.length ? `<div>
+      <h4 class="text-sm font-semibold text-gray-300 mb-2">Qualités</h4>
+      <div class="space-y-2">${qs.map(q => traitCard(q, false)).join('')}</div>
     </div>` : '' }
   </div>`;
+}
+
+// ── Onglets de la fiche de consultation ──────────────────────────────────────
+function renderSheetTabCaracteristiques(d, finalAttrs, attrBonus, attrs, sante, energieX, arch, domPriv) {
+  const isMutant = d.is_mutant;
+  return `
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+    ${(REF?.attributs || []).map(a => {
+      const val   = finalAttrs[a.id] || 0;
+      const base  = attrs[a.id] || 0;
+      const bonus = attrBonus[a.id] || 0;
+      return `
+      <div class="bg-gray-800 border border-gray-700 rounded-lg p-3 text-center">
+        <p class="text-xs text-gray-400 mb-0.5">${esc(a.nom)}</p>
+        <p class="text-3xl font-bold" style="color:var(--gold)">${val}</p>
+        ${ bonus ? `<p class="text-xs text-green-400">(${base} + ${bonus})</p>` : '' }
+        <p class="text-xs text-gray-500">${esc(a.domaine)}</p>
+      </div>`;
+    }).join('')}
+  </div>
+
+  <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-3">
+    <p class="text-xs text-gray-300 font-semibold mb-3">Santé <span class="text-gray-500 font-normal">(Car.+SC = ${sante} cases/ligne)</span></p>
+    <div class="space-y-2">
+      ${[['sante-0','Indemne','text-green-400'],['sante-1','Blessé léger','text-yellow-400'],['sante-2','Blessé grave','text-orange-400'],['sante-3','Mort ?','text-red-500']].map(([key,label,cls]) => `
+      <div class="flex items-center gap-3">
+        <span class="text-xs ${cls} w-24 shrink-0">${label}</span>
+        <div class="flex gap-1 flex-wrap">${trackerBoxes(sante, key)}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+    ${ isMutant ? `
+    <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+      <p class="text-xs text-gray-300 font-semibold mb-2">Énergie X <span class="text-gray-500 font-normal">(Per.+Int. = ${energieX})</span></p>
+      <div class="flex gap-1 flex-wrap">${trackerBoxes(energieX, 'energie-x')}</div>
+    </div>` : '<div></div>' }
+    <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+      <p class="text-xs text-gray-300 font-semibold mb-2">Panache <span class="text-yellow-400 font-mono">${d.panache ?? 3}</span></p>
+      <div class="flex gap-1 flex-wrap">${trackerBoxes(d.panache ?? 3, 'panache')}</div>
+    </div>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 flex flex-col justify-center">
+      <p class="text-xs text-gray-400 mb-1">Gloire</p>
+      <p class="font-bold text-3xl">${d.gloire ?? 0}</p>
+    </div>
+  </div>
+
+  ${ arch ? `
+  <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+    <p class="text-sm font-semibold mb-1" style="color:var(--gold)">Archétype : ${esc(arch.nom)}</p>
+    <p class="text-xs text-gray-400 mb-2">${esc(arch.description)}</p>
+    <p class="text-xs text-gray-500">Domaines : ${arch.domaines_privileges.map(dp => `<span class="text-gray-300">${esc(dp)}</span>`).join(', ')}</p>
+    ${ d.action_archetype ? `<p class="text-xs text-gray-400 mt-1">Action choisie : <span class="text-blue-300">${esc(d.action_archetype)}</span></p>` : '' }
+  </div>` :
+  domPriv.length ? `<div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+    <p class="text-xs text-gray-500">Domaines : ${domPriv.map(x => `<span class="text-gray-300">${esc(x)}</span>`).join(', ')}</p>
+  </div>` : '' }
+
+  ${ (d.type === 'pnj' && !d.pnj_is_named) ? renderPnjEntitySection(sante) : '' }`;}
+
+function renderSheetTabCompetences(competences, finalAttrs, domPriv) {
+  return `<div class="grid grid-cols-1 md:grid-cols-2 gap-y-1 gap-x-4">
+    ${renderCompetencesSheet(competences, finalAttrs, domPriv)}
+  </div>`;
+}
+
+function renderSheetTabTraits(d) {
+  const traitsHtml = renderTraitsSheet(d);
+  const mutHtml = d.is_mutant && d.mutations_ids?.length ? `
+  <div class="mt-5">
+    <h4 class="text-sm font-semibold text-gray-300 mb-2">Mutations</h4>
+    <div class="space-y-2">
+      ${d.mutations_ids.map(mid => {
+        const m = REF?.mutations?.find(x => x.id === mid);
+        return m
+          ? `<div class="text-xs bg-cyan-900/40 border border-cyan-700/60 rounded px-3 py-2">
+               <div class="flex items-center gap-2 flex-wrap">
+                 <span class="text-cyan-300 font-medium">${esc(m.name)}</span>
+                 ${m.mutation_type ? `<span class="text-xs px-1.5 py-px rounded bg-cyan-900/60 text-cyan-400">${esc(m.mutation_type)}</span>` : ''}
+                 ${m.ex_cost ? `<span class="text-gray-400">${esc(m.ex_cost)} EX</span>` : ''}
+               </div>
+               ${m.effect ? `<p class="mt-1 text-gray-400">${esc(m.effect)}</p>` : ''}
+             </div>`
+          : `<span class="text-xs bg-cyan-900 border border-cyan-700 rounded px-2 py-0.5">${esc(mid)}</span>`;
+      }).join('')}
+    </div>
+  </div>` : '';
+  const tagsHtml = d.tags_regles?.length ? `
+  <div class="mt-5 bg-gray-800 border border-purple-800/40 rounded-lg p-4">
+    <p class="text-xs text-purple-300 font-semibold mb-2">⚙ Règles spéciales</p>
+    <ul class="space-y-1">${d.tags_regles.map(t => `<li class="text-xs text-gray-300">• ${esc(t)}</li>`).join('')}</ul>
+  </div>` : '';
+  return (traitsHtml || '<p class="text-gray-500 text-xs py-4">Aucun trait sélectionné.</p>') + mutHtml + tagsHtml;
+}
+
+function renderSheetTabBackground(d, editable) {
+  const descHtml = d.description ? `
+  <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-4">
+    <p class="text-xs text-gray-400 mb-1">Description (issue de la création)</p>
+    <p class="text-sm text-gray-300">${esc(d.description)}</p>
+  </div>` : '';
+  if (!editable) {
+    return descHtml + (d.background
+      ? `<div class="bg-gray-800 border border-gray-700 rounded-lg p-4 text-sm text-gray-300 whitespace-pre-wrap">${esc(d.background)}</div>`
+      : '<p class="text-gray-500 text-sm">Aucun background renseigné.</p>');
+  }
+  return `${descHtml}
+  <label class="block text-xs text-gray-400 mb-1">Background / Historique</label>
+  <textarea id="sheet-background" rows="14"
+    class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-sm text-gray-200 resize-y focus:border-yellow-600/60 focus:outline-none"
+    placeholder="Historique du personnage, événements marquants…">${esc(d.background || '')}</textarea>`;
+}
+
+function renderSheetTabNotes(d, editable) {
+  if (!editable) {
+    return d.notes
+      ? `<div class="bg-gray-800 border border-gray-700 rounded-lg p-4 text-sm text-gray-300 whitespace-pre-wrap">${esc(d.notes)}</div>`
+      : '<p class="text-gray-500 text-sm">Aucune note.</p>';
+  }
+  return `
+  <label class="block text-xs text-gray-400 mb-1">Notes de jeu</label>
+  <textarea id="sheet-notes" rows="16"
+    class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-sm text-gray-200 resize-y focus:border-blue-600/60 focus:outline-none"
+    placeholder="Notes libres : indices, contacts, PNJs rencontrés…">${esc(d.notes || '')}</textarea>`;
+}
+
+function renderSheetTabInventaire(d, editable) {
+  const credits = d.credits ?? 0;
+  const creditsBlock = editable
+    ? `<div class="flex items-center gap-3 bg-gray-800 border border-yellow-900/40 rounded-lg px-4 py-3 mb-5">
+         <span class="text-yellow-300 font-semibold text-xl shrink-0">₡</span>
+         <label class="text-sm text-gray-300 shrink-0">Crédits :</label>
+         <input id="sheet-credits" type="number" min="0" value="${credits}"
+           class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-yellow-200 font-mono focus:border-yellow-600/60 focus:outline-none max-w-xs">
+       </div>`
+    : `<div class="flex items-center gap-3 bg-gray-800 border border-yellow-900/40 rounded-lg px-4 py-3 mb-5">
+         <span class="text-yellow-300 font-semibold text-xl">₡</span>
+         <span class="text-xl font-mono text-yellow-200">${credits.toLocaleString('fr-FR')}</span>
+       </div>`;
+  const equipBlock = editable
+    ? `<label class="block text-xs text-gray-400 mb-1">Équipement &amp; objets</label>
+       <textarea id="sheet-inventaire" rows="14"
+         class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-sm text-gray-200 resize-y focus:border-gray-500 focus:outline-none"
+         placeholder="Armes, armures, équipement divers…">${esc(d.inventaire || '')}</textarea>`
+    : (d.inventaire
+        ? `<div class="bg-gray-800 border border-gray-700 rounded-lg p-4 text-sm text-gray-300 whitespace-pre-wrap">${esc(d.inventaire)}</div>`
+        : '<p class="text-gray-500 text-sm">Aucun équipement renseigné.</p>');
+  const arch = d.archetype_id ? REF?.archetypes?.find(a => a.id === d.archetype_id) : null;
+  const archBlock = arch?.equipement_depart ? `
+  <div class="bg-gray-800 border border-gray-700/50 rounded-lg p-4 mt-4">
+    <p class="text-xs text-gray-400 mb-0.5">Équipement de départ (archétype)</p>
+    <p class="text-sm text-gray-300">${esc(arch.equipement_depart)}</p>
+  </div>` : '';
+  return creditsBlock + equipBlock + archBlock;
+}
+
+// ── Spécialités référentiel (extrait du livre de règles) ─────────────────────
+// null  = spécialité libre (texte à saisir)
+// array = options nommées + "Autre (libre)..." toujours proposé en sus
+const SPEC_REF = {
+  'Acrobaties':          ['Funambule', 'Contorsionniste'],
+  'Analyse':             ['Cryptographie', 'Mémoire', 'Recoupements'],
+  'Armes de jet':        null,   // "chaque type d'arme" → libre
+  'Armes de poing':      null,
+  'Armes d\'épaule':     null,
+  'Armes de traits':     null,
+  'Armes embarquées':    null,
+  'Armes lourdes':       null,
+  'Artisanat':           ['Artiste', 'Bricoleur'],
+  'Arts':                null,   // "chaque courant artistique" → libre
+  'Athlétisme':          ['Endurance', 'Escalade', 'Natation', 'Récupération', 'Résistance', 'Sauts', 'Sprint'],
+  'Baratin':             ['Embrouille', 'Langue de vipère'],
+  'Bureaucratie':        null,   // "chaque nation stellaire" → libre
+  'Cartographie':        ['Aérienne', 'Hyperspatiale', 'Maritime', 'Spatiale', 'Terrestre'],
+  'Comédie':             ['Impassible', 'Exubérant', 'Subtil'],
+  'Commandement':        ['Chantier', 'Combat', 'Compagnie', 'Voyage'],
+  'Commerce':            null,   // "chaque catégorie / nation" → libre
+  'Connaissance':        null,   // "selon le champ d'application choisi" → libre
+  'Danse':               ['Valse solaire', 'Danse galactique', 'Danse havanaise'],
+  'Déguisement':         null,   // "chaque origine" → libre
+  'Démolition':          ['Démineur'],  // + libre pour "type de cible"
+  'Détermination':       ['Peur', 'Intimidation', 'Torture'],
+  'Discrétion':          ['Infiltration', 'Passe-partout', 'Pickpocket'],
+  'Dressage':            null,   // "chaque type d'animal" → libre
+  'Eloquence':           ['Discours', 'Face-à-face'],
+  'Empathie':            ['Entretien', 'Perspicacité'],
+  'Environnement':       ['Campeur', 'Pourvoyeur', 'Inoxydable'],
+  'Equitation':          null,   // "chaque type de monture" → libre
+  'Esotérisme':          ['Groupements occultes', 'Magie', 'Métaphysique'],
+  'Etiquette':           ['Protocole'],  // + libre pour "nation stellaire"
+  'Falsification':       ['Calligraphie', 'Documents commerciaux', 'Documents militaires', 'Documents officiels', 'Documents scientifiques'],
+  'Histoire':            null,   // "chaque époque / nation" → libre
+  'Illégalités':         null,   // "chaque catégorie / nation" → libre
+  'Ingénierie':          ['Armement', 'Electronique', 'Industrie lourde', 'Mécanique', 'Propulsion', 'Senseurs'],
+  'Intimidation':        ['Regard', 'Chantage', 'Brutal'],
+  'Jeux':                ['Poker havanais'],  // + libre pour "chaque jeu"
+  'Langue':              null,   // "chaque région / groupe ethnique" → libre
+  'Médecine':            ['Chirurgien', 'Généraliste', 'Spécialiste'],
+  'Mêlée':               ['Combat à mains nues', 'Contondantes', 'Technologiques', 'Tranchantes'],
+  'Navigation':          ['Aérienne', 'Combat', 'Maritime', 'Spatiale', 'Terrestre', 'Hyperespace'],
+  'Pilotage':            null,   // "chaque classe / modèle de véhicule" → libre
+  'Premiers soins':      ['Blessures de guerre', 'Généraliste', 'Médecin de campagne'],
+  'Propagande':          ['Homme de l\'ombre', 'Homme des foules'],
+  'Recherche':           ['Bibliothécaire', 'Enquêteur', 'Explorateur', 'Fouineur', 'Pisteur'],
+  'Sciences solaires':   ['Droit', 'Humanités', 'Psychologie', 'Sociologie'],
+  'Sciences stellaires': ['Astrophysique', 'Biogéologie', 'Chimie', 'Mathématiques', 'Physique'],
+  'Séduction':           ['Mignonneries', 'Flamboyant'],
+  'Senseurs':            ['Ciblage', 'Détection', 'Furtivité'],
+  'Sorcellerie':         ['Découvreur', 'Sage'],  // + libre pour "chaque sortilège"
+  'Stratégie':           ['Commerciale', 'Militaire', 'Politique', 'Spatiale'],
+  'Système de sécurité': ['Alarmes', 'Pièges', 'Serrures'],
+  'Tactiques':           ['Assaut', 'Capture', 'Extraction', 'Progression', 'Réaction'],
+  'TechnoCog':           null,   // "chaque type de programme" → libre
+  'Technologie':         ['Armement', 'Electronique', 'Domestique', 'Mécanique', 'Senseurs'],
+  'Vigilance':           ['Actif', 'Passif'],
+};
+
+function getSpecForComp(compName) {
+  // Exact match first (including null entries)
+  if (Object.prototype.hasOwnProperty.call(SPEC_REF, compName)) return SPEC_REF[compName];
+  // Prefix match for "Artisanat (Forge)", "Pilotage (Vaisseau spatial)", etc.
+  for (const [key, specs] of Object.entries(SPEC_REF)) {
+    if (compName.toLowerCase().startsWith(key.toLowerCase() + ' (') ||
+        compName.toLowerCase().startsWith(key.toLowerCase() + '(')) return specs;
+  }
+  return null;
+}
+
+/** Trouve le domaine d'une compétence : REF direct, puis parent "(Au choix)". */
+function findCompDomain(name) {
+  const direct = (REF?.competences || []).find(c => c.name === name);
+  if (direct) return direct.domain || '';
+  // Typed variant of an "(Au choix)" skill: "Connaissance (Empire)" → base "Connaissance"
+  const base = name.split('(')[0].trim().toLowerCase();
+  const parent = (REF?.competences || []).find(c =>
+    /\(au choix/i.test(c.name) && c.name.split('(')[0].trim().toLowerCase() === base
+  );
+  return parent?.domain || '';
+}
+
+function renderSheetTabExperience(char, d, finalAttrs, domPriv) {
+  const pxActuel  = d.px_actuel  ?? 0;
+  const pxTotal   = d.px_total   ?? 0;
+  const pxDepense = d.px_depense ?? 0;
+  const hasGenesEvolutifs = (d.mutations_ids || []).includes('mutation-genes-evolutifs');
+
+  // XP cost for next skill level
+  function compCost(currentLevel, isPriv) {
+    if (currentLevel < 3) return isPriv ? 500 : 1000;
+    if (currentLevel === 3) return isPriv ? 1000 : 2000;
+    return isPriv ? 2500 : 5000;
+  }
+  // Quality cost from "cost" field (e.g. "-3" → 3000)
+  function qualityCost(q) {
+    const n = Math.abs(parseInt(q.cost) || 0);
+    return n * 1000;
+  }
+
+  // Non-buyable quality ids (wildcard suffix or variable-cost)
+  const NON_XP_QUALITY_PREFIXES = new Set([
+    'qualite-contact','qualite-entraînement','qualite-entrainement',
+    'qualite-gloire','qualite-grand-voyageur-2',
+    'qualite-heroique','qualite-héroïque',
+    'qualite-pacifiste','qualite-riche',
+    'qualite-route-dhavana','qualite-tresor',
+  ]);
+  function isQualiteBuyable(q) {
+    if (!q || !q.id || !q.id.startsWith('qualite-')) return false;
+    if (q.id.includes('defenseur-de-lhumanite')) return false;
+    for (const p of NON_XP_QUALITY_PREFIXES) if (q.id.startsWith(p)) return false;
+    // Skip variable costs ("+X", "X" non-integer)
+    const c = String(q.cost || '');
+    if (c.startsWith('+') || isNaN(parseInt(c)) || parseInt(c) === 0) return false;
+    return true;
+  }
+
+  const ownedQualites  = new Set(d.qualites_ids  || []);
+  const ownedMutations = new Set(d.mutations_ids  || []);
+  const competences    = buildCompetences(d);
+  const attrs          = REF?.attributs || [];
+
+  // ── Header ────────────────────────────────────────────────────────────────
+  const pct = pxTotal > 0 ? Math.min(100, Math.round(pxDepense / pxTotal * 100)) : 0;
+  const header = `
+  <div class="bg-gray-800 border border-purple-900/40 rounded-xl px-5 py-4 mb-5">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <p class="text-xs text-gray-400 mb-0.5">PX disponibles</p>
+        <p class="text-3xl font-bold text-purple-300">${pxActuel.toLocaleString('fr-FR')}</p>
+      </div>
+      <div class="text-right">
+        <p class="text-xs text-gray-400 mb-0.5">Total reçus / dépensés</p>
+        <p class="text-sm text-gray-300">${pxTotal.toLocaleString('fr-FR')} / ${pxDepense.toLocaleString('fr-FR')} PX</p>
+      </div>
+    </div>
+    ${pxTotal > 0 ? `<div class="mt-3 bg-gray-700 rounded-full h-2 overflow-hidden">
+      <div class="bg-purple-500 h-2 rounded-full" style="width:${pct}%"></div>
+    </div>
+    <p class="text-xs text-gray-500 mt-1 text-right">${pct}% dépensé</p>` : ''}
+  </div>`;
+
+  // ── Coût table ref ─────────────────────────────────────────────────────────
+  const coutTable = `
+  <details class="mb-5 bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+    <summary class="cursor-pointer px-4 py-2.5 text-sm text-gray-300 hover:text-white select-none">📋 Tableau des coûts</summary>
+    <table class="w-full text-xs text-gray-300 px-4 pb-3">
+      <thead><tr class="border-b border-gray-700 text-gray-400"><th class="text-left px-3 py-1.5">Achat</th><th class="text-right px-3">Dom. priv.</th><th class="text-right px-3">Autres</th></tr></thead>
+      <tbody>
+        <tr class="border-b border-gray-800"><td class="px-3 py-1">Caractéristique</td><td class="text-right px-3 text-purple-300">5 000</td><td class="text-right px-3 text-purple-300">5 000</td></tr>
+        <tr class="border-b border-gray-800"><td class="px-3 py-1">Compétence 0→3 (par niveau)</td><td class="text-right px-3">500</td><td class="text-right px-3">1 000</td></tr>
+        <tr class="border-b border-gray-800"><td class="px-3 py-1">Compétence 3→4</td><td class="text-right px-3">1 000</td><td class="text-right px-3">2 000</td></tr>
+        <tr class="border-b border-gray-800"><td class="px-3 py-1">Compétence 4+</td><td class="text-right px-3">2 500</td><td class="text-right px-3">5 000</td></tr>
+        <tr class="border-b border-gray-800"><td class="px-3 py-1">Spécialité +3</td><td class="text-right px-3" colspan="2">2 500</td></tr>
+        <tr class="border-b border-gray-800"><td class="px-3 py-1">Spécialité +4</td><td class="text-right px-3" colspan="2">5 000</td></tr>
+        <tr class="border-b border-gray-800"><td class="px-3 py-1">Spécialité +5+</td><td class="text-right px-3" colspan="2">7 500</td></tr>
+        <tr class="border-b border-gray-800"><td class="px-3 py-1">Qualité (coût × 1 000)</td><td class="text-right px-3" colspan="2">variable</td></tr>
+        <tr class="border-b border-gray-800"><td class="px-3 py-1">Mutation basique</td><td class="text-right px-3" colspan="2">2 500</td></tr>
+        <tr><td class="px-3 py-1">Mutation avancée</td><td class="text-right px-3" colspan="2">5 000</td></tr>
+      </tbody>
+    </table>
+  </details>`;
+
+  // ── Helper: buy button ─────────────────────────────────────────────────────
+  function buyBtn(type, key, cost, disabled = false) {
+    const tooExpensive = pxActuel < cost;
+    const dis = disabled || tooExpensive;
+    const title = tooExpensive ? 'PX insuffisants' : disabled ? 'Non disponible' : `Acheter pour ${cost.toLocaleString('fr-FR')} PX`;
+    return `<button class="xp-buy-btn text-xs px-2 py-1 rounded ${dis ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-purple-700 hover:bg-purple-600 text-white'}"
+      ${dis ? 'disabled' : ''} data-xp-type="${type}" data-xp-key="${encodeURIComponent(key)}" data-xp-cost="${cost}"
+      title="${esc(title)}">${cost.toLocaleString('fr-FR')} PX</button>`;
+  }
+
+  // ── Caractéristiques ───────────────────────────────────────────────────────
+  const attrRows = attrs.map(a => {
+    const cur = finalAttrs[a.id] || 0;
+    return `<div class="flex items-center justify-between py-1.5 border-b border-gray-800 text-sm">
+      <span class="text-gray-300">${esc(a.nom || a.id)}</span>
+      <div class="flex items-center gap-3">
+        <span class="font-mono text-gray-400 text-xs">${cur} → <span class="text-white">${cur + 1}</span></span>
+        ${buyBtn('attr', a.id, 5000)}
+      </div>
+    </div>`;
+  }).join('');
+
+  // ── Compétences ────────────────────────────────────────────────────────────
+  // Group by domain
+  const compByDomain = {};
+  for (const comp of (REF?.competences || []).filter(c => !/\(au choix/i.test(c.name))) {
+    const dom = comp.domain || 'autre';
+    if (!compByDomain[dom]) compByDomain[dom] = [];
+    compByDomain[dom].push(comp);
+  }
+  const compRows = Object.entries(compByDomain).map(([domId, comps]) => {
+    const domLabel = REF?.domaines?.find(x => x.id === domId)?.nom || domId;
+    const isPriv = domPriv.includes(domId);
+    const rows = comps.map(comp => {
+      const cur = competences[comp.name]?.total || 0;
+      const cost = compCost(cur, isPriv);
+      return `<div class="flex items-center justify-between py-1 border-b border-gray-800 text-xs pl-3">
+        <span class="${isPriv ? 'text-yellow-300' : 'text-gray-300'}">${esc(comp.name)}</span>
+        <div class="flex items-center gap-3">
+          <span class="font-mono text-gray-400">${cur} → <span class="text-white">${cur + 1}</span></span>
+          ${buyBtn('comp', comp.name, cost)}
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="mb-3">
+      <p class="text-xs text-gray-500 font-semibold px-1 py-1">${esc(domLabel)}${isPriv ? ' <span class="text-yellow-400">★ Priv.</span>' : ''}</p>
+      ${rows}
+    </div>`;
+  }).join('');
+
+  // ── Qualités ───────────────────────────────────────────────────────────────
+  const buyableQ = (REF?.qualites || []).filter(q => isQualiteBuyable(q) && !ownedQualites.has(q.id));
+  const qRows = buyableQ.length
+    ? buyableQ.map(q => {
+        const cost = qualityCost(q);
+        return `<div class="flex items-center justify-between py-1.5 border-b border-gray-800 text-xs">
+          <div>
+            <span class="text-blue-300">${esc(q.name)}</span>
+            ${q.description ? `<p class="text-gray-500 mt-0.5 max-w-xs truncate">${esc(q.description)}</p>` : ''}
+          </div>
+          ${buyBtn('qualite', q.id, cost)}
+        </div>`;
+      }).join('')
+    : '<p class="text-gray-500 text-xs">Toutes les qualités disponibles ont été acquises.</p>';
+
+  // ── Mutations ──────────────────────────────────────────────────────────────
+  let mutSection = '';
+  if (!hasGenesEvolutifs) {
+    mutSection = `<p class="text-gray-500 text-xs">Requiert la mutation <span class="text-cyan-400">Gènes évolutifs</span>.</p>`;
+  } else {
+    const buyableM = (REF?.mutations || []).filter(m => !ownedMutations.has(m.id));
+    mutSection = buyableM.length
+      ? buyableM.map(m => {
+          const isAvancee = String(m.type || '').toLowerCase().includes('avanc');
+          const cost = isAvancee ? 5000 : 2500;
+          return `<div class="flex items-center justify-between py-1.5 border-b border-gray-800 text-xs">
+            <div>
+              <span class="text-cyan-300">${esc(m.name || m.nom || m.id)}</span>
+              <span class="ml-2 text-xs px-1.5 py-px rounded ${isAvancee ? 'bg-cyan-900/60 text-cyan-400' : 'bg-teal-900/60 text-teal-300'}">${isAvancee ? 'Avancée' : 'Basique'}</span>
+            </div>
+            ${buyBtn('mutation', m.id, cost)}
+          </div>`;
+        }).join('')
+      : '<p class="text-gray-500 text-xs">Toutes les mutations disponibles ont été acquises.</p>';
+  }
+
+  function section(title, content) {
+    return `<div class="mb-5 bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden">
+      <p class="text-sm font-semibold text-gray-200 px-4 py-2.5 border-b border-gray-700 bg-gray-800">${title}</p>
+      <div class="px-4 py-2">${content}</div>
+    </div>`;
+  }
+
+  // ── Spécialités ────────────────────────────────────────────────────────────
+  function specialtyCost(level) {
+    if (level >= 5) return 7500;
+    if (level >= 4) return 5000;
+    return 2500; // level >= 3
+  }
+  const ownedSpecs = d.specialites_xp || {};
+  const specEligible = Object.entries(competences)
+    .filter(([name, v]) => {
+      const dom = findCompDomain(name);
+      return domPriv.includes(dom) && v.total >= 3;
+    })
+    .sort((a, b) => a[0].localeCompare(b[0], 'fr'));
+
+  const specRows = specEligible.length
+    ? specEligible.map(([name, v]) => {
+        const specOptions = getSpecForComp(name);  // null = libre only, array = named options
+        const cost        = specialtyCost(v.total);
+        const tooExp      = pxActuel < cost;
+        const current     = v.specialite || ownedSpecs[name] || null;
+        const inputId     = 'spec-inp-' + name.replace(/[^a-zA-Z0-9]/g, '_');
+        let inputHtml;
+        if (specOptions && specOptions.length > 0) {
+          // Named options + always offer "Autre (texte libre)…"
+          const isLibre = current && !specOptions.includes(current);
+          inputHtml = `<select id="${inputId}" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 max-w-[200px]">
+            <option value="">— choisir —</option>
+            ${specOptions.map(o => `<option value="${esc(o)}" ${current===o?'selected':''}>${esc(o)}</option>`).join('')}
+            <option value="__libre__" ${isLibre?'selected':''}>Autre (texte libre)…</option>
+          </select>
+          <input type="text" id="${inputId}_libre" placeholder="Spécialité…"
+            class="${isLibre ? '' : 'hidden'} bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 w-36"
+            value="${esc(isLibre ? current : '')}">`;
+        } else {
+          // Libre uniquement (champ d'application libre ou null dans SPEC_REF)
+          inputHtml = `<input type="text" id="${inputId}" placeholder="Saisir la spécialité…"
+            class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 w-40"
+            value="${esc(current || '')}">`;
+        }
+        return `<div class="flex items-center flex-wrap gap-2 py-2 border-b border-gray-800 text-xs">
+          <span class="text-yellow-300 font-medium flex-1 min-w-[120px]">${esc(name)}</span>
+          ${current ? `<span class="text-green-400 text-xs italic">Actuelle : ${esc(current)}</span>` : ''}
+          <span class="text-gray-500 text-xs">niv.${v.total}</span>
+          ${inputHtml}
+          <button class="xp-buy-spec-btn text-xs px-2 py-1 rounded ${tooExp ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-purple-700 hover:bg-purple-600 text-white'}"
+            ${tooExp ? 'disabled' : ''}
+            data-xp-cost="${cost}" data-comp-name="${encodeURIComponent(name)}"
+            data-input-id="${inputId}"
+            title="${cost.toLocaleString('fr-FR')} PX${current ? ' — remplace la spécialité actuelle' : ''}">
+            ${cost.toLocaleString('fr-FR')} PX
+          </button>
+        </div>`;
+      }).join('')
+    : '<p class="text-gray-500 text-xs">Aucune compétence de domaine privilégié au niveau 3+ pour l\'instant.</p>';
+
+  const specSection = `<div>${specRows}</div>`;
+
+  return header + coutTable
+    + section('⚡ Caractéristiques', attrRows)
+    + section('🎯 Compétences', compRows)
+    + section('⭐ Spécialités', specSection)
+    + section('✦ Qualités', qRows)
+    + section('🦠 Mutations', mutSection);
 }
 
 // ── Wizard ────────────────────────────────────────────────────────────────────
@@ -421,7 +1384,12 @@ async function deleteChar(id, name) {
 // ── Steps PJ ──────────────────────────────────────────────────────────────────
 const STEPS_PJ = [
   { label: 'Mutant ?',          render: renderStepMutant,         validate: () => true },
-  { label: 'Origine',           render: renderStepOrigine,        validate: () => !!DRAFT.origine_id },
+  { label: 'Origine',           render: renderStepOrigine,        validate: () => {
+    if (!DRAFT.origine_id) return false;
+    const orig = REF?.origines?.find(o => o.id === DRAFT.origine_id);
+    return (orig?.bonus_competences || []).filter(c => c.au_choix)
+      .every(c => !!DRAFT.origine_choix[c.competence]);
+  }},
   { label: 'Motivation',        render: renderStepMotivation,     validate: () => !!DRAFT.motivation_id },
   { label: 'Archétype',         render: renderStepArchetype,      validate: () => !!DRAFT.archetype_id },
   { label: 'Caractéristiques',  render: renderStepAttributs,      validate: validateAttributs },
@@ -436,13 +1404,19 @@ const STEPS_PNJ = [
   { label: 'Type de PNJ',       render: renderStepPNJType,        validate: validatePNJType },
   { label: 'Profil',            render: renderStepPNJProfil,      validate: validatePNJProfil },
   { label: 'Origine',           render: renderStepOrigine,        validate: () => true },
-  { label: 'Attributs',         render: renderStepPNJAttributs,   validate: () => true },
+  { label: 'Attributs',         render: renderStepPNJAttributs,   validate: validatePNJAttributs },
   { label: 'Compétences',       render: renderStepPNJCompetences, validate: () => true },
   { label: 'Traits',            render: renderStepTraits,         validate: () => true },
   { label: 'Finitions',         render: renderStepFinitions,      validate: validateFinitions },
 ];
 
-function getSteps() { return DRAFT.type === 'pnj' ? STEPS_PNJ : STEPS_PJ; }
+function getSteps() {
+  const base = DRAFT.type === 'pnj' ? STEPS_PNJ : STEPS_PJ;
+  if (!DRAFT.is_mutant) return base;
+  // Insère l'étape Mutations après Traits (index 6) si le personnage est mutant
+  const mutStep = { label: 'Mutations', render: renderStepMutations, validate: validateMutations };
+  return [...base.slice(0, 7), mutStep, ...base.slice(7)];
+}
 
 function renderWizard() {
   const steps = getSteps();
@@ -512,7 +1486,13 @@ function showStepError(msg) {
 // ── Étape 1 : Mutant ? ────────────────────────────────────────────────────────
 function renderStepMutant() {
   return `
-  <h3 class="text-base font-semibold mb-4">Votre personnage est-il un mutant ?</h3>
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="text-base font-semibold">Votre personnage est-il un mutant ?</h3>
+    <button id="btn-rand-mutant" type="button"
+      class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-yellow-600/30 border border-gray-600 hover:border-yellow-500 text-gray-300 hover:text-yellow-300 transition-colors">
+      🎲 Aléatoire
+    </button>
+  </div>
   <p class="text-sm text-gray-400 mb-6">
     Les mutants ont accès à l'<strong>Énergie X</strong> (Perception + Intelligence)
     et peuvent choisir des <strong>mutations</strong> à l'étape des finitions.
@@ -542,7 +1522,13 @@ function renderStepOrigine() {
   const selectedNationId  = selectedOrigine?.nation ?? DRAFT._origine_nation ?? '';
 
   return `
-  <h3 class="text-base font-semibold mb-1">Choisissez votre origine</h3>
+  <div class="flex items-center justify-between mb-1">
+    <h3 class="text-base font-semibold">Choisissez votre origine</h3>
+    <button id="btn-rand-orig" type="button"
+      class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-yellow-600/30 border border-gray-600 hover:border-yellow-500 text-gray-300 hover:text-yellow-300 transition-colors">
+      🎲 Aléatoire
+    </button>
+  </div>
   <p class="text-xs text-gray-500 mb-4">Donne +1 à une caractéristique et +3 à 2 compétences.</p>
 
   <!-- Nation cards -->
@@ -602,9 +1588,25 @@ function renderOrigineDetail(o) {
     ${ o.restriction ? `<p class="text-xs text-orange-400 mb-2">⚠️ ${esc(o.restriction)}</p>` : '' }
     <p class="text-xs text-green-400">+1 ${esc(attrName)}</p>
     ${comps.map(c => {
-      const label = c.au_choix ? `${esc(c.competence)} <span class="text-yellow-400">(spécialité à choisir)</span>`
-                  : c.specialite ? `${esc(c.competence)} <span class="text-gray-400">(${esc(c.specialite)})</span>`
-                  : esc(c.competence);
+      let label;
+      if (c.au_choix) {
+        const chosen = DRAFT.origine_choix[c.competence];
+        if (chosen) {
+          const resolved = resolveAuChoixKey(c.competence, chosen);
+          label = esc(resolved || c.competence.replace(/\s*\(Au choix\)\s*/i, '').trim() + ' (' + chosen + ')');
+        } else {
+          const base = c.competence.replace(/\s*\(Au choix\)\s*/i, '').trim();
+          label = `${esc(base)} <span class="text-orange-400">(type à choisir ↓)</span>`;
+        }
+      } else if (/\(au choix/i.test(c.competence) && c.specialite) {
+        // Type pré-défini dans les données : affiche le nom résolu directement
+        const resolved = resolveAuChoixKey(c.competence, c.specialite);
+        label = esc(resolved || c.competence);
+      } else if (c.specialite) {
+        label = `${esc(c.competence)} <span class="text-gray-400">(${esc(c.specialite)})</span>`;
+      } else {
+        label = esc(c.competence);
+      }
       return `<p class="text-xs text-green-400">+${c.valeur} ${label}</p>`;
     }).join('')}
   </div>`;
@@ -614,21 +1616,39 @@ function renderOrigineChoix(o) {
   const comps = o.bonus_competences || [];
   const needsChoix = comps.filter(c => c.au_choix);
   if (!needsChoix.length) return '';
-  return needsChoix.map(c => `
-  <div class="flex items-center gap-2 text-sm">
-    <label class="text-gray-300 shrink-0 w-40">${esc(c.competence)} :</label>
-    <input type="text" data-choix="${esc(c.competence)}"
-      value="${esc(DRAFT.origine_choix[c.competence] || c.specialite || '')}"
-      placeholder="Spécialité…"
-      class="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs">
-  </div>`).join('');
+  return needsChoix.map(c => {
+    const cur  = DRAFT.origine_choix[c.competence] || '';
+    const opts = origineChoixTypeOptions(c.competence);
+    const base = c.competence.replace(/\s*\(Au choix\)\s*/i, '').trim();
+    const ctrl = opts
+      ? `<select data-choix="${esc(c.competence)}"
+           class="orig-choix-sel flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs">
+           <option value="">— Choisir le type —</option>
+           ${opts.map(t => `<option value="${esc(t)}" ${cur===t?'selected':''}>${esc(t)}</option>`).join('')}
+         </select>`
+      : `<input type="text" data-choix="${esc(c.competence)}"
+           value="${esc(cur)}"
+           placeholder="Préciser…"
+           class="orig-choix-inp flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs">`;
+    return `
+    <div class="flex items-center gap-2 text-sm">
+      <label class="text-gray-300 shrink-0 w-48">+${c.valeur} ${esc(base)} :</label>
+      ${ctrl}
+    </div>`;
+  }).join('');
 }
 
 // ── Étape 3 : Motivation ──────────────────────────────────────────────────────
 function renderStepMotivation() {
   const motivations = REF?.motivations || [];
   return `
-  <h3 class="text-base font-semibold mb-1">Choisissez votre motivation</h3>
+  <div class="flex items-center justify-between mb-1">
+    <h3 class="text-base font-semibold">Choisissez votre motivation</h3>
+    <button id="btn-rand-motiv" type="button"
+      class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-yellow-600/30 border border-gray-600 hover:border-yellow-500 text-gray-300 hover:text-yellow-300 transition-colors">
+      🎲 Aléatoire
+    </button>
+  </div>
   <p class="text-xs text-gray-500 mb-4">Donne +1 à 2 compétences et détermine la condition d'Overdrive.</p>
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
     ${motivations.map(m => {
@@ -649,7 +1669,13 @@ function renderStepMotivation() {
 function renderStepArchetype() {
   const archetypes = REF?.archetypes || [];
   return `
-  <h3 class="text-base font-semibold mb-1">Choisissez votre archétype</h3>
+  <div class="flex items-center justify-between mb-1">
+    <h3 class="text-base font-semibold">Choisissez votre archétype</h3>
+    <button id="btn-rand-arch" type="button"
+      class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-yellow-600/30 border border-gray-600 hover:border-yellow-500 text-gray-300 hover:text-yellow-300 transition-colors">
+      🎲 Aléatoire
+    </button>
+  </div>
   <p class="text-xs text-gray-500 mb-4">Détermine vos 3 domaines privilégiés et vos actions spéciales.</p>
   <div class="flex flex-col gap-3">
     ${archetypes.map(a => {
@@ -706,7 +1732,13 @@ function renderStepAttributs() {
   const bonusVal    = orig?.bonus_attribut?.valeur || 0;
 
   return `
-  <h3 class="text-base font-semibold mb-1">Répartissez vos caractéristiques</h3>
+  <div class="flex items-center justify-between mb-1">
+    <h3 class="text-base font-semibold">Répartissez vos caractéristiques</h3>
+    <button id="btn-rand-attrs" type="button"
+      class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-yellow-600/30 border border-gray-600 hover:border-yellow-500 text-gray-300 hover:text-yellow-300 transition-colors">
+      🎲 Aléatoire
+    </button>
+  </div>
   <p class="text-xs text-gray-500 mb-1">Assignez <strong>exactement</strong> les valeurs suivantes : 4, 3, 3, 3, 3, 2.</p>
   <p class="text-xs text-gray-400 mb-4">
     Valeurs restantes :
@@ -753,145 +1785,397 @@ function validateAttributs() {
 
 // ── Étape 6 : Compétences (PJ) ────────────────────────────────────────────────
 function renderStepCompetences() {
-  const arch = REF?.archetypes?.find(a => a.id === DRAFT.archetype_id);
-  const domPriv = arch?.domaines_privileges || [];
-  const compArchetype = arch?.competences_archetype || [];
+  const arch        = REF?.archetypes?.find(a => a.id === DRAFT.archetype_id);
+  const domPriv     = arch?.domaines_privileges || [];
+  const domPrimaire = domPriv[0] || null;
+  const compArch    = arch?.competences_archetype || [];
   const competences = REF?.competences || [];
-  const domaines = REF?.domaines || [];
+  const domaines    = REF?.domaines || [];
+  const bonusMap    = buildBonusMap(); // bonus origine + motivation
+  const orig        = REF?.origines?.find(o => o.id === DRAFT.origine_id);
 
-  // Bonus depuis origine et motivation
-  const bonusMap = buildBonusMap();
-  // Points libres utilisés
-  const usedFree = Object.values(DRAFT.competences_libres).reduce((s, v) => s + v, 0);
-  const remaining = FREE_COMPETENCES_PJ - usedFree;
+  // Comptage des slots utilisés
+  const used3 = Object.values(DRAFT.competences_libres).filter(v => v === 3).length;
+  const used2 = Object.values(DRAFT.competences_libres).filter(v => v === 2).length;
+  const used1 = Object.values(DRAFT.competences_libres).filter(v => v === 1).length;
 
-  // Grouper par domaine
+  // Skills that are typed variants of "(Au choix)" base skills are hidden from the regular list
+  // (they appear instead in the "Au choix" group panels below)
+  const auChoixBases = new Set(
+    (REF?.competences || [])
+      .filter(c => /\(au choix/i.test(c.name))
+      .map(c => c.name.split('(')[0].trim().toLowerCase())
+  );
+  const isTypedAuChoixVariant = sk =>
+    !(/\(au choix/i.test(sk.name)) &&
+    sk.name.includes('(') &&
+    auChoixBases.has(sk.name.split('(')[0].trim().toLowerCase());
+
+  // Grouper par domaine (excluant les variantes typées d'Au choix)
   const byDomain = {};
   domaines.forEach(d => { byDomain[d.id] = []; });
-  competences.forEach(c => { if (byDomain[c.domain]) byDomain[c.domain].push(c); });
+  competences
+    .filter(c => !isTypedAuChoixVariant(c))
+    .forEach(c => { if (byDomain[c.domain]) byDomain[c.domain].push(c); });
+
+  const slotTracker = (label, used, max, colorClass) => `
+    <div class="flex items-center gap-2">
+      <span class="text-xs ${colorClass} w-48 shrink-0">${label}</span>
+      <div class="flex gap-0.5">
+        ${Array.from({length: max}, (_, i) =>
+          `<div class="w-3.5 h-3.5 rounded-sm border border-gray-600 ${i < used ? colorClass.replace('text-','bg-') : 'bg-gray-800'}"></div>`
+        ).join('')}
+      </div>
+      <span class="text-xs text-gray-400">${used}/${max}</span>
+    </div>`;
 
   return `
-  <h3 class="text-base font-semibold mb-1">Répartissez vos compétences</h3>
-  <div class="flex items-center justify-between mb-3">
-    <p class="text-xs text-gray-500">Points libres à distribuer : </p>
-    <span class="font-mono font-bold text-lg ${remaining < 0 ? 'text-red-400' : remaining === 0 ? 'text-green-400' : 'text-yellow-400'}">
-      ${remaining} / ${FREE_COMPETENCES_PJ}
-    </span>
+  <div class="flex items-center justify-between mb-2">
+    <h3 class="text-base font-semibold">Compétences</h3>
+    <button id="btn-rand-comps" type="button"
+      class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-yellow-600/30 border border-gray-600 hover:border-yellow-500 text-gray-300 hover:text-yellow-300 transition-colors">
+      🎲 Aléatoire
+    </button>
   </div>
-  <p class="text-xs text-gray-500 mb-3">
-    Les <span class="text-yellow-300">domaines privilégiés</span> sont marqués ★.
-    Les compétences d'archétype sont en <span class="text-blue-300">bleu</span>.
-    Les bonus d'origine/motivation sont affichés en <span class="text-green-400">vert</span>.
+
+  ${orig ? `<!-- Bonus d'origine -->
+  <div class="mb-3 bg-gray-800/60 border border-green-900/40 rounded-lg px-3 py-2 text-xs">
+    <span class="text-gray-400 font-semibold">Bonus origine (${esc(orig.nom)}) : </span>
+    ${(orig.bonus_competences || []).map(c => {
+      const key = resolveOrigineComp(c, DRAFT.origine_choix);
+      const name = key || (c.competence.replace(/\s*\(Au choix\)\s*/i,'').trim() + ' <span class="text-orange-400">(à choisir)</span>');
+      return `<span class="text-green-400 mr-2">+${c.valeur} ${key ? esc(name) : name}</span>`;
+    }).join('')}
+  </div>` : ''}
+
+  <!-- Compétences de départ (archétype) -->
+  <div class="mb-3 bg-gray-800/60 border border-blue-900/40 rounded-lg p-3">
+    <p class="text-xs font-semibold text-blue-300 mb-2">Compétences de départ – ${esc(arch?.nom || '?')} <span class="font-normal text-blue-400/70">(+1 chacune)</span></p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
+      ${compArch.map(sk => {
+        const isChoix = sk.includes('(Au choix)');
+        const opts    = archChoixTypeOptions(sk);
+        const curChoix = DRAFT.competences_archetype_choix[sk] || '';
+        const label   = isChoix ? sk.replace('(Au choix)', '').trim() : sk;
+        return `
+        <div class="flex items-center gap-1.5">
+          <span class="text-blue-400 text-xs font-mono shrink-0">+1</span>
+          <span class="text-xs text-blue-200 shrink-0">${esc(label)}</span>
+          ${isChoix
+            ? (opts
+                ? `<select data-arch-choix="${esc(sk)}"
+                     class="arch-choix-select flex-1 min-w-0 text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5">
+                     <option value="">— type —</option>
+                     ${opts.map(t => `<option value="${esc(t)}" ${curChoix===t?'selected':''}>${esc(t)}</option>`).join('')}
+                   </select>`
+                : `<input data-arch-choix="${esc(sk)}" value="${esc(curChoix)}" placeholder="Préciser…"
+                     class="arch-choix-input flex-1 min-w-0 text-xs bg-gray-700 border border-gray-600 rounded px-2 py-0.5">`)
+            : ''}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>
+
+  <!-- Budget de distribution libre -->
+  <div class="mb-3 bg-gray-800/60 border border-yellow-900/30 rounded-lg p-3 space-y-2">
+    <p class="text-xs font-semibold text-yellow-300 mb-1">Distribution libre (10 groupes)</p>
+    ${slotTracker(`+3 dom. principal (${domPrimaire||'?'})`, used3, COMP_SLOTS.plus3, 'text-red-300')}
+    ${slotTracker(`+2 domaines privilégiés`,                 used2, COMP_SLOTS.plus2, 'text-orange-300')}
+    ${slotTracker(`+1 n'importe quel domaine`,               used1, COMP_SLOTS.plus1, 'text-yellow-300')}
+  </div>
+
+  <p class="text-xs text-gray-500 mb-2">
+    <span class="text-red-300">★★</span> dom. principal (+3 max) ·
+    <span class="text-yellow-300">★</span> dom. privilégiés (+2 max) ·
+    colonnes : <span class="text-green-400">+orig</span> · <span class="text-blue-400">+arch</span> · libre · <span class="text-yellow-300">total</span>
   </p>
 
-  <div class="space-y-4 overflow-y-auto max-h-[55vh] pr-1">
+  <!-- Liste compétences par domaine -->
+  <div class="space-y-3 overflow-y-auto max-h-[38vh] pr-1">
     ${domaines.map(dom => {
-      const skills = byDomain[dom.id] || [];
-      const priv = domPriv.includes(dom.id);
-      const attrNom = REF?.attributs?.find(a => a.id === dom.attribut)?.nom || '';
+      const allSkillsInDom = byDomain[dom.id] || [];
+      const isPrimaire = dom.id === domPrimaire;
+      const isPriv     = domPriv.includes(dom.id);
+      const domClass   = isPrimaire ? 'text-red-300' : isPriv ? 'text-yellow-300' : 'text-gray-400';
+      const domMark    = isPrimaire ? '★★ ' : isPriv ? '★ ' : '';
+      const attrNom    = REF?.attributs?.find(a => a.id === dom.attribut)?.nom || '';
+
+      // Split regular vs "(Au choix)"
+      const regularSkills = allSkillsInDom.filter(sk => !/\(au choix/i.test(sk.name));
+      const auChoixSkills = allSkillsInDom.filter(sk =>  /\(au choix/i.test(sk.name));
+
+      // Regular skills rows
+      const regularRows = regularSkills.map(sk => {
+        const archB = getArchBonusForSkill(sk.name, compArch, DRAFT.competences_archetype_choix);
+        const origB = bonusMap[sk.name] || 0;
+        const libre = DRAFT.competences_libres[sk.name] || 0;
+        const total = archB + origB + libre;
+        const can3  = isPrimaire && (used3 < COMP_SLOTS.plus3 || libre === 3);
+        const can2  = isPriv     && (used2 < COMP_SLOTS.plus2 || libre === 2);
+        const can1  =               (used1 < COMP_SLOTS.plus1 || libre === 1);
+        return `
+        <div class="flex items-center gap-1.5 py-0.5 border-b border-gray-700/50">
+          <span class="flex-1 text-xs ${archB ? 'text-blue-200' : 'text-gray-300'} truncate"
+                title="${esc(sk.description || sk.name)}">${esc(sk.name)}</span>
+          <span class="text-xs text-green-400 w-5 text-right shrink-0">${origB > 0 ? '+'+origB : ''}</span>
+          <span class="text-xs text-blue-400  w-5 text-right shrink-0">${archB > 0 ? '+'+archB : ''}</span>
+          <select data-sk="${esc(sk.name)}" class="sk-libre bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-xs w-14 shrink-0">
+            <option value="0" ${libre===0?'selected':''}>—</option>
+            <option value="1" ${libre===1?'selected':''} ${!can1&&libre!==1?'disabled':''}>+1</option>
+            <option value="2" ${libre===2?'selected':''} ${!can2&&libre!==2?'disabled':''}>+2</option>
+            <option value="3" ${libre===3?'selected':''} ${!can3&&libre!==3?'disabled':''}>+3</option>
+          </select>
+          <span class="text-xs font-mono w-6 text-right shrink-0 ${total>0?'text-yellow-300':'text-gray-700'}">${total>0?total:'—'}</span>
+        </div>`;
+      }).join('');
+
+      // "(Au choix)" skill groups
+      const auChoixGroups = auChoixSkills.map(acSk => {
+        const base = acSk.name.split('(')[0].trim();
+
+        // Origin pre-specified instances for this base (e.g. Connaissance → Empire Galactique)
+        const origInstances = [];
+        if (orig) {
+          for (const bc of orig.bonus_competences || []) {
+            if (bc.au_choix) continue; // player-chosen — handled by origine_choix
+            if (!bc.specialite) continue;
+            if (!/\(au choix/i.test(bc.competence)) continue;
+            if (bc.competence.split('(')[0].trim().toLowerCase() !== base.toLowerCase()) continue;
+            const resolved = resolveAuChoixKey(bc.competence, bc.specialite);
+            if (resolved) origInstances.push({ name: resolved, bonus: bc.valeur });
+          }
+          // Also include au_choix=true entries where player already chose a type
+          for (const bc of orig.bonus_competences || []) {
+            if (!bc.au_choix) continue;
+            if (bc.competence.split('(')[0].trim().toLowerCase() !== base.toLowerCase()) continue;
+            const chosen = DRAFT.origine_choix[bc.competence];
+            if (!chosen) continue;
+            const resolved = resolveAuChoixKey(bc.competence, chosen);
+            if (resolved) origInstances.push({ name: resolved, bonus: bc.valeur });
+          }
+        }
+
+        // Find existing typed instances in competences_libres that belong to this base
+        const instances = Object.entries(DRAFT.competences_libres)
+          .filter(([sk]) => sk.toLowerCase().startsWith(base.toLowerCase() + ' ('))
+          .sort((a, b) => a[0].localeCompare(b[0], 'fr'));
+
+        // Options for the select
+        let opts;
+        if (/^Environnement/i.test(acSk.name)) opts = ENV_TYPES;
+        else if (/^Pilotage/i.test(acSk.name)) opts = PILOTAGE_TYPES;
+        else opts = origineChoixTypeOptions(acSk.name); // REF-based variants or null
+
+        // Slot capacity for the add row
+        const hasRoom1 = used1 < COMP_SLOTS.plus1;
+        const hasRoom2 = isPriv && used2 < COMP_SLOTS.plus2;
+        const hasRoom3 = isPrimaire && used3 < COMP_SLOTS.plus3;
+        const defaultLev = hasRoom3 ? 3 : hasRoom2 ? 2 : 1;
+
+        // Read-only rows for origin-pre-specified instances not covered by player's libres
+        const playerKeys = new Set(instances.map(([sk]) => sk));
+        const origOnlyRows = origInstances
+          .filter(oi => !playerKeys.has(oi.name))
+          .map(oi => `
+          <div class="flex items-center gap-1 py-0.5 border-b border-gray-700/40 opacity-80">
+            <span class="flex-1 text-xs text-gray-300 truncate" title="${esc(oi.name)}">${esc(oi.name)}</span>
+            <span class="text-xs text-green-400 w-5 text-right shrink-0">+${oi.bonus}</span>
+            <span class="text-xs text-gray-600 w-5 shrink-0"></span>
+            <span class="text-xs text-gray-500 w-14 text-center shrink-0 italic">origine</span>
+            <span class="text-xs font-mono w-6 text-right shrink-0 text-yellow-300">${oi.bonus}</span>
+            <span class="w-5 shrink-0"></span>
+          </div>`).join('');
+
+        const instanceRows = instances.map(([sk, libre]) => {
+          const archB = getArchBonusForSkill(sk, compArch, DRAFT.competences_archetype_choix);
+          const origB = bonusMap[sk] || 0;
+          const total = archB + origB + libre;
+          const can3i = isPrimaire && (used3 < COMP_SLOTS.plus3 || libre === 3);
+          const can2i = isPriv     && (used2 < COMP_SLOTS.plus2 || libre === 2);
+          const can1i =               (used1 < COMP_SLOTS.plus1 || libre === 1);
+          return `
+          <div class="flex items-center gap-1 py-0.5 border-b border-gray-700/40">
+            <span class="flex-1 text-xs text-gray-300 truncate" title="${esc(sk)}">${esc(sk)}</span>
+            <span class="text-xs text-green-400 w-5 text-right shrink-0">${origB > 0 ? '+'+origB : ''}</span>
+            <span class="text-xs text-blue-400  w-5 text-right shrink-0">${archB > 0 ? '+'+archB : ''}</span>
+            <select data-sk="${esc(sk)}" class="sk-libre bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-xs w-14 shrink-0">
+              <option value="0">—</option>
+              <option value="1" ${libre===1?'selected':''} ${!can1i&&libre!==1?'disabled':''}>+1</option>
+              <option value="2" ${libre===2?'selected':''} ${!can2i&&libre!==2?'disabled':''}>+2</option>
+              <option value="3" ${libre===3?'selected':''} ${!can3i&&libre!==3?'disabled':''}>+3</option>
+            </select>
+            <span class="text-xs font-mono w-6 text-right shrink-0 ${total>0?'text-yellow-300':'text-gray-700'}">${total>0?total:'—'}</span>
+            <button data-del-ac="${esc(sk)}" class="text-red-500 hover:text-red-400 text-xs ml-1 shrink-0 leading-none">✕</button>
+          </div>`;
+        }).join('');
+
+        const selectOrInput = opts
+          ? `<select data-ac-type="${esc(acSk.name)}" class="ac-type-sel flex-1 min-w-0 text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5">
+               <option value="">— choisir —</option>
+               ${opts.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}
+               <option value="__autre__">Autre…</option>
+             </select>
+             <input data-ac-libre="${esc(acSk.name)}" placeholder="Préciser…"
+               class="ac-libre-inp hidden text-xs bg-gray-700 border border-gray-600 rounded px-2 py-0.5 w-24 shrink-0">`
+          : `<input data-ac-libre="${esc(acSk.name)}" placeholder="Nom du type…"
+               class="ac-libre-inp flex-1 min-w-0 text-xs bg-gray-700 border border-gray-600 rounded px-2 py-0.5">`;
+
+        return `
+        <div class="mt-2 bg-gray-800/40 border border-gray-700/50 rounded-lg p-2">
+          <p class="text-xs font-medium text-gray-400 mb-1">${esc(base)} <span class="text-gray-600 font-normal">(spécialisée)</span></p>
+          ${origOnlyRows}
+          ${instanceRows}
+          <div class="flex gap-1 mt-1.5 items-center flex-wrap">
+            ${selectOrInput}
+            <select data-ac-lev="${esc(acSk.name)}" class="ac-lev-sel text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5 shrink-0 w-14">
+              <option value="1" ${hasRoom1?'':'disabled'}>+1</option>
+              <option value="2" ${hasRoom2?'':'disabled'} ${defaultLev===2?'selected':''}>+2</option>
+              <option value="3" ${hasRoom3?'':'disabled'} ${defaultLev===3?'selected':''}>+3</option>
+            </select>
+            <button data-ac-add="${esc(acSk.name)}" class="px-2 py-1 text-xs bg-green-800/60 hover:bg-green-700/60 border border-green-700/50 rounded text-green-300 shrink-0">➕ Ajouter</button>
+          </div>
+        </div>`;
+      }).join('');
+
       return `
       <div>
-        <p class="text-xs font-semibold mb-1 ${priv ? 'text-yellow-300' : 'text-gray-400'}">
-          ${priv ? '★ ' : ''}${esc(dom.id)} <span class="text-gray-500 font-normal">(${esc(attrNom)})</span>
+        <p class="text-xs font-semibold mb-1 ${domClass}">
+          ${domMark}${esc(dom.id)} <span class="text-gray-500 font-normal">(${esc(attrNom)})</span>
         </p>
         <div class="space-y-0.5">
-          ${skills.map(sk => {
-            const bonus = bonusMap[sk.name] || 0;
-            const free  = DRAFT.competences_libres[sk.name] || 0;
-            const total = free + bonus;
-            const isArch = compArchetype.includes(sk.name);
-            return `
-            <div class="skill-row flex items-center gap-2 py-0.5 border-b border-gray-700/50">
-              <span class="flex-1 text-xs ${isArch ? 'text-blue-300' : 'text-gray-300'} truncate"
-                    title="${esc(sk.description || sk.name)}">${esc(sk.name)}</span>
-              <span class="text-xs text-green-400 w-6 text-right shrink-0">${bonus > 0 ? '+' + bonus : ''}</span>
-              <div class="flex items-center gap-1 shrink-0">
-                <button data-sk="${esc(sk.name)}" data-d="-1"
-                  class="sk-btn w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 text-xs font-bold flex items-center justify-center
-                         ${free <= 0 ? 'opacity-30 cursor-not-allowed' : ''}">−</button>
-                <span class="w-5 text-center text-sm font-mono">${free}</span>
-                <button data-sk="${esc(sk.name)}" data-d="1"
-                  class="sk-btn w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 text-xs font-bold flex items-center justify-center
-                         ${remaining <= 0 && free < 1 ? 'opacity-30 cursor-not-allowed' : ''}">＋</button>
-              </div>
-              <span class="text-xs font-mono text-yellow-300 w-6 text-right shrink-0">${total > 0 ? total : '—'}</span>
-            </div>`;
-          }).join('')}
+          ${regularRows}
         </div>
+        ${auChoixGroups}
       </div>`;
     }).join('')}
   </div>`;
 }
 
+
 // ── Étape 7 : Traits (Qualités / Défauts) ─────────────────────────────────────
 function renderStepTraits() {
-  const isPNJ = DRAFT.type === 'pnj';
-  const qualites = (REF?.qualites || []).filter(q => {
-    if (!isPNJ) return !String(q.notes || '').toLowerCase().includes('pnj uniquement');
-    return true;
-  });
-  const defauts = (REF?.defauts || []).filter(d => {
-    if (!isPNJ) return !String(d.notes || '').toLowerCase().includes('pnj uniquement');
-    return true;
-  });
+  const isMutant   = DRAFT.is_mutant;
+  const orig       = REF?.origines?.find(o => o.id === DRAFT.origine_id);
+  const charNation = orig?.nation || null;
 
-  const qPts = traitPoints(DRAFT.qualites_ids, REF?.qualites, 'cost');
-  const dPts = traitPoints(DRAFT.defauts_ids, REF?.defauts, 'cost');
-  const dTotal = -dPts; // défauts ont coût négatif (ex: "-3")
-  const qTotal =  qPts;
+  const isMutantOnly = t => String(t.restriction || '').toLowerCase().includes('mutant');
+  const traitHasNation = t => t.nation && t.nation !== 'Aucune';
+  const canSee = t => {
+    if (DRAFT.type === 'pj' && t.pnj_only) return false;
+    if (isMutantOnly(t) && !isMutant) return false;
+    if (traitHasNation(t) && t.nation !== charNation) return false;
+    return true;
+  };
+
+  const allQ = (REF?.qualites || []).filter(canSee);
+  const allD = (REF?.defauts  || []).filter(canSee);
+
+  const groupTraits = list => ({
+    general: list.filter(t => !traitHasNation(t) && !isMutantOnly(t)),
+    nation:  list.filter(t =>  traitHasNation(t) && t.nation === charNation),
+    mutant:  list.filter(t =>  isMutantOnly(t)),
+  });
+  const qGroups = groupTraits(allQ);
+  const dGroups = groupTraits(allD);
+
+  const isDefaut = TRAITS_TAB.section === 'd';
+  const curGroups = isDefaut ? dGroups : qGroups;
+  const curAll    = isDefaut ? allD    : allQ;
+
+  const qPts   = traitPoints(DRAFT.qualites_ids, REF?.qualites, 'cost');
+  const dPts   = traitPoints(DRAFT.defauts_ids,  REF?.defauts,  'cost');
+  const dTotal = dPts;
+  const qTotal = qPts;
   const balance = dTotal - qTotal;
-  const maxDef = 10;
+  const maxDef  = 10;
+
+  const displayList = TRAITS_TAB.filter === 'nation'  ? curGroups.nation  :
+                      TRAITS_TAB.filter === 'mutant'  ? curGroups.mutant  :
+                      TRAITS_TAB.filter === 'general' ? curGroups.general :
+                      curAll;
+
+  const hasNation   = !!(charNation && curGroups.nation.length);
+  const hasMutant   = !!(isMutant   && curGroups.mutant.length);
+  const hasMultiCat = (hasNation || hasMutant) && curGroups.general.length > 0;
+
+  const charNationObj  = charNation ? (REF?.nations?.find(n => n.id === charNation) || null) : null;
+  const nationLabel    = charNationObj?.nom || charNation || '';
+  const nationIconUrl  = charNationObj?.faction_icon_url || null;
+  const nationImgTag   = nationIconUrl
+    ? `<img src="${esc(nationIconUrl)}" alt="${esc(nationLabel)}" class="w-4 h-4 object-contain inline-block">`
+    : '⚓';
+
+  const sectionTab = (section, label, pts, count) => `
+    <button data-traits-tab-section="${section}"
+      class="flex-1 px-3 py-2 text-xs font-medium rounded-t transition-colors border-b-2 flex items-center justify-center gap-2
+        ${TRAITS_TAB.section === section
+          ? 'text-white border-yellow-400 bg-gray-700/60'
+          : 'text-gray-400 border-transparent hover:text-gray-200 hover:bg-gray-800'}">
+      ${label}
+      <span class="text-xs ${TRAITS_TAB.section === section ? 'text-yellow-300' : 'text-gray-500'}">${pts} pts</span>
+      ${count ? `<span class="text-xs px-1.5 py-0.5 rounded-full ${TRAITS_TAB.section === section ? 'bg-yellow-500/20 text-yellow-300' : 'bg-gray-700 text-gray-500'}">${count}</span>` : ''}
+    </button>`;
+
+  const filterBtn = (filter, label) => `
+    <button data-traits-tab-filter="${filter}"
+      class="px-2.5 py-1 rounded text-xs font-medium transition-colors
+        ${TRAITS_TAB.filter === filter ? 'bg-gray-600 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'}">
+      ${label}
+    </button>`;
+
+  const renderCard = t => {
+    const sel = isDefaut ? DRAFT.defauts_ids.includes(t.id) : DRAFT.qualites_ids.includes(t.id);
+    const pts = Math.abs(parseInt(t.cost) || 0);
+    const wouldExceed = isDefaut ? (!sel && dTotal + pts > maxDef) : (!sel && balance < pts);
+    return `
+    <button data-trait="${t.id}" data-ttype="${isDefaut ? 'd' : 'q'}"
+      class="trait-btn w-full text-left ${sel ? (isDefaut ? 'selected-d' : 'selected-q') : ''} ${wouldExceed && !sel ? 'opacity-40' : ''}">
+      <div class="flex justify-between items-center gap-2 flex-wrap mb-1">
+        <span class="${sel ? (isDefaut ? 'text-yellow-300' : 'text-blue-300') : 'text-gray-300'} font-medium text-xs">${esc(t.name)}</span>
+        <div class="flex gap-1 items-center shrink-0">
+          ${traitHasNation(t) ? `<span class="text-xs px-1 py-px rounded bg-gray-700/60 text-gray-400">${nationIconUrl ? `<img src="${esc(nationIconUrl)}" alt="" class="w-3 h-3 object-contain inline-block">` : '⚓'}</span>` : ''}
+          ${isMutantOnly(t) ? `<span class="text-xs px-1 py-px rounded bg-cyan-900/40 text-cyan-500">🧬</span>` : ''}
+          <span class="${isDefaut ? 'text-yellow-400' : 'text-blue-400'} text-xs">${isDefaut ? '+' : ''}${pts} pts</span>
+        </div>
+      </div>
+      ${t.description ? `<p class="text-xs text-gray-500">${esc(t.description)}</p>` : ''}
+      ${t.effet       ? `<p class="text-xs text-gray-400 mt-0.5"><span class="text-gray-500">Effet : </span>${esc(t.effet)}</p>` : ''}
+      ${t.prerequis   ? `<p class="text-xs text-gray-600 mt-0.5">Prérequis : ${esc(t.prerequis)}</p>` : ''}
+      ${t.restriction ? `<p class="text-xs text-gray-600 mt-0.5">Restriction : ${esc(t.restriction)}</p>` : ''}
+    </button>`;
+  };
 
   return `
-  <h3 class="text-base font-semibold mb-1">Qualités &amp; Défauts (optionnel)</h3>
-  <p class="text-xs text-gray-500 mb-1">Max 10 pts de défauts. Chaque défaut apporte des points, chaque qualité en coûte.</p>
-  <div class="flex gap-4 text-sm mb-4 flex-wrap">
+  <div class="flex items-center justify-between mb-1">
+    <h3 class="text-base font-semibold">Qualités &amp; Défauts (optionnel)</h3>
+    <button id="btn-rand-traits" type="button"
+      class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-yellow-600/30 border border-gray-600 hover:border-yellow-500 text-gray-300 hover:text-yellow-300 transition-colors">
+      🎲 Aléatoire
+    </button>
+  </div>
+  <div class="flex gap-4 text-xs mb-3 flex-wrap">
     <span>Défauts : <strong class="text-yellow-400">${dTotal} pts</strong> / max ${maxDef}</span>
-    <span>Qualités dépensées : <strong class="text-blue-400">${qTotal} pts</strong></span>
+    <span>Qualités : <strong class="text-blue-400">${qTotal} pts</strong></span>
     <span>Solde : <strong class="${balance >= 0 ? 'text-green-400' : 'text-red-400'}">${balance} pts</strong></span>
   </div>
 
-  <div class="grid md:grid-cols-2 gap-4 overflow-y-auto max-h-[55vh]">
-    <!-- Qualités -->
-    <div>
-      <p class="text-xs text-gray-400 font-semibold mb-2">Qualités</p>
-      <div class="space-y-1 pr-1">
-        ${qualites.map(q => {
-          const sel = DRAFT.qualites_ids.includes(q.id);
-          const cost = parseInt(q.cost) || 0;
-          const disabled = !sel && balance < cost;
-          return `
-          <button data-trait="${q.id}" data-ttype="q"
-            class="trait-btn w-full ${sel ? 'selected-q' : ''} ${disabled && !sel ? 'opacity-40' : ''}">
-            <div class="flex justify-between items-center">
-              <span class="text-xs font-medium ${sel ? 'text-blue-300' : 'text-gray-300'}">${esc(q.name)}</span>
-              <span class="text-xs text-blue-400 shrink-0 ml-2">${cost} pts</span>
-            </div>
-            <p class="text-xs text-gray-500 mt-0.5 line-clamp-2">${esc(q.description || '')}</p>
-          </button>`;
-        }).join('')}
-      </div>
-    </div>
-    <!-- Défauts -->
-    <div>
-      <p class="text-xs text-gray-400 font-semibold mb-2">Défauts</p>
-      <div class="space-y-1 pr-1">
-        ${defauts.map(d => {
-          const sel = DRAFT.defauts_ids.includes(d.id);
-          const pts = Math.abs(parseInt(d.cost) || 0);
-          const wouldExceed = !sel && (dTotal + pts > maxDef);
-          return `
-          <button data-trait="${d.id}" data-ttype="d"
-            class="trait-btn w-full ${sel ? 'selected-d' : ''} ${wouldExceed && !sel ? 'opacity-40' : ''}">
-            <div class="flex justify-between items-center">
-              <span class="text-xs font-medium ${sel ? 'text-yellow-300' : 'text-gray-300'}">${esc(d.name)}</span>
-              <span class="text-xs text-yellow-400 shrink-0 ml-2">+${pts} pts</span>
-            </div>
-            <p class="text-xs text-gray-500 mt-0.5 line-clamp-2">${esc(d.description || '')}</p>
-          </button>`;
-        }).join('')}
-      </div>
-    </div>
+  <div class="flex gap-0 border-b border-gray-700 mb-3">
+    ${sectionTab('d', '① Désavantages', dTotal, DRAFT.defauts_ids.length  || '')}
+    ${sectionTab('q', '② Avantages',    qTotal, DRAFT.qualites_ids.length || '')}
+  </div>
+
+  ${hasMultiCat ? `
+  <div class="flex gap-1.5 mb-3 flex-wrap">
+    ${filterBtn('all',     'Tous')}
+    ${curGroups.general.length ? filterBtn('general', 'Généraux') : ''}
+    ${hasNation ? filterBtn('nation', nationImgTag + ' ' + esc(nationLabel)) : ''}
+    ${hasMutant ? filterBtn('mutant', '🧬 Mutants') : ''}
+  </div>` : ''}
+
+  <div class="space-y-2">
+    ${displayList.length
+      ? displayList.map(renderCard).join('')
+      : '<p class="text-gray-600 text-xs py-4 text-center">Aucun trait disponible dans cette catégorie.</p>'}
   </div>`;
 }
 
@@ -902,6 +2186,91 @@ function traitPoints(ids, list, field) {
     const val = Math.abs(parseInt(item?.[field] || 0));
     return sum + val;
   }, 0);
+}
+
+// ── Étape Mutations (mutants uniquement) ──────────────────────────────────────
+function renderStepMutations() {
+  const all      = REF?.mutations || [];
+  const basiques = all.filter(m => (m.mutation_type || '').toLowerCase() === 'basique');
+  const avancees = all.filter(m => (m.mutation_type || '').toLowerCase() !== 'basique');
+
+  const sel         = DRAFT.mutations_ids;
+  const selBasiques = sel.filter(id => basiques.some(m => m.id === id));
+  const selAvancees = sel.filter(id => avancees.some(m => m.id === id));
+
+  const tab  = MUTATION_TAB;
+  const list = tab === 'basique' ? basiques : avancees;
+
+  const typeBadge = type => {
+    const t = (type || '').toLowerCase();
+    if (t === 'passive') return `<span class="text-xs px-1.5 py-px rounded bg-green-900/60 text-green-400">Passive</span>`;
+    if (t === 'avancée' || t === 'avancee') return `<span class="text-xs px-1.5 py-px rounded bg-purple-900/60 text-purple-300">Avancée</span>`;
+    return '';
+  };
+
+  const mutCard = m => {
+    const isSel = sel.includes(m.id);
+    return `
+    <button data-mutation="${m.id}"
+      class="mutation-card w-full text-left px-4 py-3 rounded-xl border transition-colors
+             ${isSel ? 'border-cyan-500 bg-cyan-900/30 text-cyan-100' : 'border-gray-700 bg-gray-800 text-gray-300 hover:border-cyan-600'}">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="font-medium text-sm">${esc(m.name)}</span>
+        ${typeBadge(m.mutation_type)}
+        ${m.ex_cost ? `<span class="text-xs text-gray-500 ml-auto shrink-0">${esc(m.ex_cost)}</span>` : ''}
+      </div>
+      ${m.effect ? `<div class="text-xs text-gray-400 mt-1">${esc(m.effect)}</div>` : ''}
+    </button>`;
+  };
+
+  return `
+  <div class="flex items-center justify-between mb-1">
+    <h3 class="text-base font-semibold">Mutations</h3>
+    <button id="btn-rand-mutations" type="button"
+      class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-yellow-600/30 border border-gray-600 hover:border-yellow-500 text-gray-300 hover:text-yellow-300 transition-colors">
+      🎲 Aléatoire
+    </button>
+  </div>
+  <div class="bg-gray-900/50 rounded-lg px-3 py-2 mb-4 text-xs text-gray-400">
+    Règle : choisissez <strong class="text-cyan-300">2 mutations basiques</strong>
+    ou <strong class="text-purple-300">1 mutation avancée</strong>.
+    <span class="ml-2 text-gray-500">
+      Sélectionnées : ${selBasiques.length} basique(s)&nbsp;·&nbsp;${selAvancees.length} avancée(s)
+    </span>
+  </div>
+
+  <!-- Onglets Basiques / Avancées -->
+  <div class="flex gap-1 mb-4">
+    <button data-mutation-tab="basique"
+      class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors
+             ${tab === 'basique' ? 'bg-cyan-800 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}">
+      Basiques <span class="ml-1 text-xs opacity-70">(${selBasiques.length})</span>
+    </button>
+    <button data-mutation-tab="avancee"
+      class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors
+             ${tab === 'avancee' ? 'bg-purple-800 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}">
+      Avancées <span class="ml-1 text-xs opacity-70">(${selAvancees.length})</span>
+    </button>
+  </div>
+
+  <!-- Cartes -->
+  <div class="space-y-2">
+    ${list.map(mutCard).join('') || '<p class="text-gray-500 text-sm">Aucune mutation disponible.</p>'}
+  </div>`;
+}
+
+function validateMutations() {
+  const all      = REF?.mutations || [];
+  const basiques = all.filter(m => (m.mutation_type || '').toLowerCase() === 'basique');
+  const avancees = all.filter(m => (m.mutation_type || '').toLowerCase() !== 'basique');
+  const sel         = DRAFT.mutations_ids;
+  const selBasiques = sel.filter(id => basiques.some(m => m.id === id));
+  const selAvancees = sel.filter(id => avancees.some(m => m.id === id));
+  // Valide si : 0 sélectionnées, 2 basiques sans avancée, ou 1 avancée sans basique
+  if (sel.length === 0) return true;
+  if (selBasiques.length === 2 && selAvancees.length === 0) return true;
+  if (selAvancees.length === 1 && selBasiques.length === 0) return true;
+  return false;
 }
 
 // ── Étape 8 : Finitions (PJ) ──────────────────────────────────────────────────
@@ -920,8 +2289,6 @@ function renderStepFinitions() {
 
   const sante    = (finalAttrs.carrure || 0) + (finalAttrs.sang_froid || 0);
   const energieX = DRAFT.is_mutant ? (finalAttrs.perception || 0) + (finalAttrs.intelligence || 0) : null;
-
-  const mutations = DRAFT.is_mutant ? (REF?.mutations || []) : [];
 
   return `
   <h3 class="text-base font-semibold mb-4">Finitions</h3>
@@ -948,13 +2315,37 @@ function renderStepFinitions() {
     </div>
   </div>
 
-  <!-- Nom + âge + description -->
+  <!-- Nom + genre + âge + description -->
   <div class="space-y-3 mb-5">
     <div>
+      <label class="text-xs text-gray-400 block mb-1">Genre / Sexe</label>
+      <div class="flex gap-2">
+        ${['homme','femme','autre'].map(g => `
+          <button type="button" data-genre="${g}"
+            class="genre-btn flex-1 py-1.5 rounded-lg border text-xs font-medium transition-colors
+              ${(DRAFT.genre || 'homme') === g
+                ? 'bg-blue-700 border-blue-500 text-white'
+                : 'bg-gray-800 border-gray-600 text-gray-400 hover:border-gray-400'}">
+            ${g === 'homme' ? '♂ Homme' : g === 'femme' ? '♀ Femme' : '⚧ Autre'}
+          </button>`).join('')}
+      </div>
+    </div>
+    <div>
       <label class="text-xs text-gray-400 block mb-1">Nom du personnage *</label>
-      <input type="text" id="fin-nom" value="${esc(DRAFT.nom_personnage || '')}"
-        placeholder="Nom…"
-        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
+      <div class="flex gap-2">
+        <input type="text" id="fin-nom" value="${esc(DRAFT.nom_personnage || '')}"
+          placeholder="Nom…"
+          class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
+        ${(() => {
+          const orig = REF?.origines?.find(o => o.id === DRAFT.origine_id);
+          const nation = orig?.nation ?? null;
+          const canGen = nation && nation !== 'Daemon';
+          return canGen
+            ? `<button type="button" id="btn-gen-name" title="Générer un nom aléatoire"
+                class="px-3 py-2 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-sm transition-colors">🎲</button>`
+            : '';
+        })()}
+      </div>
     </div>
     <div class="flex gap-3">
       <div class="w-32">
@@ -996,25 +2387,7 @@ function renderStepFinitions() {
       </div>
     </div>
     ${arch ? `<p class="text-xs text-gray-500">Équipement de départ : ${esc(arch.equipement_depart)}</p>` : ''}
-  </div>
-
-  <!-- Mutations (si mutant) -->
-  ${mutations.length ? `
-  <div class="mt-4">
-    <p class="text-xs text-gray-400 font-semibold mb-2">Mutations (facultatif)</p>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto">
-      ${mutations.map(m => {
-        const sel = DRAFT.mutations_ids.includes(m.id);
-        return `
-        <label class="flex items-center gap-2 text-xs bg-gray-800 border ${sel ? 'border-cyan-600' : 'border-gray-700'} rounded px-3 py-2 cursor-pointer">
-          <input type="checkbox" data-mut="${m.id}" ${sel ? 'checked' : ''}
-            class="mut-check accent-cyan-500">
-          <span class="${sel ? 'text-cyan-300' : 'text-gray-300'}">${esc(m.name)}</span>
-          <span class="text-gray-500 ml-auto">${esc(m.mutation_type || '')}</span>
-        </label>`;
-      }).join('')}
-    </div>
-  </div>` : ''}`;
+  </div>`;
 }
 
 function _syncAvatarPreview(container, url) {
@@ -1028,6 +2401,7 @@ function _syncAvatarPreview(container, url) {
 function validateFinitions() {
   const nom = document.getElementById('fin-nom')?.value?.trim();
   if (nom) DRAFT.nom_personnage = nom;
+  // genre est sauvegardé en direct via le listener
   return !!DRAFT.nom_personnage?.trim();
 }
 
@@ -1035,7 +2409,13 @@ function validateFinitions() {
 function renderStepPNJType() {
   const niveaux = REF?.pnj_niveaux || [];
   return `
-  <h3 class="text-base font-semibold mb-1">Type de PNJ</h3>
+  <div class="flex items-center justify-between mb-1">
+    <h3 class="text-base font-semibold">Type de PNJ</h3>
+    <button id="btn-rand-pnj-type" type="button"
+      class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-yellow-600/30 border border-gray-600 hover:border-yellow-500 text-gray-300 hover:text-yellow-300 transition-colors">
+      🎲 Aléatoire
+    </button>
+  </div>
   <p class="text-xs text-gray-500 mb-4">Choisissez le niveau de puissance du PNJ.</p>
   <div class="space-y-2">
     ${niveaux.map(n => {
@@ -1070,7 +2450,13 @@ function renderStepPNJProfil() {
   const domaines    = REF?.domaines    || [];
 
   return `
-  <h3 class="text-base font-semibold mb-4">Profil du PNJ</h3>
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="text-base font-semibold">Profil du PNJ</h3>
+    <button id="btn-rand-pnj-profil" type="button"
+      class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-yellow-600/30 border border-gray-600 hover:border-yellow-500 text-gray-300 hover:text-yellow-300 transition-colors">
+      🎲 Aléatoire
+    </button>
+  </div>
 
   <!-- Pirate ? -->
   <div class="mb-4">
@@ -1153,51 +2539,111 @@ function validatePNJProfil() {
 
 function renderStepPNJAttributs() {
   const level = REF?.pnj_niveaux?.find(n => n.id === DRAFT.pnj_niveau);
-  const pool  = level?.caracteristiques || [3,2,2,2,2,1];
+  const pool  = [...(level?.caracteristiques || [3,2,2,2,2,1])].sort((a,b) => b-a);
   const attrs = REF?.attributs || [];
 
+  // Valeurs restantes
+  const remaining = [...pool];
+  for (const v of Object.values(DRAFT.attributs_pnj)) {
+    if (v !== null) { const i = remaining.indexOf(v); if (i >= 0) remaining.splice(i, 1); }
+  }
+
   return `
-  <h3 class="text-base font-semibold mb-1">Attributs du PNJ</h3>
-  <p class="text-xs text-gray-500 mb-4">
-    Répartissez les valeurs suggérées (${pool.join('/')}) ou personnalisez librement.
+  <div class="flex items-center justify-between mb-1">
+    <h3 class="text-base font-semibold">Répartissez les caractéristiques du PNJ</h3>
+    <button id="btn-rand-pnj-attrs" type="button"
+      class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-yellow-600/30 border border-gray-600 hover:border-yellow-500 text-gray-300 hover:text-yellow-300 transition-colors">
+      🎲 Aléatoire
+    </button>
+  </div>
+  <p class="text-xs text-gray-500 mb-1">Assignez <strong>exactement</strong> les valeurs suivantes : ${pool.join(', ')}.</p>
+  <p class="text-xs text-gray-400 mb-4">
+    Valeurs restantes :
+    ${pool.filter((v,i,a)=>a.indexOf(v)===i).map(v => {
+      const cnt = remaining.filter(x => x === v).length;
+      return cnt > 0 ? `<span class="font-mono text-yellow-400">${v}×${cnt}</span>` : null;
+    }).filter(Boolean).join(' ')}
+    ${remaining.length === 0 ? '<span class="text-green-400">✔ Complet</span>' : ''}
   </p>
   <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
     ${attrs.map(a => {
-      const val = DRAFT.attributs_pnj[a.id] ?? '';
+      const val = DRAFT.attributs_pnj[a.id];
       return `
       <div class="bg-gray-800 border border-gray-700 rounded-lg p-3">
-        <label class="text-xs text-gray-400 block mb-1">${esc(a.nom)}</label>
-        <input type="number" data-pnj-attr="${a.id}" value="${val}" min="1" max="8"
-          class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-center">
+        <p class="text-xs text-gray-400 mb-1"${a.description ? ` data-tip="${esc(a.description)}"` : ''}>${esc(a.nom)}${a.description ? ' ℹ' : ''}</p>
+        <p class="text-xs text-gray-500 mb-2">${esc(a.domaine || '')}</p>
+        <select data-pnj-attr="${a.id}"
+          class="attr-pnj-select w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm">
+          <option value="">—</option>
+          ${pool.map(v => {
+            const available = remaining.filter(x => x === v).length + (val === v ? 1 : 0);
+            return `<option value="${v}" ${val === v ? 'selected' : ''} ${available === 0 && val !== v ? 'disabled' : ''}>${v}</option>`;
+          }).filter((html, i, arr) => arr.indexOf(html) === i)}
+        </select>
       </div>`;
     }).join('')}
-  </div>
-  <button id="btn-fill-pnj-attrs"
-    class="mt-3 text-xs text-blue-400 hover:text-blue-300">
-    ↺ Pré-remplir avec les valeurs du niveau (${pool.join('/')})
-  </button>`;
+  </div>`;
+}
+
+function validatePNJAttributs() {
+  const level = REF?.pnj_niveaux?.find(n => n.id === DRAFT.pnj_niveau);
+  const pool  = [...(level?.caracteristiques || [3,2,2,2,2,1])].sort((a,b) => b-a);
+  const vals  = Object.values(DRAFT.attributs_pnj).filter(v => v !== null).sort((a,b) => b-a);
+  return vals.length === pool.length && vals.join(',') === pool.join(',');
 }
 
 function renderStepPNJCompetences() {
-  const domaines = REF?.domaines || [];
+  const level     = REF?.pnj_niveaux?.find(n => n.id === DRAFT.pnj_niveau);
+  const pool      = [...(level?.competences_pool || [])].sort((a,b) => b-a);
+  const domaines  = REF?.domaines || [];
   const competences = REF?.competences || [];
-  const arch = REF?.archetypes?.find(a => a.id === DRAFT.archetype_id);
-  const domPriv = arch?.domaines_privileges || DRAFT.domaines_libres || [];
+  const arch      = REF?.archetypes?.find(a => a.id === DRAFT.archetype_id);
+  const domPriv   = arch?.domaines_privileges || DRAFT.domaines_libres || [];
+
+  // Valeurs restantes dans le pool
+  const remaining = [...pool];
+  for (const v of Object.values(DRAFT.competences_pnj)) {
+    const i = remaining.indexOf(v);
+    if (i >= 0) remaining.splice(i, 1);
+  }
+  const poolUniq = [...new Set(pool)].sort((a,b) => b-a);
 
   const byDomain = {};
   domaines.forEach(d => { byDomain[d.id] = []; });
-  competences.forEach(c => { if (byDomain[c.domain]) byDomain[c.domain].push(c); });
+  // Exclude "(Au choix)" base skills — must be entered as typed instances
+  competences.filter(c => !/\(au choix/i.test(c.name)).forEach(c => { if (byDomain[c.domain]) byDomain[c.domain].push(c); });
 
   return `
-  <h3 class="text-base font-semibold mb-1">Compétences du PNJ</h3>
-  <p class="text-xs text-gray-500 mb-4">
-    Saisissez directement le nombre de dés d'action pour les compétences maîtrisées.
-    Les autres afficheront la valeur de la caractéristique associée.
-  </p>
-  <div class="space-y-4 overflow-y-auto max-h-[55vh] pr-1">
+  <div class="flex items-center justify-between mb-2">
+    <h3 class="text-base font-semibold">Compétences du PNJ</h3>
+    <button id="btn-rand-pnj-comps" type="button"
+      class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-yellow-600/30 border border-gray-600 hover:border-yellow-500 text-gray-300 hover:text-yellow-300 transition-colors">
+      🎲 Aléatoire
+    </button>
+  </div>
+
+  <!-- Pool disponible -->
+  <div class="mb-3 bg-gray-800/60 border border-gray-700 rounded-lg p-3">
+    <p class="text-xs font-semibold text-yellow-300 mb-2">Pool – ${esc(level?.nom || '')} (niveau ${esc(level?.code || '')})</p>
+    <div class="flex flex-wrap gap-1.5 items-center">
+      ${poolUniq.map(v => {
+        const total = pool.filter(x=>x===v).length;
+        const used  = total - remaining.filter(x=>x===v).length;
+        return `<div class="flex items-center gap-1 text-xs px-2 py-1 rounded bg-gray-700 border ${used>=total?'border-green-500/40 text-green-400':'border-gray-600 text-yellow-300'}">
+          <span class="font-mono font-bold">${v}</span>
+          <span class="text-gray-400">×${total-used}/${total}</span>
+        </div>`;
+      }).join('')}
+      <span class="text-xs ${remaining.length===0?'text-green-400':'text-gray-500'}">
+        ${remaining.length===0 ? '✔ Pool épuisé' : `${remaining.length} slot${remaining.length>1?'s':''} restant${remaining.length>1?'s':''}`}
+      </span>
+    </div>
+  </div>
+
+  <div class="space-y-3 overflow-y-auto max-h-[45vh] pr-1">
     ${domaines.map(dom => {
       const skills = byDomain[dom.id] || [];
-      const priv = domPriv.includes(dom.id);
+      const priv   = domPriv.includes(dom.id);
       const attrNom = REF?.attributs?.find(a => a.id === dom.attribut)?.nom || '';
       return `
       <div>
@@ -1206,13 +2652,18 @@ function renderStepPNJCompetences() {
         </p>
         <div class="space-y-0.5">
           ${skills.map(sk => {
-            const val = DRAFT.competences_pnj[sk.name] ?? '';
+            const val = DRAFT.competences_pnj[sk.name] ?? 0;
             return `
             <div class="flex items-center gap-2 py-0.5 border-b border-gray-700/50">
               <span class="flex-1 text-xs text-gray-300 truncate">${esc(sk.name)}</span>
-              <input type="number" data-pnj-sk="${esc(sk.name)}" value="${val}" min="0" max="12"
-                placeholder="—"
-                class="w-14 bg-gray-700 border border-gray-600 rounded px-2 py-0.5 text-xs text-center">
+              <select data-pnj-sk="${esc(sk.name)}" class="sk-pnj-libre bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-xs w-14 shrink-0">
+                <option value="0" ${val===0?'selected':''}>—</option>
+                ${poolUniq.map(pv => {
+                  const avail = remaining.filter(x=>x===pv).length + (val===pv?1:0);
+                  return `<option value="${pv}" ${val===pv?'selected':''} ${avail===0&&val!==pv?'disabled':''}>${pv}</option>`;
+                }).join('')}
+              </select>
+              <span class="text-xs font-mono w-6 text-right shrink-0 ${val>0?'text-yellow-300':'text-gray-700'}">${val>0?val:'—'}</span>
             </div>`;
           }).join('')}
         </div>
@@ -1220,6 +2671,7 @@ function renderStepPNJCompetences() {
     }).join('')}
   </div>`;
 }
+
 
 // ── Listeners des étapes ──────────────────────────────────────────────────────
 function attachStepListeners() {
@@ -1232,6 +2684,11 @@ function attachStepListeners() {
       document.getElementById('wizard-step').innerHTML = renderStepMutant();
       attachStepListeners();
     });
+  });
+  step.querySelector('#btn-rand-mutant')?.addEventListener('click', () => {
+    DRAFT.is_mutant = Math.random() < 0.5;
+    document.getElementById('wizard-step').innerHTML = renderStepMutant();
+    attachStepListeners();
   });
 
   // Nation cards → populate origine select
@@ -1284,6 +2741,23 @@ function attachStepListeners() {
     });
     attachOrigineChoixListeners(step);
   }
+  step.querySelector('#btn-rand-orig')?.addEventListener('click', () => {
+    const origines = REF?.origines || [];
+    if (!origines.length) return;
+    const rnd = arr => arr[Math.floor(Math.random() * arr.length)];
+    const orig = rnd(origines);
+    DRAFT.origine_id = orig.id;
+    DRAFT._origine_nation = orig.nation;
+    DRAFT.origine_choix = {};
+    for (const c of (orig.bonus_competences || [])) {
+      if (c.au_choix) {
+        const opts = origineChoixTypeOptions(c.competence);
+        if (opts?.length) DRAFT.origine_choix[c.competence] = rnd(opts);
+      }
+    }
+    document.getElementById('wizard-step').innerHTML = renderStepOrigine();
+    attachStepListeners();
+  });
 
   // Motivation
   step.querySelectorAll('.motiv-btn').forEach(btn => {
@@ -1292,6 +2766,13 @@ function attachStepListeners() {
       document.getElementById('wizard-step').innerHTML = renderStepMotivation();
       attachStepListeners();
     });
+  });
+  step.querySelector('#btn-rand-motiv')?.addEventListener('click', () => {
+    const motivations = REF?.motivations || [];
+    if (!motivations.length) return;
+    DRAFT.motivation_id = motivations[Math.floor(Math.random() * motivations.length)].id;
+    document.getElementById('wizard-step').innerHTML = renderStepMotivation();
+    attachStepListeners();
   });
 
   // Archétype
@@ -1308,6 +2789,17 @@ function attachStepListeners() {
   step.querySelectorAll('input[name=action-arch]').forEach(r => {
     r.addEventListener('change', () => { DRAFT.action_archetype = r.value; });
   });
+  step.querySelector('#btn-rand-arch')?.addEventListener('click', () => {
+    const archetypes = REF?.archetypes || [];
+    if (!archetypes.length) return;
+    const arch = archetypes[Math.floor(Math.random() * archetypes.length)];
+    DRAFT.archetype_id = arch.id;
+    const actions = arch.actions || [];
+    DRAFT.action_archetype = actions.length ? actions[Math.floor(Math.random() * actions.length)].nom : null;
+    DRAFT.competences_libres = {};
+    document.getElementById('wizard-step').innerHTML = renderStepArchetype();
+    attachStepListeners();
+  });
 
   // Attributs PJ
   step.querySelectorAll('.attr-select').forEach(sel => {
@@ -1318,18 +2810,94 @@ function attachStepListeners() {
       attachStepListeners();
     });
   });
+  step.querySelector('#btn-rand-attrs')?.addEventListener('click', () => {
+    const shuffled = [...ATTR_POOL_PJ].sort(() => Math.random() - 0.5);
+    const attrs = REF?.attributs || [];
+    attrs.forEach((a, i) => { DRAFT.attributs[a.id] = shuffled[i]; });
+    document.getElementById('wizard-step').innerHTML = renderStepAttributs();
+    attachStepListeners();
+  });
+  step.querySelector('#btn-rand-comps')?.addEventListener('click', () => {
+    DRAFT.competences_libres = {};
+    const arch = REF?.archetypes?.find(a => a.id === DRAFT.archetype_id);
+    const domPriv = arch?.domaines_privileges || [];
+    const domPrimaire = domPriv[0] || null;
+    // Exclude "(Au choix)" base skills — they need explicit typed entries
+    const comps = (REF?.competences || []).filter(c => !/\(au choix/i.test(c.name));
+    const shuffle = arr => [...arr].sort(() => Math.random() - 0.5);
+    const primSkills = domPrimaire ? comps.filter(c => c.domain === domPrimaire) : comps;
+    const privSkills = comps.filter(c => domPriv.includes(c.domain) && c.domain !== domPrimaire);
+    const chosen3 = shuffle(primSkills).slice(0, COMP_SLOTS.plus3);
+    const used = new Set(chosen3.map(s => s.name));
+    chosen3.forEach(s => { DRAFT.competences_libres[s.name] = 3; });
+    const chosen2 = shuffle(privSkills.filter(s => !used.has(s.name))).slice(0, COMP_SLOTS.plus2);
+    chosen2.forEach(s => { DRAFT.competences_libres[s.name] = 2; used.add(s.name); });
+    const chosen1 = shuffle(comps.filter(s => !used.has(s.name))).slice(0, COMP_SLOTS.plus1);
+    chosen1.forEach(s => { DRAFT.competences_libres[s.name] = 1; });
+    document.getElementById('wizard-step').innerHTML = renderStepCompetences();
+    attachStepListeners();
+  });
 
-  // Compétences PJ
-  step.querySelectorAll('.sk-btn').forEach(btn => {
+  // Compétences PJ — sélects libres
+  step.querySelectorAll('.sk-libre').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const sk  = sel.dataset.sk;
+      const val = parseInt(sel.value);
+      if (val === 0) delete DRAFT.competences_libres[sk];
+      else           DRAFT.competences_libres[sk] = val;
+      document.getElementById('wizard-step').innerHTML = renderStepCompetences();
+      attachStepListeners();
+    });
+  });
+  // Archétype "Au choix" — sélects typés
+  step.querySelectorAll('.arch-choix-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      DRAFT.competences_archetype_choix[sel.dataset.archChoix] = sel.value || '';
+      document.getElementById('wizard-step').innerHTML = renderStepCompetences();
+      attachStepListeners();
+    });
+  });
+  step.querySelectorAll('.arch-choix-input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      DRAFT.competences_archetype_choix[inp.dataset.archChoix] = inp.value.trim();
+    });
+    inp.addEventListener('change', () => {
+      DRAFT.competences_archetype_choix[inp.dataset.archChoix] = inp.value.trim();
+      document.getElementById('wizard-step').innerHTML = renderStepCompetences();
+      attachStepListeners();
+    });
+  });
+
+  // Compétences "(Au choix)" — type select → affiche/masque le champ texte libre
+  step.querySelectorAll('.ac-type-sel').forEach(sel => {
+    const acName = sel.dataset.acType;
+    const libreInp = step.querySelector(`[data-ac-libre="${CSS.escape(acName)}"]`);
+    if (!libreInp) return;
+    sel.addEventListener('change', () => {
+      libreInp.classList.toggle('hidden', sel.value !== '__autre__');
+    });
+  });
+  // Compétences "(Au choix)" — bouton Ajouter
+  step.querySelectorAll('[data-ac-add]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const sk = btn.dataset.sk;
-      const delta = parseInt(btn.dataset.d);
-      const cur = DRAFT.competences_libres[sk] || 0;
-      const newVal = Math.max(0, cur + delta);
-      const used = Object.values(DRAFT.competences_libres).reduce((s,v) => s+v, 0) - cur + newVal;
-      if (delta > 0 && used > FREE_COMPETENCES_PJ) return;
-      if (newVal === 0) delete DRAFT.competences_libres[sk];
-      else DRAFT.competences_libres[sk] = newVal;
+      const acName  = btn.dataset.acAdd;
+      const typeSel = step.querySelector(`.ac-type-sel[data-ac-type="${CSS.escape(acName)}"]`);
+      const libreInp= step.querySelector(`.ac-libre-inp[data-ac-libre="${CSS.escape(acName)}"]`);
+      const levSel  = step.querySelector(`.ac-lev-sel[data-ac-lev="${CSS.escape(acName)}"]`);
+      let typeName = typeSel ? typeSel.value : '';
+      if (typeName === '__autre__' || !typeSel) typeName = (libreInp?.value || '').trim();
+      if (!typeName) { alert('Veuillez choisir ou saisir un type.'); return; }
+      const level = parseInt(levSel?.value || '1');
+      const resolved = resolveAuChoixKey(acName, typeName) || `${acName.split('(')[0].trim()} (${typeName})`;
+      DRAFT.competences_libres[resolved] = level;
+      document.getElementById('wizard-step').innerHTML = renderStepCompetences();
+      attachStepListeners();
+    });
+  });
+  // Compétences "(Au choix)" — supprimer une instance typée
+  step.querySelectorAll('[data-del-ac]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      delete DRAFT.competences_libres[btn.dataset.delAc];
       document.getElementById('wizard-step').innerHTML = renderStepCompetences();
       attachStepListeners();
     });
@@ -1361,12 +2929,139 @@ function attachStepListeners() {
     });
   });
 
+  // Traits — tab navigation (section + filter)
+  step.querySelectorAll('[data-traits-tab-section]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      TRAITS_TAB.section = btn.dataset.traitsTabSection;
+      TRAITS_TAB.filter  = 'all';
+      document.getElementById('wizard-step').innerHTML = renderStepTraits();
+      attachStepListeners();
+    });
+  });
+  step.querySelectorAll('[data-traits-tab-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      TRAITS_TAB.filter = btn.dataset.traitsTabFilter;
+      document.getElementById('wizard-step').innerHTML = renderStepTraits();
+      attachStepListeners();
+    });
+  });
+  step.querySelector('#btn-rand-traits')?.addEventListener('click', () => {
+    DRAFT.defauts_ids  = [];
+    DRAFT.qualites_ids = [];
+    const isMutant = DRAFT.is_mutant;
+    const orig = REF?.origines?.find(o => o.id === DRAFT.origine_id);
+    const charNation = orig?.nation || null;
+    const isMutantOnly = t => String(t.restriction || '').toLowerCase().includes('mutant');
+    const traitHasNation = t => t.nation && t.nation !== 'Aucune';
+    const canSee = t => {
+      if (DRAFT.type === 'pj' && t.pnj_only) return false;
+      if (isMutantOnly(t) && !isMutant) return false;
+      if (traitHasNation(t) && t.nation !== charNation) return false;
+      return true;
+    };
+    const defauts = [...(REF?.defauts || []).filter(canSee)].sort(() => Math.random() - 0.5);
+    let dPts = 0;
+    for (const d of defauts) {
+      const pts = Math.abs(parseInt(d.cost) || 0);
+      if (pts > 0 && dPts + pts <= 10) { DRAFT.defauts_ids.push(d.id); dPts += pts; }
+      if (dPts >= 10) break;
+    }
+    const qualites = [...(REF?.qualites || []).filter(canSee)].sort(() => Math.random() - 0.5);
+    let qPts = 0;
+    for (const q of qualites) {
+      const pts = Math.abs(parseInt(q.cost) || 0);
+      if (pts > 0 && qPts + pts <= dPts) { DRAFT.qualites_ids.push(q.id); qPts += pts; }
+    }
+    document.getElementById('wizard-step').innerHTML = renderStepTraits();
+    attachStepListeners();
+  });
+
+  // Mutations — onglets Basiques / Avancées
+  step.querySelectorAll('[data-mutation-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      MUTATION_TAB = btn.dataset.mutationTab;
+      document.getElementById('wizard-step').innerHTML = renderStepMutations();
+      attachStepListeners();
+    });
+  });
+  step.querySelector('#btn-rand-mutations')?.addEventListener('click', () => {
+    DRAFT.mutations_ids = [];
+    const all = REF?.mutations || [];
+    const basiques = all.filter(m => (m.mutation_type || '').toLowerCase() === 'basique');
+    const avancees = all.filter(m => (m.mutation_type || '').toLowerCase() !== 'basique');
+    const shuffle = arr => [...arr].sort(() => Math.random() - 0.5);
+    if (Math.random() < 0.5 && avancees.length) {
+      DRAFT.mutations_ids = [shuffle(avancees)[0].id];
+    } else if (basiques.length >= 2) {
+      DRAFT.mutations_ids = shuffle(basiques).slice(0, 2).map(m => m.id);
+    } else if (avancees.length) {
+      DRAFT.mutations_ids = [shuffle(avancees)[0].id];
+    }
+    document.getElementById('wizard-step').innerHTML = renderStepMutations();
+    attachStepListeners();
+  });
+
+  // Mutations — sélection d'une carte
+  step.querySelectorAll('[data-mutation]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mid = btn.dataset.mutation;
+      const all      = REF?.mutations || [];
+      const basiques = all.filter(m => (m.mutation_type || '').toLowerCase() === 'basique');
+      const avancees = all.filter(m => (m.mutation_type || '').toLowerCase() !== 'basique');
+      const isBasique = basiques.some(m => m.id === mid);
+
+      const idx = DRAFT.mutations_ids.indexOf(mid);
+      if (idx >= 0) {
+        // Désélectionner
+        DRAFT.mutations_ids.splice(idx, 1);
+      } else {
+        // Sélectionner en respectant la règle : 2 basiques OU 1 avancée
+        const selAvancees = DRAFT.mutations_ids.filter(id => avancees.some(m => m.id === id));
+        const selBasiques = DRAFT.mutations_ids.filter(id => basiques.some(m => m.id === id));
+        if (isBasique && selAvancees.length === 0 && selBasiques.length < 2) {
+          DRAFT.mutations_ids.push(mid);
+        } else if (!isBasique && selBasiques.length === 0 && selAvancees.length === 0) {
+          DRAFT.mutations_ids.push(mid);
+        }
+      }
+      document.getElementById('wizard-step').innerHTML = renderStepMutations();
+      attachStepListeners();
+    });
+  });
+
   // Finitions
   const finNom = step.querySelector('#fin-nom');
   if (finNom) {
     finNom.addEventListener('input', () => { DRAFT.nom_personnage = finNom.value; });
     step.querySelector('#fin-age')?.addEventListener('input', e => { DRAFT.age = e.target.value; });
     step.querySelector('#fin-desc')?.addEventListener('input', e => { DRAFT.description = e.target.value; });
+
+    // Genre
+    step.querySelectorAll('.genre-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        DRAFT.genre = btn.dataset.genre;
+        step.querySelectorAll('.genre-btn').forEach(b => {
+          const active = b.dataset.genre === DRAFT.genre;
+          b.className = b.className
+            .replace(/bg-\S+|border-\S+|text-\S+/g, '')
+            .trim();
+          b.classList.add(
+            ...(active
+              ? ['bg-blue-700','border-blue-500','text-white']
+              : ['bg-gray-800','border-gray-600','text-gray-400','hover:border-gray-400'])
+          );
+        });
+      });
+    });
+
+    // Bouton génération de nom aléatoire
+    step.querySelector('#btn-gen-name')?.addEventListener('click', () => {
+      const generated = generateRandomName();
+      if (generated) {
+        finNom.value = generated;
+        DRAFT.nom_personnage = generated;
+      }
+    });
 
     // Image de profil — champ URL
     const avatarUrlInput = step.querySelector('#fin-avatar-url');
@@ -1393,15 +3088,6 @@ function attachStepListeners() {
         }
       } catch { /* ignore upload errors */ }
     });
-
-    step.querySelectorAll('.mut-check').forEach(cb => {
-      cb.addEventListener('change', () => {
-        const mid = cb.dataset.mut;
-        const idx = DRAFT.mutations_ids.indexOf(mid);
-        if (cb.checked && idx < 0) DRAFT.mutations_ids.push(mid);
-        if (!cb.checked && idx >= 0) DRAFT.mutations_ids.splice(idx, 1);
-      });
-    });
   }
 
   // PNJ: niveau
@@ -1411,6 +3097,13 @@ function attachStepListeners() {
       document.getElementById('wizard-step').innerHTML = renderStepPNJType();
       attachStepListeners();
     });
+  });
+  step.querySelector('#btn-rand-pnj-type')?.addEventListener('click', () => {
+    const niveaux = REF?.pnj_niveaux || [];
+    if (!niveaux.length) return;
+    DRAFT.pnj_niveau = niveaux[Math.floor(Math.random() * niveaux.length)].id;
+    document.getElementById('wizard-step').innerHTML = renderStepPNJType();
+    attachStepListeners();
   });
 
   // PNJ: pirate toggle
@@ -1452,41 +3145,94 @@ function attachStepListeners() {
       attachStepListeners();
     });
   });
+  step.querySelector('#btn-rand-pnj-profil')?.addEventListener('click', () => {
+    const shuffle = arr => [...arr].sort(() => Math.random() - 0.5);
+    DRAFT.pnj_is_pirate = Math.random() < 0.5;
+    DRAFT.pnj_is_named  = Math.random() < 0.5;
+    if (DRAFT.pnj_is_pirate) {
+      DRAFT.domaines_libres = [];
+      if (DRAFT.pnj_is_named) {
+        const motivations = REF?.motivations || [];
+        const archetypes  = REF?.archetypes  || [];
+        if (motivations.length) DRAFT.motivation_id = shuffle(motivations)[0].id;
+        if (archetypes.length)  DRAFT.archetype_id  = shuffle(archetypes)[0].id;
+      } else {
+        DRAFT.motivation_id = null;
+        DRAFT.archetype_id  = null;
+      }
+    } else {
+      DRAFT.motivation_id = null;
+      DRAFT.archetype_id  = null;
+      const domaines = REF?.domaines || [];
+      DRAFT.domaines_libres = shuffle(domaines).slice(0, 3).map(d => d.id);
+    }
+    document.getElementById('wizard-step').innerHTML = renderStepPNJProfil();
+    attachStepListeners();
+  });
 
   // PNJ: attributs
-  step.querySelectorAll('[data-pnj-attr]').forEach(inp => {
-    inp.addEventListener('input', () => {
-      DRAFT.attributs_pnj[inp.dataset.pnjAttr] = inp.value ? parseInt(inp.value) : null;
-    });
-  });
-  const fillBtn = step.querySelector('#btn-fill-pnj-attrs');
-  if (fillBtn) {
-    fillBtn.addEventListener('click', () => {
-      const level = REF?.pnj_niveaux?.find(n => n.id === DRAFT.pnj_niveau);
-      const pool  = [...(level?.caracteristiques || [3,2,2,2,2,1])].sort((a,b) => b-a);
-      const attrs = REF?.attributs || [];
-      // Assign highest attr values to the attributes in order
-      attrs.forEach((a, i) => { DRAFT.attributs_pnj[a.id] = pool[i] ?? 1; });
+  step.querySelectorAll('.attr-pnj-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      DRAFT.attributs_pnj[sel.dataset.pnjAttr] = sel.value ? parseInt(sel.value) : null;
       document.getElementById('wizard-step').innerHTML = renderStepPNJAttributs();
       attachStepListeners();
     });
-  }
+  });
+  step.querySelector('#btn-rand-pnj-attrs')?.addEventListener('click', () => {
+    const level = REF?.pnj_niveaux?.find(n => n.id === DRAFT.pnj_niveau);
+    const shuffled = [...(level?.caracteristiques || [3,2,2,2,2,1])].sort(() => Math.random() - 0.5);
+    const attrs = REF?.attributs || [];
+    attrs.forEach((a, i) => { DRAFT.attributs_pnj[a.id] = shuffled[i]; });
+    document.getElementById('wizard-step').innerHTML = renderStepPNJAttributs();
+    attachStepListeners();
+  });
+  step.querySelector('#btn-rand-pnj-comps')?.addEventListener('click', () => {
+    DRAFT.competences_pnj = {};
+    const level = REF?.pnj_niveaux?.find(n => n.id === DRAFT.pnj_niveau);
+    const pool = [...(level?.competences_pool || [])].sort((a, b) => b - a);
+    const comps = [...(REF?.competences || []).filter(c => !/\(au choix/i.test(c.name))].sort(() => Math.random() - 0.5);
+    pool.forEach((val, i) => { if (comps[i]) DRAFT.competences_pnj[comps[i].name] = val; });
+    document.getElementById('wizard-step').innerHTML = renderStepPNJCompetences();
+    attachStepListeners();
+  });
 
-  // PNJ: compétences directes
-  step.querySelectorAll('[data-pnj-sk]').forEach(inp => {
-    inp.addEventListener('input', () => {
-      const sk = inp.dataset.pnjSk;
-      const v  = parseInt(inp.value);
-      if (!isNaN(v) && v > 0) DRAFT.competences_pnj[sk] = v;
-      else delete DRAFT.competences_pnj[sk];
+  // PNJ: compétences — sélects pool
+  step.querySelectorAll('.sk-pnj-libre').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const sk  = sel.dataset.pnjSk;
+      const val = parseInt(sel.value);
+      if (val === 0) delete DRAFT.competences_pnj[sk];
+      else           DRAFT.competences_pnj[sk] = val;
+      document.getElementById('wizard-step').innerHTML = renderStepPNJCompetences();
+      attachStepListeners();
     });
   });
 }
 
 function attachOrigineChoixListeners(step) {
-  step.querySelectorAll('[data-choix]').forEach(inp => {
+  const refreshDetail = () => {
+    const orig = REF?.origines?.find(o => o.id === DRAFT.origine_id);
+    const det = document.getElementById('origine-detail');
+    if (det && orig) det.innerHTML = renderOrigineDetail(orig);
+  };
+  // Selects typés (Environnement, Pilotage…)
+  step.querySelectorAll('.orig-choix-sel').forEach(sel => {
+    sel.addEventListener('change', () => {
+      DRAFT.origine_choix[sel.dataset.choix] = sel.value;
+      refreshDetail();
+      // Re-render l'étape compétences si déjà passée (bonus à jour)
+      const wsHTML = document.getElementById('wizard-step');
+      if (wsHTML && step.querySelector('.sk-libre')) {
+        wsHTML.innerHTML = renderStepCompetences();
+        attachStepListeners();
+      }
+    });
+  });
+  // Inputs texte libres (Artisanat, Connaissance…)
+  step.querySelectorAll('.orig-choix-inp').forEach(inp => {
     inp.addEventListener('input', () => {
       DRAFT.origine_choix[inp.dataset.choix] = inp.value;
+      refreshDetail();
     });
   });
 }
@@ -1587,7 +3333,8 @@ function buildBonusMap() {
   const orig = REF?.origines?.find(o => o.id === DRAFT.origine_id);
   if (orig) {
     for (const bc of orig.bonus_competences || []) {
-      const key = bc.competence;
+      const key = resolveOrigineComp(bc, DRAFT.origine_choix);
+      if (!key) continue;
       map[key] = (map[key] || 0) + bc.valeur;
     }
   }
@@ -1603,39 +3350,150 @@ function buildBonusMap() {
 /** Construit la map totale des compétences (libres + bonus). */
 function buildCompetences(d) {
   const map = {};
-  const orig = REF?.origines?.find(o => o.id === d.origine_id);
+  const orig  = REF?.origines?.find(o => o.id === d.origine_id);
   const motiv = REF?.motivations?.find(m => m.id === d.motivation_id);
+
+  const ensure = (key, spec) => {
+    if (!map[key]) map[key] = { bonus: 0, archetype: 0, libre: 0, total: 0, specialite: spec || null };
+  };
 
   // Bonus origine
   if (orig) {
     for (const bc of orig.bonus_competences || []) {
-      const key = bc.competence;
-      if (!map[key]) map[key] = { bonus: 0, libre: 0, total: 0, specialite: bc.specialite || null };
+      const key = resolveOrigineComp(bc, d.origine_choix);
+      if (!key) continue;
+      // specialite = vraie spécialisation seulement pour les compétences non-(Au choix)
+      const spec = /\(au choix/i.test(bc.competence) ? null : bc.specialite;
+      ensure(key, spec);
       map[key].bonus += bc.valeur;
     }
   }
   // Bonus motivation
   if (motiv) {
     for (const bc of motiv.bonus_competences || []) {
-      if (!map[bc.competence]) map[bc.competence] = { bonus: 0, libre: 0, total: 0, specialite: null };
+      ensure(bc.competence, null);
       map[bc.competence].bonus += bc.valeur;
+    }
+  }
+  // Archétype +1 starting competences (PJ uniquement)
+  const arch = d.type !== 'pnj'
+    ? REF?.archetypes?.find(a => a.id === d.archetype_id)
+    : null;
+  if (arch) {
+    for (const sk of arch.competences_archetype || []) {
+      let finalSk = sk;
+      if (sk.includes('(Au choix)')) {
+        const chosen = (d.competences_archetype_choix || {})[sk];
+        if (!chosen) continue;
+        const base  = sk.split('(')[0].trim();
+        const match = (REF?.competences || []).find(c =>
+          c.name.toLowerCase().startsWith(base.toLowerCase()) &&
+          c.name.toLowerCase().includes(chosen.toLowerCase())
+        );
+        finalSk = match ? match.name : `${base} (${chosen})`;
+      }
+      ensure(finalSk, null);
+      map[finalSk].archetype += 1;
     }
   }
   // Points libres PJ
   for (const [sk, v] of Object.entries(d.competences_libres || {})) {
-    if (!map[sk]) map[sk] = { bonus: 0, libre: 0, total: 0, specialite: null };
+    ensure(sk, null);
     map[sk].libre = v;
   }
   // Points directs PNJ
   for (const [sk, v] of Object.entries(d.competences_pnj || {})) {
-    if (!map[sk]) map[sk] = { bonus: 0, libre: 0, total: 0, specialite: null };
-    map[sk].libre = v; // valeur directe pour PNJ
+    ensure(sk, null);
+    map[sk].libre = v;
+  }
+  // Points achetés avec XP
+  for (const [sk, v] of Object.entries(d.competences_xp || {})) {
+    ensure(sk, null);
+    map[sk].libre = (map[sk].libre || 0) + v;
+  }
+  // Spécialités achetées avec XP (remplacent les spécialités d'origine si présentes)
+  for (const [sk, spec] of Object.entries(d.specialites_xp || {})) {
+    if (map[sk]) map[sk].specialite = spec;
+    else { ensure(sk, spec); }
   }
   // Totaux
-  for (const v of Object.values(map)) { v.total = v.bonus + v.libre; }
+  for (const v of Object.values(map)) { v.total = v.bonus + v.archetype + v.libre; }
   return map;
 }
 
 // Expose showListView et editChar globalement pour les handlers inline
 window.showListView = showListView;
 window.editChar = editChar;
+
+// ── Banque de noms par nation ─────────────────────────────────────────────────
+const NAME_POOLS = {
+  'Empire de Sol': {
+    m: ['Alcemides','Almarus','Altaro','Aratus','Arus','Balthus','Broca','Constantius','Demetrio','Drago','Emilius','Galannus','Ivanos','Nabonidus','Namedides','Orastes','Otho','Pallantides','Pelias','Promero','Prospero','Rinaldo','Thespides','Thespius','Theteles','Tiberias','Valannus','Valerus'],
+    f: ['Diane','Dorea','Kucia','Lissa','Muriela','Natala','Octavia','Olivia','Petra','Taramis','Tina','Valeria','Vateesa','Zelata','Znobia'],
+    n: ['Aluredes','Anthys','Arcand','Arius','Arvina','Assimof','Badrigio','Bazin','Bellator','Bralazzi','Brascio','Buccio','Carantus','Cato','Chalerio','Cyricus','Dardanus','Dolabella','Donaes','Dorass','Dormio','Dyvarc','Elyse','Fadus','Gervaes','Geta','Gracilis','Hölm','Lamsyn','Larraga','Libo','Litumaris','Lyber','Mancrio','Muco','Naud','Perennis','Rampal','Rimbaldi','Segestes','Sorel','Tadiri','Torys','Tranio','Vala','Vespillo','Vettese','Watz','Weyne','Wolta','Wythsten'],
+    prefix: ['de ','de ','von ',''],  // 4 options : 50% "de", 25% "von", 25% sans
+  },
+  'OCG': {
+    m: ['Alan','Alex','Barry','Ben','Bob','Brad','Brian','Clarence','Clyde','Colin','Craig','Dan','Dennis','Doug','Ed','Fred','Gary','Greg','Hal','Harry','Hugh','Ian','Jay','Jeff','Jim','Jo','John','Kevin','Kyle','Luke','Matt','Neil','Pete','Oliver','Ray','Ricky','Rob','Ron','Scott','Terry','Tim','Todd','Tom','Troy','William'],
+    f: ['Amanda','April','Betty','Bridget','Carol','Chloe','Courtney','Dana','Darlene','Denise','Donna','Emma','Eva','Gloria','Jen','Joyce','Kara','Kate','Laura','Leslie','Lisa','Lynn','Mary','Meg','Nancy','Pam','Rachel','Sam','Sarah','Shanen','Shelly','Tina','Tracy','Vicky'],
+    n: ['Adams','Anderson','Barnett','Brady','Caldwell','Carter','Clayton','Cummings','Davies','Dillon','Farmer','Fisher','Frazer','Gibson','Hines','Hobbs','Jones','Larson','Milford','Morton','Murphy','Owens','Paige','Phillips','Spencer','Watson'],
+  },
+  'Empire Galactique': {
+    m: ['Arkes','Asidor','Drastos','Erestes','Farros','Generk','Haron','Kayron','Korban','Korlon','Kron','Larius','Melander','Naystus','Partos','Rasteus','Rex','Sark','Tarus','Terebus','Tyram','Vayneros','Vemas'],
+    f: ['Adernia','Alteyria','Anora','Argea','Arkeyla','Celiste','Ceryma','Daraness','Dorima','Eclea','Erydine','Karylee','Kassia','Keryl','Kora','Miarra','Nertys','Nysis','Tarlia','Tarnae'],
+    n: ['Ardenys','Berkol','Bayrtenis','Darkos','Dayros','Ganera','Kerydion','Keyrtin','Malendre','Noretyn','Raktar','Starkos','Tallidora','Torcas'],
+  },
+  'Ligue des Planètes Libres': {
+    m: ['Amra','Chakotay','Gitara','Hyam','Khemsa','Kintan','Naeem','Noam','Sakumbe','Shan','Shukeli','Subba','Tabari','Tuli','Yadon','Yasunga'],
+    f: ['Amadika','Amaka','Bakula','Chandi','Idra','Indira','Jamila','Latifa','Nyasha','Rajni','Tananda','Tapanga','Thula','Yael','Yasmina','Yelaya'],
+    n: ['Assireni','Bakari','Chinaka','Kanefer','Kashka','Mongo','Nefertari','Shomari','Taharqa'],
+  },
+  'Barrens': {
+    m: ['Ahmad','Akando','Akkutho','Assad','Derk','Gorm','Joka','Kalantes','Kevas','Korman','Vanko','Zogar'],
+    f: ['Anichka','Kara','Luba','Orenda','Oxana','Salome','Samirah','Yasmela'],
+    n: [],
+  },
+  'Havana': {
+    m: ['Adolfo','Alberto','Alexandro','Alfonzo','Andres','Antonio','Armando','Arturo','Augusto','Benito','Carlos','Cecelio','Diego','Domingo','Eduardo','Enrique','Eusebio','Filippe','Francesco','Gabriel','Georgio','Guilermo','Javier','Juan','Julio','Luis','Manuel','Nestor','Oscar','Pancho','Pedro','Pepe','Rafael','Ramiro','Ramon','Raul','Ricardo','Roberto','Rodolfo','Rodrigo','Rossi','Salvador','Sergio','Thomas','Tito'],
+    f: ['Adrianna','Alexandra','Andrea','Anita','Bariela','Carmen','Clara','Claudia','Consuela','Delores','Eva','Francesca','Isabella','Josephina','Juanita','Julietta','Laura','Linda','Luisa','Maria','Marisa','Miranda','Nina','Ramona','Theresa','Yolanda'],
+    n: ['Acosta','Aguayo','Alverez','Aranda','Argones','Arruza','Avilés','Baro','Basoalto','Batista','Gorges','Clemente','Colon','Colonnato','Corado','Costello','Deleon','Delgado','Diaz','Donada','Espinosa','Fabila','Falcon','Fernandez','Flores','Fuentes','Gallardo','Garcia','Garza','Gomez','Gonzalez','Guardia','Guzman','Gutiérrez','Hernandez','Ibanez','Lopez','Lorca','Mano','Marquez','Martinez','Mendoza','Menendez','Montana','Montoya','Moreno','Ortega','Patrone','Pas','Pena','Perales','Perez','Ramez','Ramirez','Ramos','Ricardo','Rodriguez','Ruiz','Salinas','Sanchez','Santiago','Silvio','Terrones','Toll','Torres','Vazquez','Valdez','Vargas','Verona','Villareal'],
+  },
+};
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function generateRandomName() {
+  const orig = REF?.origines?.find(o => o.id === DRAFT.origine_id);
+  const nation = orig?.nation ?? null;
+
+  // Daemon : pas de génération
+  if (nation === 'Daemon') return null;
+
+  const genre = DRAFT.genre || 'homme';
+  let pool;
+
+  if (nation === 'Enfants maudits') {
+    // Fusionner toutes les nations
+    const allM = Object.values(NAME_POOLS).flatMap(p => p.m);
+    const allF = Object.values(NAME_POOLS).flatMap(p => p.f);
+    const allN = Object.values(NAME_POOLS).flatMap(p => p.n);
+    pool = { m: allM, f: allF, n: allN };
+  } else {
+    pool = NAME_POOLS[nation] ?? null;
+  }
+
+  if (!pool) return null;
+
+  const firstNames = genre === 'homme' ? pool.m : genre === 'femme' ? pool.f : [...pool.m, ...pool.f];
+  if (!firstNames.length) return null;
+
+  const prenom = pick(firstNames);
+  let nom = pool.n?.length ? pick(pool.n) : '';
+
+  // Préfixe particule pour Empire de Sol
+  if (nation === 'Empire de Sol' && nom && pool.prefix) {
+    nom = pick(pool.prefix) + nom;
+  }
+
+  return nom ? `${prenom} ${nom.trimStart()}` : prenom;
+}

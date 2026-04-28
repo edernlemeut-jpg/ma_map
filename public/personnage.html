@@ -35,7 +35,12 @@
 
     /* Health/EnergyX checkboxes */
     .tracker-boxes { display:flex; flex-wrap:wrap; gap:4px; }
-    .tracker-box { width:28px; height:28px; border:2px solid #6b7280; border-radius:4px; background:#1f2937; flex-shrink:0; }
+    .tracker-box { width:26px; height:26px; border:2px solid #6b7280; border-radius:4px; background:#1f2937; flex-shrink:0; cursor:pointer; transition:background .1s, border-color .1s; }
+    .tracker-box:hover { border-color:#9ca3af; }
+    .tracker-box.checked { background:#dc2626; border-color:#ef4444; position:relative; }
+    .tracker-box.checked::after { content:'✕'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:bold; color:#fff; line-height:1; }
+    .tracker-box.checked.cyan { background:#0e7490; border-color:#06b6d4; }
+    .tracker-box.checked.yellow { background:#b45309; border-color:#f59e0b; }
 
     /* Modal */
     #char-list-modal { display:none; }

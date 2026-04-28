@@ -104,14 +104,20 @@ router.get('/', (req, res) => {
   let rows;
   if (isMJ(req) || req.user?.is_admin) {
     rows = db.prepare(
-      'SELECT id, type, name, created_by, created_at, updated_at, data_json FROM characters WHERE table_id = ? ORDER BY type, name COLLATE NOCASE'
+      `SELECT c.id, c.type, c.name, c.created_by, c.created_at, c.updated_at, c.data_json,
+              u.display_name AS creator_name
+       FROM characters c
+       LEFT JOIN users u ON u.id = c.created_by
+       WHERE c.table_id = ? ORDER BY c.type, c.name COLLATE NOCASE`
     ).all(tableId);
   } else {
-    // Joueurs voient leurs PJs + ceux des autres joueurs (pas les PNJs)
+    // Joueurs voient uniquement leurs propres personnages (jamais ceux du MJ ni des autres joueurs)
     rows = db.prepare(
-      `SELECT id, type, name, created_by, created_at, updated_at, data_json
-       FROM characters WHERE table_id = ? AND (type = 'pj' OR created_by = ?)
-       ORDER BY name COLLATE NOCASE`
+      `SELECT c.id, c.type, c.name, c.created_by, c.created_at, c.updated_at, c.data_json,
+              NULL AS creator_name
+       FROM characters c
+       WHERE c.table_id = ? AND c.created_by = ?
+       ORDER BY c.type, c.name COLLATE NOCASE`
     ).all(tableId, req.user.id);
   }
 
@@ -180,6 +186,32 @@ router.put('/:id', (req, res) => {
   success(res, parseCharacter(db.prepare('SELECT * FROM characters WHERE id = ?').get(row.id)));
 });
 
+// PATCH /api/characters/:id/awards — MJ modifie gloire / panache / px d'un personnage
+router.patch('/:id/awards', (req, res) => {
+  if (!isMJ(req) && !req.user?.is_admin) return forbidden(res, 'Seul le MJ peut modifier ces valeurs');
+  const tableId = getTableId(req);
+  const row = db.prepare('SELECT * FROM characters WHERE id = ? AND table_id = ?').get(req.params.id, tableId);
+  if (!row) return notFound(res, 'Personnage introuvable');
+  if (row.type !== 'pj') return validationError(res, 'Réservé aux PJs');
+
+  let d = {};
+  try { d = JSON.parse(row.data_json); } catch { /* ignore */ }
+
+  const { gloire_delta, panache_delta, px_spend } = req.body;
+  if (gloire_delta !== undefined)  d.gloire   = Math.max(0, (d.gloire  ?? 0) + parseInt(gloire_delta  ?? 0));
+  if (panache_delta !== undefined) d.panache  = Math.max(1, (d.panache ?? 3) + parseInt(panache_delta ?? 0));
+  if (px_spend !== undefined) {
+    const spend = parseInt(px_spend ?? 0);
+    if (spend < 0) return validationError(res, 'px_spend doit être positif');
+    d.px_actuel = Math.max(0, (d.px_actuel ?? 0) - spend);
+    d.px_depense = (d.px_depense ?? 0) + spend;
+  }
+
+  const now = new Date().toISOString();
+  db.prepare('UPDATE characters SET data_json = ?, updated_at = ? WHERE id = ?').run(JSON.stringify(d), now, row.id);
+  success(res, parseCharacter(db.prepare('SELECT * FROM characters WHERE id = ?').get(row.id)));
+});
+
 // DELETE /api/characters/:id
 router.delete('/:id', (req, res) => {
   const tableId = getTableId(req);
@@ -202,12 +234,13 @@ function parseCharacter(row) {
   let data = {};
   try { data = JSON.parse(row.data_json || '{}'); } catch { /* ignore */ }
   return {
-    id:         row.id,
-    type:       row.type,
-    name:       row.name,
-    created_by: row.created_by,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
+    id:           row.id,
+    type:         row.type,
+    name:         row.name,
+    created_by:   row.created_by,
+    creator_name: row.creator_name ?? null,
+    created_at:   row.created_at,
+    updated_at:   row.updated_at,
     data
   };
 }

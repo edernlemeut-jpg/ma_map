@@ -33,7 +33,7 @@
     .col-header,.row-header { font-size:0.6rem; color:#666; text-align:center; display:flex; align-items:center; justify-content:center; }
     .row-header { justify-content:flex-end; padding-right:2px; }
     #carte { display:grid; grid-template-columns:repeat(40,20px); grid-template-rows:repeat(40,20px); background:url('/carte_MA.png') 0 0/800px 800px no-repeat; }
-    .quad { position:relative; width:20px; height:20px; background:rgba(200,164,100,0.07); border:1px solid rgba(200,164,100,0.15); cursor:pointer; }
+    .quad { width:20px; height:20px; background:rgba(200,164,100,0.07); border:1px solid rgba(200,164,100,0.15); cursor:pointer; }
     .quad:hover { background:rgba(200,164,100,0.4); }
     .quad.has-system { background:rgba(91,192,222,0.25); border-color:rgba(91,192,222,0.5); }
     .quad.selected-dep { background:rgba(217,83,79,0.7)!important; border-color:var(--danger)!important; }
@@ -41,9 +41,7 @@
     .quad.selected-eta { background:rgba(255,165,0,0.7)!important; border-color:var(--warning)!important; }
     .quad.path { background:rgba(240,173,78,0.3); border-color:var(--warning); }
     .quad.ship-pos { outline:1px dotted var(--primary); z-index:1; }
-    /* Triangle doré pour le vaisseau actif */
-    .quad.active-ship-pos { background:rgba(200,164,100,0.12)!important; border-color:var(--gold)!important; outline:1px solid var(--gold); z-index:2; }
-    .quad.active-ship-pos::after { content:''; position:absolute; top:2px; left:50%; transform:translateX(-50%); width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-bottom:12px solid var(--gold); filter:drop-shadow(0 0 3px var(--gold)); pointer-events:none; }
+    .quad.active-ship-pos { background:rgba(200,164,100,0.45)!important; border-color:var(--gold)!important; outline:2px solid var(--gold); box-shadow:0 0 6px var(--gold); z-index:2; }
     #bottom-sheet { position:absolute; bottom:0; left:0; right:0; background:var(--bg2); border-top:2px solid var(--gold); max-height:55vh; overflow-y:auto; transform:translateY(100%); transition:transform 0.3s ease; z-index:20; border-radius:12px 12px 0 0; }
     #bottom-sheet.open { transform:translateY(0); }
     #bottom-sheet-handle { width:40px; height:4px; background:var(--border); border-radius:2px; margin:8px auto; cursor:pointer; }

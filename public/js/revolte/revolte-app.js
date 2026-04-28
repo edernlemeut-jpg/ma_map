@@ -302,6 +302,11 @@ async function saveSession() {
 function showNewForm() {
   hideAll();
   document.getElementById('new-session-form')?.classList.remove('hidden');
+  // Mobile: basculer vers le panneau éditeur
+  if (window.innerWidth < 640) {
+    document.getElementById('sessions-panel')?.classList.add('mobile-hidden');
+    document.getElementById('editor-pane')?.classList.add('mobile-visible');
+  }
 }
 
 function cancelNewForm() {
@@ -310,6 +315,10 @@ function cancelNewForm() {
     document.getElementById('session-editor')?.classList.remove('hidden');
   } else {
     document.getElementById('editor-empty')?.classList.remove('hidden');
+    // Mobile: retourner au panel sessions
+    if (window.innerWidth < 640) {
+      showSessionsPanelMobile();
+    }
   }
 }
 
@@ -1250,8 +1259,8 @@ async function init() {
     return;
   }
 
-  // Check MJ role
-  currentUserIsMJ = isMJ();
+  // Check MJ role — les admins ont toujours accès au bouton de création
+  currentUserIsMJ = isMJ() || !!user?.is_admin;
 
   authGate?.classList.add('hidden');
   noTableGate?.classList.add('hidden');

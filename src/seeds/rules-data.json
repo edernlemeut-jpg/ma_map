@@ -494,6 +494,105 @@
       "description": "Permet de remarquer les mouvements et les détails dans son environnement immédiat.",
       "is_closed": false,
       "is_violent": false
+    },
+    {
+      "id": "competence-connaissance-barrens",
+      "type": "Compétence",
+      "name": "Connaissance (Barrens)",
+      "domain": "Sciences",
+      "description": "Connaissance approfondie de la culture, de l'histoire et de la géographie des Barrens.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-connaissance-empire-de-sol",
+      "type": "Compétence",
+      "name": "Connaissance (Empire de Sol)",
+      "domain": "Sciences",
+      "description": "Connaissance approfondie de la culture, de l'histoire et de la géographie de l'Empire de Sol.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-connaissance-empire-galactique",
+      "type": "Compétence",
+      "name": "Connaissance (Empire Galactique)",
+      "domain": "Sciences",
+      "description": "Connaissance approfondie de la culture, de l'histoire et de la géographie de l'Empire Galactique.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-connaissance-havana",
+      "type": "Compétence",
+      "name": "Connaissance (Havana)",
+      "domain": "Sciences",
+      "description": "Connaissance approfondie de la culture, de l'histoire et de la géographie de la Havana.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-connaissance-ligue-planetes-libres",
+      "type": "Compétence",
+      "name": "Connaissance (Ligue des planètes libres)",
+      "domain": "Sciences",
+      "description": "Connaissance approfondie de la culture, de l'histoire et de la géographie de la Ligue des planètes libres.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-connaissance-ocg",
+      "type": "Compétence",
+      "name": "Connaissance (OCG)",
+      "domain": "Sciences",
+      "description": "Connaissance approfondie de la culture, de l'histoire et de la géographie de l'OCG.",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-pilotage-bateau-voiles",
+      "type": "Compétence",
+      "name": "Pilotage (bateau à voiles)",
+      "domain": "Techniques",
+      "description": "Permet de piloter un bateau à voiles.",
+      "is_closed": true,
+      "is_violent": false
+    },
+    {
+      "id": "competence-pilotage-vaisseau-spatial",
+      "type": "Compétence",
+      "name": "Pilotage (vaisseau spatial)",
+      "domain": "Techniques",
+      "description": "Permet de piloter un vaisseau spatial.",
+      "is_closed": true,
+      "is_violent": false
+    },
+    {
+      "id": "competence-pilotage-vehicule-aerien",
+      "type": "Compétence",
+      "name": "Pilotage (véhicule aérien)",
+      "domain": "Techniques",
+      "description": "Permet de piloter un véhicule aérien.",
+      "is_closed": true,
+      "is_violent": false
+    },
+    {
+      "id": "competence-environnement-espace",
+      "type": "Compétence",
+      "name": "Environnement (espace)",
+      "domain": "Survie",
+      "description": "Permet de survivre et d'agir en environnement spatial (EVA, vide, microgravité...).",
+      "is_closed": false,
+      "is_violent": false
+    },
+    {
+      "id": "competence-environnement-urbain",
+      "type": "Compétence",
+      "name": "Environnement (urbain)",
+      "domain": "Survie",
+      "description": "Permet de survivre et d'agir en environnement urbain.",
+      "is_closed": false,
+      "is_violent": false
     }
   ],
   "qualites": [
@@ -1506,6 +1605,404 @@
       "references": [],
       "nation": "Aucune",
       "restriction": null
+    },
+    {
+      "id": "qualite-carac-exceptionnel",
+      "type": "Qualité",
+      "name": "Carac exceptionnel",
+      "cost": "+5",
+      "description": "Le personnage possède une caractéristique hors du commun (innée).",
+      "effects": "Le personnage gagne +1 dans une caractéristique de son choix.",
+      "prerequisites": null,
+      "references": [],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-contact-elite",
+      "type": "Qualité",
+      "name": "Contact Élite",
+      "cost": "+1",
+      "description": "Le personnage dispose dès le début du jeu d'un contact de niveau Élite.",
+      "effects": "Le personnage débute le jeu en disposant déjà d'un contact de niveau Élite.",
+      "prerequisites": null,
+      "references": [
+        "R&P"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-contact-heros",
+      "type": "Qualité",
+      "name": "Contact Héros",
+      "cost": "+3",
+      "description": "Le personnage dispose dès le début du jeu d'un contact de niveau Héros.",
+      "effects": "Le personnage débute le jeu en disposant déjà d'un contact de niveau Héros.",
+      "prerequisites": null,
+      "references": [
+        "R&P"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-contact-boss",
+      "type": "Qualité",
+      "name": "Contact Boss",
+      "cost": "+5",
+      "description": "Le personnage dispose dès le début du jeu d'un contact de niveau Boss.",
+      "effects": "Le personnage débute le jeu en disposant déjà d'un contact de niveau Boss.",
+      "prerequisites": null,
+      "references": [
+        "R&P"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "qualite-route-dhavanna-illegal",
+      "type": "Qualité",
+      "name": "Route d'Havanna illégal",
+      "cost": "+1",
+      "description": "Le personnage a obtenu les coordonnées de la Havanna de manière illicite.",
+      "effects": "Coordonnées de la Havanna obtenues illicitement.",
+      "prerequisites": "Origine Havanaise seulement.",
+      "references": [
+        "Pirates de l'espace"
+      ],
+      "nation": "Havana",
+      "restriction": "Havanais"
+    },
+    {
+      "id": "qualite-celebrite-galactique-1",
+      "type": "Qualité",
+      "name": "Célébrité galactique 1",
+      "cost": "+1",
+      "description": "Le personnage est célèbre dans la Galaxie.",
+      "effects": "Le personnage gagne +1 en Gloire.",
+      "prerequisites": "PNJ uniquement. Gloire à 5 ou plus.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-celebrite-galactique-2",
+      "type": "Qualité",
+      "name": "Célébrité galactique 2",
+      "cost": "+2",
+      "description": "Le personnage est célèbre dans la Galaxie.",
+      "effects": "Le personnage gagne +2 en Gloire.",
+      "prerequisites": "PNJ uniquement. Gloire à 5 ou plus.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-celebrite-galactique-3",
+      "type": "Qualité",
+      "name": "Célébrité galactique 3",
+      "cost": "+3",
+      "description": "Le personnage est célèbre dans la Galaxie.",
+      "effects": "Le personnage gagne +3 en Gloire.",
+      "prerequisites": "PNJ uniquement. Gloire à 5 ou plus.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-celebrite-galactique-4",
+      "type": "Qualité",
+      "name": "Célébrité galactique 4",
+      "cost": "+4",
+      "description": "Le personnage est célèbre dans la Galaxie.",
+      "effects": "Le personnage gagne +4 en Gloire.",
+      "prerequisites": "PNJ uniquement. Gloire à 5 ou plus.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-celebrite-galactique-5",
+      "type": "Qualité",
+      "name": "Célébrité galactique 5",
+      "cost": "+5",
+      "description": "Le personnage est célèbre dans la Galaxie.",
+      "effects": "Le personnage gagne +5 en Gloire.",
+      "prerequisites": "PNJ uniquement. Gloire à 5 ou plus.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-customisation-x",
+      "type": "Qualité",
+      "name": "Customisation X",
+      "cost": "+1",
+      "description": "Le PNJ dispose de points d'investissement dans les customisations (1x = 1000 PX).",
+      "effects": "1000 PX à investir dans les customisations par point alloué.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-discret-3",
+      "type": "Qualité",
+      "name": "Discret 3",
+      "cost": "+3",
+      "description": "La gloire du personnage est moins élevée que ce qu'elle devrait être.",
+      "effects": "Le personnage perd 1 point de gloire.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-discret-5",
+      "type": "Qualité",
+      "name": "Discret 5",
+      "cost": "+5",
+      "description": "La gloire du personnage est bien moins élevée que ce qu'elle devrait être.",
+      "effects": "Le personnage perd 3 points de gloire.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-equipement-special-1",
+      "type": "Qualité",
+      "name": "Equipement spécial 1",
+      "cost": "+1",
+      "description": "Le personnage peut s'équiper avec des objets d'une autre nation ou du supplément Metal Technology.",
+      "effects": "Accès au commerce local d'une autre nation ou de Metal Technology.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-equipement-special-3",
+      "type": "Qualité",
+      "name": "Equipement spécial 3",
+      "cost": "+3",
+      "description": "Le personnage peut s'équiper avec des objets Alerte Route de sa nation.",
+      "effects": "Accès aux objets Alerte Route de sa nation stellaire.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-equipement-special-5",
+      "type": "Qualité",
+      "name": "Equipement spécial 5",
+      "cost": "+5",
+      "description": "Le personnage peut s'équiper avec des objets Alerte Route d'une autre nation.",
+      "effects": "Accès aux objets Alerte Route d'une autre nation stellaire.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-grade-1",
+      "type": "Qualité",
+      "name": "Grade 1",
+      "cost": "+1",
+      "description": "Le personnage est officier d'une organisation donnée.",
+      "effects": "Peut donner des ordres aux personnages de grade inférieur.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-grade-3",
+      "type": "Qualité",
+      "name": "Grade 3",
+      "cost": "+3",
+      "description": "Le personnage est officier supérieur d'une organisation donnée.",
+      "effects": "Peut donner des ordres aux personnages de grade inférieur.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-grade-5",
+      "type": "Qualité",
+      "name": "Grade 5",
+      "cost": "+5",
+      "description": "Le personnage est officier d'état-major d'une organisation donnée.",
+      "effects": "Peut donner des ordres aux personnages de grade inférieur.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-mutation-3",
+      "type": "Qualité",
+      "name": "Mutation 3",
+      "cost": "+3",
+      "description": "Le mutant dispose d'une mutation basique supplémentaire.",
+      "effects": "Disposition d'une mutation basique supplémentaire.",
+      "prerequisites": "PNJ uniquement. Mutant Evolutif.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": "Mutant Evolutif",
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-mutation-5",
+      "type": "Qualité",
+      "name": "Mutation 5",
+      "cost": "+5",
+      "description": "Le mutant dispose d'une mutation avancée supplémentaire.",
+      "effects": "Disposition d'une mutation avancée supplémentaire.",
+      "prerequisites": "PNJ uniquement. Mutant Evolutif.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": "Mutant Evolutif",
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-specialite-1",
+      "type": "Qualité",
+      "name": "Spécialité 1",
+      "cost": "+1",
+      "description": "Le personnage acquiert une spécialité dans une compétence à +3 ou moins.",
+      "effects": "Acquisition d'une spécialité dans une compétence à +3 ou moins.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-specialite-3",
+      "type": "Qualité",
+      "name": "Spécialité 3",
+      "cost": "+3",
+      "description": "Le personnage acquiert une spécialité dans une compétence à +4.",
+      "effects": "Acquisition d'une spécialité dans une compétence à +4.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-specialite-5",
+      "type": "Qualité",
+      "name": "Spécialité 5",
+      "cost": "+5",
+      "description": "Le personnage acquiert une spécialité dans une compétence à +5 ou plus.",
+      "effects": "Acquisition d'une spécialité dans une compétence à +5 ou plus.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-statut-social-1",
+      "type": "Qualité",
+      "name": "Statut social 1",
+      "cost": "+1",
+      "description": "Le personnage est bien placé dans la hiérarchie sociale (Noble mineur, cadre, officier...). Il est aisé.",
+      "effects": "Noble mineur, cadre, officier... Aisé.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-statut-social-3",
+      "type": "Qualité",
+      "name": "Statut social 3",
+      "cost": "+3",
+      "description": "Le personnage est bien placé dans la hiérarchie sociale (Noble, officier supérieur, directeur...). Il est riche.",
+      "effects": "Noble, officier supérieur, directeur... Riche.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "qualite-statut-social-5",
+      "type": "Qualité",
+      "name": "Statut social 5",
+      "cost": "+5",
+      "description": "Le personnage est très bien placé dans la hiérarchie sociale (famille solaire, officier d'état-major...). Il est très riche.",
+      "effects": "Famille solaire, officier d'état-major, membre du directoire... Très riche.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
     }
   ],
   "defauts": [
@@ -2288,6 +2785,237 @@
       "references": [],
       "nation": "Aucune",
       "restriction": null
+    },
+    {
+      "id": "defaut-gentil",
+      "type": "Défaut",
+      "name": "Gentil",
+      "cost": "-3",
+      "description": "Le personnage ne peut se résoudre à blesser ses semblables.",
+      "effects": "N'attaque jamais le premier, cherche à négocier ou Menacer, ne tue jamais de sang-froid.",
+      "prerequisites": "Origine Ligue des planètes libres seulement.",
+      "references": [
+        "Sciences et l'infini"
+      ],
+      "nation": "Ligue des planètes libres",
+      "restriction": "Ligue des planètes libres"
+    },
+    {
+      "id": "defaut-naif",
+      "type": "Défaut",
+      "name": "Naïf",
+      "cost": "-3",
+      "description": "Le personnage fait trop facilement confiance aux autres.",
+      "effects": "Une fois par séance le MJ peut dépenser autant de MF que le Sang-froid du personnage pour le forcer à faire confiance à un PNJ.",
+      "prerequisites": "Origine Ligue des planètes libres seulement.",
+      "references": [
+        "Sciences et l'infini"
+      ],
+      "nation": "Ligue des planètes libres",
+      "restriction": "Ligue des planètes libres"
+    },
+    {
+      "id": "defaut-passif",
+      "type": "Défaut",
+      "name": "Passif",
+      "cost": "-1",
+      "description": "Le personnage a du mal à agir seul sans le soutien de ses compagnons.",
+      "effects": "Subit E2F pour tous les tests lorsqu'il est seul à affronter un problème ou un adversaire.",
+      "prerequisites": "Origine Ligue des planètes libres seulement.",
+      "references": [
+        "Sciences et l'infini"
+      ],
+      "nation": "Ligue des planètes libres",
+      "restriction": "Ligue des planètes libres"
+    },
+    {
+      "id": "defaut-pied-tendre",
+      "type": "Défaut",
+      "name": "Pied tendre",
+      "cost": "-3",
+      "description": "Le personnage est peu à l'aise avec le monde naturel ou les longues marches.",
+      "effects": "Subit E2F pour tous les tests de veille, d'Environnement et de marche forcée.",
+      "prerequisites": null,
+      "references": [
+        "Sciences et l'infini"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-technophile",
+      "type": "Défaut",
+      "name": "Technophile",
+      "cost": "-3",
+      "description": "Le personnage est obnubilé par les nouvelles technologies.",
+      "effects": "Une fois par séance le MJ peut dépenser autant de MF que le Sang-froid pour forcer le personnage à acquérir une technologie rare ou nouvelle.",
+      "prerequisites": null,
+      "references": [
+        "Sciences et l'infini"
+      ],
+      "nation": "Aucune",
+      "restriction": null
+    },
+    {
+      "id": "defaut-traditionnaliste",
+      "type": "Défaut",
+      "name": "Traditionnaliste",
+      "cost": "-1",
+      "description": "Le personnage respecte les traditions à la lettre et refuse de les enfreindre.",
+      "effects": "Doit réussir un test de Détermination (5) pour désobéir à une tradition.",
+      "prerequisites": "Origine Empire de Sol seulement.",
+      "references": [
+        "Roi et le Peuple"
+      ],
+      "nation": "Empire de Sol",
+      "restriction": "Empire de Sol"
+    },
+    {
+      "id": "defaut-tete-de-mutant-maudit",
+      "type": "Défaut",
+      "name": "Tête de mutant maudit",
+      "cost": "-5",
+      "description": "Mutant à l'apparence tellement repoussante qu'il est ostracisé partout.",
+      "effects": "Subit E2F pour les tests de Négociation avec des non-mutants. Les enquêtes contre lui sont toutes TF.",
+      "prerequisites": "Réservé aux mutants. Incompatible avec Cicatrices et Sale gueule.",
+      "references": [],
+      "nation": "Aucune",
+      "restriction": "Mutant"
+    },
+    {
+      "id": "defaut-amarres-1",
+      "type": "Défaut",
+      "name": "Amarres 1",
+      "cost": "-1",
+      "description": "Responsabilités de pure forme (familiales, affectives, professionnelles ou politiques).",
+      "effects": "Risque quelques reproches s'il s'absente.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "defaut-amarres-3",
+      "type": "Défaut",
+      "name": "Amarres 3",
+      "cost": "-3",
+      "description": "Responsabilités importantes (familiales, affectives, professionnelles ou politiques).",
+      "effects": "Doit demander l'autorisation pour s'absenter.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "defaut-amarres-5",
+      "type": "Défaut",
+      "name": "Amarres 5",
+      "cost": "-5",
+      "description": "Responsabilités majeures (familiales, affectives, professionnelles ou politiques).",
+      "effects": "Ne peut pas s'absenter du tout.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "defaut-desespoir-1",
+      "type": "Défaut",
+      "name": "Désespoir 1",
+      "cost": "-1",
+      "description": "Le personnage a perdu espoir.",
+      "effects": "Subit E2F aux tests de moral et aux tentatives pour résister à Commandement et Intimidation.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "defaut-desespoir-3",
+      "type": "Défaut",
+      "name": "Désespoir 3",
+      "cost": "-3",
+      "description": "Le personnage a perdu tout espoir.",
+      "effects": "Perd définitivement 2 PP.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "defaut-desespoir-5",
+      "type": "Défaut",
+      "name": "Désespoir 5",
+      "cost": "-5",
+      "description": "Le personnage n'a plus aucun espoir.",
+      "effects": "Perd TOUS ses PP.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "defaut-subordonne-1",
+      "type": "Défaut",
+      "name": "Subordonné 1",
+      "cost": "-1",
+      "description": "Employé à temps partiel d'une organisation hiérarchisée.",
+      "effects": "Doit obéir aux personnages de grade supérieur au sien.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "defaut-subordonne-3",
+      "type": "Défaut",
+      "name": "Subordonné 3",
+      "cost": "-3",
+      "description": "Employé à temps plein d'une organisation hiérarchisée.",
+      "effects": "Doit obéir aux personnages de grade supérieur au sien.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
+    },
+    {
+      "id": "defaut-subordonne-5",
+      "type": "Défaut",
+      "name": "Subordonné 5",
+      "cost": "-5",
+      "description": "Esclave à vie d'une organisation hiérarchisée.",
+      "effects": "Doit obéir aux personnages de grade supérieur au sien.",
+      "prerequisites": "PNJ uniquement.",
+      "references": [
+        "GdM"
+      ],
+      "nation": "Aucune",
+      "restriction": null,
+      "pnj_only": true
     }
   ],
   "mutations": [
@@ -2298,27 +3026,30 @@
       "mutation_type": "Basique",
       "ex_cost": "1 (M)",
       "is_maintained": true,
-      "effect": "Permet d'absorber l'énergie X des personnages et des monstres par une attaque à mains nues. Absorbe 1 EX + 1 par succès excédentaire.",
+      "effect": "Le personnage peut absorber l'énergie X lors d'une attaque à main nue à raison d'1 EX à l'impact plus 1 EX par succès excédentaire.",
       "references": []
     },
     {
       "id": "mutation-acclimatation-genetique",
       "type": "Mutation",
       "name": "Acclimatation génétique",
-      "mutation_type": "Passive",
-      "ex_cost": "P8",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
       "is_maintained": false,
-      "effect": "L'organisme du personnage est adapté à un type d'environnement. Il bénéficie de PMF pour résister à cet environnement.",
+      "effect": "Le personnage bénéficie de PMF pour résister à l'environnement choisi lors de l'achat de la mutation.",
       "references": []
     },
     {
       "id": "mutation-acuite-sensorielle",
       "type": "Mutation",
       "name": "Acuité sensorielle",
-      "mutation_type": "Passive",
-      "ex_cost": "P8",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
       "is_maintained": false,
-      "effect": "Le cerveau et les organes sensoriels sont plus sensibles. Le personnage gagne définitivement un point en Perception.",
+      "effect": "Le personnage gagne 1 point en Perception.",
+      "attr_bonus": {
+        "perception": 1
+      },
       "references": []
     },
     {
@@ -2326,9 +3057,9 @@
       "type": "Mutation",
       "name": "Adrénaline hyperconcentrée",
       "mutation_type": "Basique",
-      "ex_cost": "X8",
+      "ex_cost": "X",
       "is_maintained": false,
-      "effect": "Le mutant sécrète une adrénaline surpuissante. Il bénéficie de X dés bonus pour un test d'initiative.",
+      "effect": "Le personnage bénéficie de X dés bonus pour les tests d'initiative. X ne peut être supérieur au nombre de dés d'action.",
       "references": []
     },
     {
@@ -2338,37 +3069,43 @@
       "mutation_type": "Basique",
       "ex_cost": "1 (M)",
       "is_maintained": true,
-      "effect": "L'organisme peut se priver d'air. Le personnage est insensible à l'asphyxie ou la noyade.",
+      "effect": "Le personnage est insensible à l'asphyxie ou la noyade et bénéficie de PMF pour résister au vide spatial.",
       "references": []
     },
     {
       "id": "mutation-armes-corporelles",
       "type": "Mutation",
       "name": "Armes corporelles",
-      "mutation_type": "Passive",
-      "ex_cost": "P8",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
       "is_maintained": false,
-      "effect": "Le personnage dispose d'armes naturelles (griffes, crocs...). Les dégâts à mains nues augmentent d'un niveau et sont létaux.",
+      "effect": "Les dégâts à mains nues sont augmentés d'un niveau et deviennent létaux.",
       "references": []
     },
     {
       "id": "mutation-articulations-mobiles",
       "type": "Mutation",
       "name": "Articulations mobiles",
-      "mutation_type": "Passive",
-      "ex_cost": "P8",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
       "is_maintained": false,
-      "effect": "Les articulations et les cartilages du personnage sont particulièrement souples. Il bénéficie de PMF pour tous les tests d'[[competence-acrobaties]].",
+      "effect": "Le personnage gagne 1 point en Agilité.",
+      "attr_bonus": {
+        "agilite": 1
+      },
       "references": []
     },
     {
       "id": "mutation-beaute-stellaire",
       "type": "Mutation",
       "name": "Beauté stellaire",
-      "mutation_type": "Passive",
-      "ex_cost": "P8",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
       "is_maintained": false,
-      "effect": "Les traits du personnage sont d'une beauté inhumaine. Le personnage gagne définitivement un point en Présence.",
+      "effect": "Le personnage gagne 1 point en Présence.",
+      "attr_bonus": {
+        "presence": 1
+      },
       "references": []
     },
     {
@@ -2378,17 +3115,20 @@
       "mutation_type": "Avancée",
       "ex_cost": "1 (M)",
       "is_maintained": true,
-      "effect": "Le personnage est doté d'un épiderme capable de changer de couleur, voire de texture. Lorsqu'il ne dispose d'aucun couvert, mais qu'il est nu, le personnage peut Se cacher ou Se faufiler.",
+      "effect": "Lorsque le personnage est nu et sans couvert, il peut se Cacher ou se Faufiler. S'il dispose d'un couvert, il bénéficie de PMF pour ces actions. S'il est vêtu légèrement et sans armure lourde, PMF également.",
       "references": []
     },
     {
       "id": "mutation-cerveau-secondaire",
       "type": "Mutation",
       "name": "Cerveau secondaire",
-      "mutation_type": "Passive",
-      "ex_cost": "P8",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
       "is_maintained": false,
-      "effect": "Le personnage dispose d'un second cerveau, connecté en parallèle au premier. Le personnage gagne définitivement un point en Intelligence.",
+      "effect": "Le personnage gagne 1 point en Intelligence.",
+      "attr_bonus": {
+        "intelligence": 1
+      },
       "references": []
     },
     {
@@ -2396,9 +3136,405 @@
       "type": "Mutation",
       "name": "Changeforme",
       "mutation_type": "Avancée",
-      "ex_cost": "5 (S)",
+      "ex_cost": "5 (M)",
       "is_maintained": true,
-      "effect": "L'épiderme du personnage est parcouru par des terminaisons nerveuses spéciales. Il peut dupliquer parfaitement l'apparence d'un autre. Il bénéficie alors de PMF pour les tests de [[competence-baratin]], [[competence-comedie]] ou [[competence-deguisement]].",
+      "effect": "Permet de se transformer parfaitement en quelqu'un d'autre en le regardant ou en ayant un portrait fidèle pendant 5 min. PMF pour Baratin, Comédie et Déguisement. Reste actif une heure ou jusqu'à arrêt, inconscience ou blessure grave.",
+      "references": []
+    },
+    {
+      "id": "mutation-controle-mental",
+      "type": "Mutation",
+      "name": "Contrôle mental",
+      "mutation_type": "Avancée",
+      "ex_cost": "5 (M)",
+      "is_maintained": false,
+      "effect": "Si le personnage réussit une opposition de Détermination envers sa cible en vue, celle-ci doit obéir à un ordre simple.",
+      "references": []
+    },
+    {
+      "id": "mutation-defense-energique",
+      "type": "Mutation",
+      "name": "Défense énergique",
+      "mutation_type": "Avancée",
+      "ex_cost": "X (M)",
+      "is_maintained": true,
+      "effect": "Les dégâts subis sont réduits de X. Par EX supplémentaire le bouclier s'étend d'un mètre au début de chaque phase d'action.",
+      "references": []
+    },
+    {
+      "id": "mutation-eclair-mental",
+      "type": "Mutation",
+      "name": "Éclair mental",
+      "mutation_type": "Avancée",
+      "ex_cost": "5",
+      "is_maintained": false,
+      "effect": "Opposition de Détermination sur une cible à vue. S'il l'emporte, inflige L dégâts comme un coup au CAC mais basé sur Sang-froid, plus 1L par succès excédentaire. Ignore la Protection. Portée illimitée.",
+      "references": []
+    },
+    {
+      "id": "mutation-epiderme-reactif",
+      "type": "Mutation",
+      "name": "Épiderme réactif",
+      "mutation_type": "Basique",
+      "ex_cost": "2 (M)",
+      "is_maintained": true,
+      "effect": "Le personnage gagne un niveau de protection.",
+      "references": []
+    },
+    {
+      "id": "mutation-force-accrue",
+      "type": "Mutation",
+      "name": "Force accrue",
+      "mutation_type": "Basique",
+      "ex_cost": "X (M)",
+      "is_maintained": true,
+      "effect": "Le personnage gagne autant de points de Carrure que d'EX dépensés. Cela ne modifie pas les PV et ne peut dépasser le double de sa caractéristique.",
+      "references": []
+    },
+    {
+      "id": "mutation-genes-adaptables",
+      "type": "Mutation",
+      "name": "Gènes adaptables",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
+      "is_maintained": false,
+      "effect": "Peut échanger une mutation basique pour une autre à la fin de chaque séance.",
+      "references": []
+    },
+    {
+      "id": "mutation-genes-evolutifs",
+      "type": "Mutation",
+      "name": "Gènes évolutifs",
+      "mutation_type": "Avancée",
+      "ex_cost": "Passive",
+      "is_maintained": false,
+      "effect": "Peut utiliser des points d'Expérience pour acquérir de nouvelles mutations. Vous subissez TD pour le regain de PV. Si Mort?, inflige D+1 au lieu de TD.",
+      "references": []
+    },
+    {
+      "id": "mutation-membres-surnumeraires-bras",
+      "type": "Mutation",
+      "name": "Membres surnuméraires (bras)",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
+      "is_maintained": false,
+      "effect": "Possède deux bras supplémentaires. +1d quand il utilise toutes ses mains ensemble.",
+      "references": []
+    },
+    {
+      "id": "mutation-membres-surnumeraires-jambes",
+      "type": "Mutation",
+      "name": "Membres surnuméraires (jambes)",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
+      "is_maintained": false,
+      "effect": "Possède deux jambes supplémentaires. +1d pour courir, Sauter et Sprinter. Ajoute sa Carrure à sa vitesse de marche.",
+      "references": []
+    },
+    {
+      "id": "mutation-mobilite-aerienne",
+      "type": "Mutation",
+      "name": "Mobilité aérienne",
+      "mutation_type": "Avancée",
+      "ex_cost": "Passive",
+      "is_maintained": false,
+      "effect": "Peut se déplacer dans les airs comme sur terre. Peut voler Carrure heures. Capable de vol stationnaire, décollage et atterrissage verticaux.",
+      "references": []
+    },
+    {
+      "id": "mutation-musculature-hypertrophie",
+      "type": "Mutation",
+      "name": "Musculature hypertrophiée",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
+      "is_maintained": false,
+      "effect": "Le personnage gagne 1 point en Carrure.",
+      "attr_bonus": {
+        "carrure": 1
+      },
+      "references": []
+    },
+    {
+      "id": "mutation-neurotransmetteurs-surnumeraires",
+      "type": "Mutation",
+      "name": "Neurotransmetteurs surnuméraires",
+      "mutation_type": "Basique",
+      "ex_cost": "X (M)",
+      "is_maintained": true,
+      "effect": "Le personnage gagne autant de points d'Intelligence que d'EX dépensés. Cela ne modifie pas les PV et ne peut dépasser le double de sa caractéristique.",
+      "references": []
+    },
+    {
+      "id": "mutation-organes-vitaux-dedoubles",
+      "type": "Mutation",
+      "name": "Organes vitaux dédoublés",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
+      "is_maintained": false,
+      "effect": "Le nombre de succès excédentaires pour obtenir un coup critique majeur est doublé.",
+      "references": []
+    },
+    {
+      "id": "mutation-organes-vitaux-delocalises",
+      "type": "Mutation",
+      "name": "Organes vitaux délocalisés",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
+      "is_maintained": false,
+      "effect": "Le personnage est immunisé aux coups critiques au torse et à la tête.",
+      "references": []
+    },
+    {
+      "id": "mutation-organisme-renforce",
+      "type": "Mutation",
+      "name": "Organisme renforcé",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
+      "is_maintained": false,
+      "effect": "Le personnage bénéficie de PMF pour résister à l'alcool, aux poisons et aux maladies.",
+      "references": []
+    },
+    {
+      "id": "mutation-ossature-morphique",
+      "type": "Mutation",
+      "name": "Ossature morphique",
+      "mutation_type": "Basique",
+      "ex_cost": "X (M)",
+      "is_maintained": true,
+      "effect": "Le personnage gagne autant de points d'Agilité que d'EX dépensés. Cela ne modifie pas les PV et ne peut dépasser le double de sa caractéristique.",
+      "references": []
+    },
+    {
+      "id": "mutation-pheromones",
+      "type": "Mutation",
+      "name": "Phéromones",
+      "mutation_type": "Basique",
+      "ex_cost": "X (M)",
+      "is_maintained": true,
+      "effect": "Le personnage gagne autant de points de Présence que d'EX dépensés. Cela ne modifie pas les PV et ne peut dépasser le double de sa caractéristique.",
+      "references": []
+    },
+    {
+      "id": "mutation-pression-interne",
+      "type": "Mutation",
+      "name": "Pression interne",
+      "mutation_type": "Avancée",
+      "ex_cost": "1 (M)",
+      "is_maintained": true,
+      "effect": "Le personnage ne subit pas les effets du vide spatial et permet d'éviter la noyade et l'asphyxie.",
+      "references": []
+    },
+    {
+      "id": "mutation-projection-energetique",
+      "type": "Mutation",
+      "name": "Projection énergétique",
+      "mutation_type": "Avancée",
+      "ex_cost": "X",
+      "is_maintained": false,
+      "effect": "Attaque à distance visible à PER×10m, test de tir avec Vigilance. X: 1=1L, 3=2G, 5=3M.",
+      "references": []
+    },
+    {
+      "id": "mutation-psychometrie",
+      "type": "Mutation",
+      "name": "Psychométrie",
+      "mutation_type": "Avancée",
+      "ex_cost": "5",
+      "is_maintained": false,
+      "effect": "Voit une scène importante liée à un objet touché. Si la scène est complexe, nécessite un test de Recherche (3).",
+      "references": []
+    },
+    {
+      "id": "mutation-puissance-mystique",
+      "type": "Mutation",
+      "name": "Puissance mystique",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
+      "is_maintained": false,
+      "effect": "L'énergie X du personnage est le double de la somme INT+PER.",
+      "references": []
+    },
+    {
+      "id": "mutation-queue-prehensible",
+      "type": "Mutation",
+      "name": "Queue préhensible",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
+      "is_maintained": false,
+      "effect": "Confère PMF aux tests d'Acrobatie.",
+      "references": []
+    },
+    {
+      "id": "mutation-recycleur-digestif",
+      "type": "Mutation",
+      "name": "Recycleur digestif",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
+      "is_maintained": false,
+      "effect": "Lorsqu'il se rationne, le personnage bénéficie de PMF. Lorsqu'il ne mange et ne boit rien, il est considéré comme se rationnant sans le bonus.",
+      "references": []
+    },
+    {
+      "id": "mutation-regeneration",
+      "type": "Mutation",
+      "name": "Régénération",
+      "mutation_type": "Basique",
+      "ex_cost": "2",
+      "is_maintained": false,
+      "effect": "Le personnage regagne 1 PV.",
+      "references": []
+    },
+    {
+      "id": "mutation-regulateur-adenosine",
+      "type": "Mutation",
+      "name": "Régulateur d'adénosine",
+      "mutation_type": "Basique",
+      "ex_cost": "1",
+      "is_maintained": false,
+      "effect": "Le personnage réussit automatiquement un test de veille.",
+      "references": []
+    },
+    {
+      "id": "mutation-regulateur-hormonal",
+      "type": "Mutation",
+      "name": "Régulateur hormonal",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
+      "is_maintained": false,
+      "effect": "Le personnage gagne 1 point en Sang-froid.",
+      "attr_bonus": {
+        "sang_froid": 1
+      },
+      "references": []
+    },
+    {
+      "id": "mutation-resistance-douleur",
+      "type": "Mutation",
+      "name": "Résistance à la douleur",
+      "mutation_type": "Avancée",
+      "ex_cost": "2 (M)",
+      "is_maintained": true,
+      "effect": "Le personnage est considéré comme un niveau de santé moins grave. Tant qu'il maintient le pouvoir, il reste conscient. Inefficace si totalement Mort?.",
+      "references": []
+    },
+    {
+      "id": "mutation-respiration-aquatique",
+      "type": "Mutation",
+      "name": "Respiration aquatique",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
+      "is_maintained": false,
+      "effect": "Ne subit pas les effets de la noyade.",
+      "references": []
+    },
+    {
+      "id": "mutation-secretion-agressive",
+      "type": "Mutation",
+      "name": "Sécrétion agressive",
+      "mutation_type": "Basique",
+      "ex_cost": "3",
+      "is_maintained": false,
+      "effect": "Permet d'inoculer du venin après une attaque réussie à main nue ou arme corporelle.",
+      "references": []
+    },
+    {
+      "id": "mutation-sens-radar",
+      "type": "Mutation",
+      "name": "Sens radar",
+      "mutation_type": "Avancée",
+      "ex_cost": "3 (M)",
+      "is_maintained": true,
+      "effect": "Le personnage voit à 360° et n'a pas de malus de luminosité, mais peut être affecté par des contre-mesures électroniques.",
+      "references": []
+    },
+    {
+      "id": "mutation-sensibilite-accrue",
+      "type": "Mutation",
+      "name": "Sensibilité accrue",
+      "mutation_type": "Basique",
+      "ex_cost": "X (M)",
+      "is_maintained": true,
+      "effect": "Le personnage gagne autant de points de Perception que d'EX dépensés. Cela ne modifie pas les PV et ne peut dépasser le double de sa caractéristique.",
+      "references": []
+    },
+    {
+      "id": "mutation-sondage-mental",
+      "type": "Mutation",
+      "name": "Sondage mental",
+      "mutation_type": "Avancée",
+      "ex_cost": "5",
+      "is_maintained": false,
+      "effect": "Si le personnage gagne une opposition de Détermination face à une cible visible, il peut poser une question au MJ. Succès excédentaires : 0=pensées superficielles, 1=mémoire, 3=inconscient.",
+      "references": []
+    },
+    {
+      "id": "mutation-stimulant-neurobiologique",
+      "type": "Mutation",
+      "name": "Stimulant neurobiologique",
+      "mutation_type": "Basique",
+      "ex_cost": "X (M)",
+      "is_maintained": true,
+      "effect": "Le personnage gagne autant de points de Sang-froid que d'EX dépensés. Cela ne modifie pas les PV et ne peut dépasser le double de sa caractéristique.",
+      "references": []
+    },
+    {
+      "id": "mutation-telekinesie",
+      "type": "Mutation",
+      "name": "Télékinésie",
+      "mutation_type": "Basique",
+      "ex_cost": "X (M)",
+      "is_maintained": true,
+      "effect": "Un objet inerte et libre nécessite 2 EX/10kg. On peut forcer un objet à se libérer, manipuler un être ou attaquer avec un objet.",
+      "references": []
+    },
+    {
+      "id": "mutation-toucher-curatif",
+      "type": "Mutation",
+      "name": "Toucher curatif",
+      "mutation_type": "Basique",
+      "ex_cost": "3",
+      "is_maintained": false,
+      "effect": "La cible touchée regagne autant de PV que la Carrure du patient. Si c'est un mutant, il gagne 1 PV et Carrure points de dégâts non-létaux.",
+      "references": []
+    },
+    {
+      "id": "mutation-troisieme-oeil",
+      "type": "Mutation",
+      "name": "Troisième œil",
+      "mutation_type": "Basique",
+      "ex_cost": "Passive",
+      "is_maintained": false,
+      "effect": "Aucun malus de distance lors d'un test de Vigilance. Bénéficie de PMF pour les tirs.",
+      "references": []
+    },
+    {
+      "id": "mutation-vision-infrarouge",
+      "type": "Mutation",
+      "name": "Vision infrarouge",
+      "mutation_type": "Basique",
+      "ex_cost": "1 (M)",
+      "is_maintained": true,
+      "effect": "Pas de malus de luminosité réduite ou inexistante. Ne fonctionne pas s'il n'existe aucune source de chaleur.",
+      "references": []
+    },
+    {
+      "id": "mutation-vision-nocturne",
+      "type": "Mutation",
+      "name": "Vision nocturne",
+      "mutation_type": "Basique",
+      "ex_cost": "1 (M)",
+      "is_maintained": true,
+      "effect": "Pas de malus de luminosité réduite. Ne fonctionne pas s'il n'existe aucune source de lumière.",
+      "references": []
+    },
+    {
+      "id": "mutation-vision-x",
+      "type": "Mutation",
+      "name": "Vision X",
+      "mutation_type": "Avancée",
+      "ex_cost": "5 (M)",
+      "is_maintained": true,
+      "effect": "Peut voir à travers un objet ou une cloison. Ne fonctionne pas si la Protection est supérieure à la moitié de la Perception.",
       "references": []
     }
   ],

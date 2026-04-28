@@ -761,8 +761,6 @@ function genHSDayData(days, hsSpd, path, skill) {
   });
 }
 
-function roll1D6() { return Math.floor(Math.random() * 6) + 1; }
-
 function calculateTrip() {
   if (tripState.points.length < 2) { alert('Ajoutez au moins 2 points.'); return null; }
   const p = getParams();
@@ -772,45 +770,6 @@ function calculateTrip() {
     const cur = points[i], nxt = points[i + 1];
     const curSys = (donnees[cur.quadrant] || []).find(s => s.nom === cur.systemNom);
     const nxtSys = (donnees[nxt.quadrant] || []).find(s => s.nom === nxt.systemNom);
-
-    // ── VOYAGE INTRA-SYSTÈME ──────────────────────────────────────────────
-    // Si départ et arrivée sont deux astres différents du même système,
-    // on calcule la distance directe (|orbitA − orbitB| + 1D6) sans passer
-    // par la limite de saut.
-    const sameSystem =
-      cur.quadrant === nxt.quadrant &&
-      cur.systemNom && nxt.systemNom &&
-      cur.systemNom === nxt.systemNom &&
-      cur.astroNom && cur.astroNom !== 'Limite de Saut' &&
-      nxt.astroNom && nxt.astroNom !== 'Limite de Saut';
-
-    if (sameSystem) {
-      const baseDist = Math.abs((cur.orbit || 0) - (nxt.orbit || 0));
-      const dieMod   = roll1D6();
-      const dist     = Math.max(1, baseDist + dieMod);
-      const days     = Math.max(1, Math.ceil(dist / p.ipSpd));
-      const tbl      = getTableForLeg('interplanetaire', cur.quadrant, cur.systemNom);
-      const destPos  = { quadrant: nxt.quadrant, systemNom: nxt.systemNom, astroNom: nxt.astroNom };
-      legs.push({
-        name: `${cur.astroNom} → ${nxt.astroNom}`,
-        type: 'interplanetaire',
-        from: cur.astroNom,
-        to: nxt.astroNom,
-        distance: dist,
-        unit: 'US',
-        days,
-        spd: p.ipSpd,
-        skill: 0,
-        _intraSystem: true,
-        _dieMod: dieMod,
-        _tableId: tbl?.id || null,
-        _destPosition: destPos,
-        dailyData: genDayData('interplanetaire', days, 0, tbl),
-      });
-      continue;
-    }
-
-    // ── VOYAGE STANDARD (via limite de saut si nécessaire) ────────────────
     if (cur.astroNom && cur.astroNom !== 'Limite de Saut' && curSys) {
       const jl = parseFloat(curSys.soleil?.distanceSaut) || 0;
       const dist = Math.abs(jl - cur.orbit);
@@ -888,7 +847,7 @@ function legsHTML(legs, pfx) {
     });
     return `<div class="result-leg" id="${pfx}-leg-${li}">
       <div class="result-leg-header" onclick="toggleLeg(this)">
-        <div><h3>${leg.name}${leg._intraSystem ? ' <span style="font-size:0.7rem;color:#aaa;font-weight:normal">(intra-système)</span>' : ''}</h3><div class="leg-info">${leg.from} → ${leg.to} · ${effectiveDays}j · ${leg.distance.toFixed(0)} ${leg.unit}${leg._intraSystem ? ` · 1D6 tiré: ${leg._dieMod}` : ''}</div></div>
+        <div><h3>${leg.name}</h3><div class="leg-info">${leg.from} → ${leg.to} · ${effectiveDays}j · ${leg.distance.toFixed(0)} ${leg.unit}</div></div>
         <div style="display:flex;align-items:center;gap:8px" onclick="event.stopPropagation()">
           <label style="font-size:0.72rem;color:#aaa;display:flex;align-items:center;gap:4px;white-space:nowrap">
             Succ. exc. (${isHS ? 'Saut' : 'Cap'})
