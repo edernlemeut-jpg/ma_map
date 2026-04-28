@@ -143,6 +143,7 @@ const newState = () => ({
   qualites_ids: [],
   defauts_ids: [],
   traits_niveaux: {},
+  entrainement_bonus: {}, // { 'CompétenceName': nbPts } attribués via l'avantage Entraînement
   // PJ étape 8 : finitions
   nom_personnage: '',
   age: '',
@@ -1449,10 +1450,13 @@ const STEPS_PNJ = [
 
 function getSteps() {
   const base = DRAFT.type === 'pnj' ? STEPS_PNJ : STEPS_PJ;
-  if (!DRAFT.is_mutant) return base;
-  // Insère l'étape Mutations après Traits (index 6) si le personnage est mutant
-  const mutStep = { label: 'Mutations', render: renderStepMutations, validate: validateMutations };
-  return [...base.slice(0, 7), mutStep, ...base.slice(7)];
+  const hasEntrainement = DRAFT.qualites_ids.includes('qualite-entraînement')
+    && (DRAFT.traits_niveaux?.['qualite-entraînement'] || 0) > 0;
+
+  const extras = [];
+  if (hasEntrainement) extras.push({ label: 'Entraînement', render: renderStepEntrainement, validate: () => true });
+  if (DRAFT.is_mutant)  extras.push({ label: 'Mutations',    render: renderStepMutations,    validate: validateMutations });
+  return [...base.slice(0, 7), ...extras, ...base.slice(7)];
 }
 
 function renderWizard() {
@@ -2248,6 +2252,55 @@ function renderStepTraits() {
   </div>`;
 }
 
+// ── Étape Entraînement (attributionde points de compétence) ───────────────────
+function renderStepEntrainement() {
+  const maxBonus = DRAFT.traits_niveaux?.['qualite-entraînement'] || 0;
+  const bonus    = DRAFT.entrainement_bonus || {};
+  const totalDistributed = Object.values(bonus).reduce((s, v) => s + v, 0);
+  const remaining = maxBonus - totalDistributed;
+
+  // Build skill list from current DRAFT (excluding entrainement bonus itself)
+  const tempDraft = { ...DRAFT, entrainement_bonus: {} };
+  const comps   = buildCompetences(tempDraft);
+  const skillList = Object.keys(comps).sort((a, b) => a.localeCompare(b, 'fr'));
+
+  const rows = skillList.map(sk => {
+    const c    = comps[sk];
+    const base = (c.bonus || 0) + (c.archetype || 0) + (c.libre || 0);
+    const added = bonus[sk] || 0;
+    const canAdd    = remaining > 0 && added < 3;
+    const canRemove = added > 0;
+    return `
+    <div class="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2">
+      <span class="flex-1 text-sm text-gray-200">${esc(sk)}</span>
+      <span class="text-xs text-gray-500 w-16 text-right shrink-0">${base > 0 ? `base ${base}` : '—'}</span>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button data-entr-sk="${esc(sk)}" data-entr-delta="-1"
+          class="w-7 h-7 rounded bg-gray-700 text-gray-300 text-base font-bold flex items-center justify-center
+                 ${canRemove ? 'hover:bg-red-800/50 hover:text-red-300' : 'opacity-30 cursor-not-allowed'}"
+          ${canRemove ? '' : 'disabled'}>−</button>
+        <span class="w-7 text-center font-bold text-sm ${added > 0 ? 'text-green-400' : 'text-gray-600'}">${added > 0 ? '+' + added : '0'}</span>
+        <button data-entr-sk="${esc(sk)}" data-entr-delta="+1"
+          class="w-7 h-7 rounded bg-gray-700 text-gray-300 text-base font-bold flex items-center justify-center
+                 ${canAdd ? 'hover:bg-green-800/50 hover:text-green-300' : 'opacity-30 cursor-not-allowed'}"
+          ${canAdd ? '' : 'disabled'}>+</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <h3 class="text-base font-semibold mb-1">Entraînement — Distribution des points</h3>
+  <div class="bg-gray-900/50 rounded-lg px-3 py-2 mb-4 text-xs text-gray-400">
+    Avantage <strong class="text-green-400">Entraînement ×${maxBonus}</strong> :
+    répartissez <strong class="text-green-300">${remaining} point${remaining !== 1 ? 's' : ''}</strong>
+    restant${remaining !== 1 ? 's' : ''} parmi vos compétences existantes.
+    Maximum <strong class="text-gray-300">+3</strong> par compétence.
+  </div>
+  <div class="space-y-1.5">
+    ${rows || '<p class="text-gray-500 text-sm">Aucune compétence disponible.</p>'}
+  </div>`;
+}
+
 function traitPoints(ids, list, field, niveaux = {}) {
   if (!ids || !list) return 0;
   return ids.reduce((sum, id) => {
@@ -2457,6 +2510,22 @@ function renderStepFinitions() {
       </div>
     </div>
     ${arch ? `<p class="text-xs text-gray-500">Équipement de départ : ${esc(arch.equipement_depart)}</p>` : ''}
+    ${(() => {
+      const niveauxF = DRAFT.traits_niveaux || {};
+      const archCreditsMatch2 = (arch?.equipement_depart || '').match(/—\s*(\d+)\s*₡/);
+      const archCr = archCreditsMatch2 ? parseInt(archCreditsMatch2[1]) : 0;
+      const richeCr  = DRAFT.qualites_ids.includes('qualite-riche')  ? (niveauxF['qualite-riche']  || 0) * 250 : 0;
+      const tresorCr = DRAFT.qualites_ids.includes('qualite-tresor') ? (niveauxF['qualite-tresor'] || 0) * 250 : 0;
+      const totalCr  = archCr + richeCr + tresorCr;
+      const parts = [];
+      if (archCr)   parts.push(`${archCr} ₡ (archétype)`);
+      if (richeCr)  parts.push(`+${richeCr} ₡ (Riche ×${niveauxF['qualite-riche']})`);
+      if (tresorCr) parts.push(`+${tresorCr} ₡ (Trésor ×${niveauxF['qualite-tresor']})`);
+      return totalCr > 0
+        ? `<p class="text-xs text-yellow-300 font-semibold mt-1">Crédits de départ : ${totalCr.toLocaleString('fr-FR')} ₡
+             <span class="text-gray-500 font-normal">(${parts.join(' ')})</span></p>`
+        : '';
+    })()}
   </div>`;
 }
 
@@ -3079,6 +3148,27 @@ function attachStepListeners() {
     attachStepListeners();
   });
 
+  // Entraînement — attribution de points de compétence
+  step.querySelectorAll('[data-entr-sk]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sk    = btn.dataset.entrSk;
+      const delta = parseInt(btn.dataset.entrDelta);
+      const maxBonus = DRAFT.traits_niveaux?.['qualite-entraînement'] || 0;
+      DRAFT.entrainement_bonus = DRAFT.entrainement_bonus || {};
+      const bonus = DRAFT.entrainement_bonus;
+      const totalDistributed = Object.values(bonus).reduce((s, v) => s + v, 0);
+      const current = bonus[sk] || 0;
+      const newVal  = current + delta;
+      if (newVal < 0) return;
+      if (newVal > 3) return;
+      if (delta > 0 && totalDistributed >= maxBonus) return;
+      if (newVal === 0) delete bonus[sk];
+      else bonus[sk] = newVal;
+      document.getElementById('wizard-step').innerHTML = renderStepEntrainement();
+      attachStepListeners();
+    });
+  });
+
   // Mutations — onglets Basiques / Avancées
   step.querySelectorAll('[data-mutation-tab]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -3365,6 +3455,15 @@ async function saveCharacter() {
     finalAttrs[a.id] = (baseAttrs[a.id] || 0) + (bonusAttrId === a.id ? bonusVal : 0);
   }
 
+  // Crédits de départ : archtype + avantages Riche et Trésor
+  const arch4credits  = REF?.archetypes?.find(a => a.id === DRAFT.archetype_id);
+  const archCreditsMatch = (arch4credits?.equipement_depart || '').match(/—\s*(\d+)\s*₡/);
+  const archCredits   = archCreditsMatch ? parseInt(archCreditsMatch[1]) : 0;
+  const niveauxC      = DRAFT.traits_niveaux || {};
+  const richeBonus    = DRAFT.qualites_ids.includes('qualite-riche')  ? (niveauxC['qualite-riche']  || 0) * 250 : 0;
+  const tresorBonus   = DRAFT.qualites_ids.includes('qualite-tresor') ? (niveauxC['qualite-tresor'] || 0) * 250 : 0;
+  const startingCredits = archCredits + richeBonus + tresorBonus;
+
   const payload = {
     type: DRAFT.type,
     name: DRAFT.nom_personnage,
@@ -3374,6 +3473,7 @@ async function saveCharacter() {
       gloire:    0,
       sante:     (finalAttrs.carrure || 0) + (finalAttrs.sang_froid || 0),
       energie_x: DRAFT.is_mutant ? (finalAttrs.perception || 0) + (finalAttrs.intelligence || 0) : null,
+      credits:   EDITING_ID ? (DRAFT.credits ?? 0) : startingCredits,
     },
   };
 
@@ -3519,8 +3619,13 @@ function buildCompetences(d) {
     if (map[sk]) map[sk].specialite = spec;
     else { ensure(sk, spec); }
   }
+  // Bonus Entraînement (avantage)
+  for (const [sk, v] of Object.entries(d.entrainement_bonus || {})) {
+    ensure(sk, null);
+    map[sk].entrainement = (map[sk].entrainement || 0) + v;
+  }
   // Totaux
-  for (const v of Object.values(map)) { v.total = v.bonus + v.archetype + v.libre; }
+  for (const v of Object.values(map)) { v.total = v.bonus + v.archetype + v.libre + (v.entrainement || 0); }
   return map;
 }
 
