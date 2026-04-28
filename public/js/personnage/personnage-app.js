@@ -101,6 +101,7 @@ const VARIABLE_TRAIT_LEVELS = {
   'qualite-riche':           [1, 2, 3, 4, 5],
   'qualite-route-dhavana':   [1, 3, 5],
   'qualite-tresor':          [1, 2, 3, 4, 5],
+  'qualite-grand-voyageur-2': [1, 2, 3, 4, 5],
   'defaut-dettes':           [1, 2, 3, 4, 5],
   'defaut-dette-dhonneur':   [1, 2, 3, 4, 5],
   'defaut-hook ':            [1, 3, 5],
@@ -956,6 +957,21 @@ function renderSheetTabCompetences(competences, finalAttrs, domPriv) {
 
 function renderSheetTabTraits(d) {
   const traitsHtml = renderTraitsSheet(d);
+  // Coordonnées hyperspatiales mémorisables : Navigation + bonus Grand Voyageur 2
+  const competences = buildCompetences(d);
+  const navTotal = competences['Navigation']?.total ?? 0;
+  const gv2Bonus = d.traits_niveaux?.['qualite-grand-voyageur-2'] ?? 0;
+  const hasGV2   = (d.qualites_ids || []).includes('qualite-grand-voyageur-2');
+  const coordHtml = navTotal > 0 ? `
+  <div class="mt-5 bg-gray-800 border border-indigo-800/40 rounded-lg px-4 py-3">
+    <p class="text-xs text-indigo-300 font-semibold mb-2">🧭 Coordonnées hyperspatiales mémorisables</p>
+    <div class="flex items-center gap-3 text-sm">
+      <span class="text-gray-300">Navigation <span class="font-mono text-white">${navTotal}</span></span>
+      ${hasGV2 && gv2Bonus > 0 ? `<span class="text-gray-500">+</span><span class="text-gray-300">Grand voyageur 2 <span class="font-mono text-indigo-300">+${gv2Bonus}</span></span>` : ''}
+      <span class="text-gray-500">=</span>
+      <span class="text-lg font-bold text-indigo-200">${navTotal + gv2Bonus}</span>
+    </div>
+  </div>` : '';
   const mutHtml = d.is_mutant && d.mutations_ids?.length ? `
   <div class="mt-5">
     <h4 class="text-sm font-semibold text-gray-300 mb-2">Mutations</h4>
@@ -981,7 +997,7 @@ function renderSheetTabTraits(d) {
     <p class="text-xs text-purple-300 font-semibold mb-2">⚙ Règles spéciales</p>
     <ul class="space-y-1">${d.tags_regles.map(t => `<li class="text-xs text-gray-300">• ${esc(t)}</li>`).join('')}</ul>
   </div>` : '';
-  return (traitsHtml || '<p class="text-gray-500 text-xs py-4">Aucun trait sélectionné.</p>') + mutHtml + tagsHtml;
+  return (traitsHtml || '<p class="text-gray-500 text-xs py-4">Aucun trait sélectionné.</p>') + mutHtml + coordHtml + tagsHtml;
 }
 
 function renderSheetTabBackground(d, editable) {
