@@ -566,9 +566,16 @@ class CombatSpatialApp {
     const succes = e.succes != null
       ? `<span class="${e.succes === 0 ? 'text-red-400' : 'text-green-400'} font-semibold">${e.succes} succès</span>`
       : '';
-    const pool = e.pool != null
-      ? `<span class="text-gray-500 text-xs">${e.pool}d10 ≤${e.seuil}</span>`
-      : '<span class="text-gray-500 text-xs">Manuel</span>';
+
+    // Description du jet : pool, difficulté, modificateur
+    let jetDesc = '<span class="text-gray-500 text-xs">Manuel</span>';
+    if (e.pool != null) {
+      const diffLabel = e.diff === 'TD' ? ' TD' : e.diff === 'TF' ? ' TF' : '';
+      const modifLabel = e.modif ? ` · ${e.modif}` : '';
+      const bonusDiffLabel = e.bonus_diff ? ` · D+${e.bonus_diff}` : '';
+      jetDesc = `<span class="text-gray-500 text-xs">${e.pool}d6${diffLabel}${modifLabel}${bonusDiffLabel}</span>`;
+    }
+
     const note = e.note
       ? `<div class="text-xs text-gray-500 italic">${this._esc(e.note)}</div>`
       : '';
@@ -577,7 +584,7 @@ class CombatSpatialApp {
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-gray-500 font-mono text-xs">[${ts}]</span>
         <span class="font-medium text-gray-200">${this._esc(e.action)}</span>${acteur}
-        ${pool}
+        ${jetDesc}
         ${succes}
       </div>
       ${note}`;

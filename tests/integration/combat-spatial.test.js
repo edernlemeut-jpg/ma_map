@@ -287,14 +287,17 @@ describe('Combat Spatial — API HTTP', () => {
         body: {
           action: 'Tirer',
           acteur: 'Hawk',
-          pool: 3, seuil: 3, resultats: [2, 7, 3], succes: 2,
+          pool: 3, diff: 'standard', modif: 'SC',
+          resultats: [2, 5, 3], relances: [null, null, 4],
+          succes: 3,
           note: '+1d de Viser',
         },
       });
       assert.equal(res.status, 200);
       assert.ok(Array.isArray(res.body.data.journal));
       assert.equal(res.body.data.journal[0].action, 'Tirer');
-      assert.equal(res.body.data.journal[0].succes, 2);
+      assert.equal(res.body.data.journal[0].succes, 3);
+      assert.equal(res.body.data.journal[0].diff, 'standard');
     });
 
     it('joueur ne peut pas inscrire (403)', async () => {
