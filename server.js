@@ -24,6 +24,13 @@ import planetsRoutes from './src/routes/planets.js';
 import calendarRoutes from './src/routes/calendar.js';
 import revolteRoutes from './src/routes/revolte.js';
 import charactersRoutes from './src/routes/characters.js';
+import entityLinksRoutes from './src/routes/entity-links.js';
+import namedNpcsRoutes from './src/routes/named-npcs.js';
+import figurantsRoutes from './src/routes/figurants.js';
+import mfPoolRoutes from './src/routes/mf-pool.js';
+import dashboardRoutes from './src/routes/dashboard.js';
+import chassesTresorRoutes from './src/routes/chasses-tresor.js';
+import combatSpatialRoutes from './src/routes/combat-spatial.js';
 
 import { fileURLToPath } from 'url';
 import { resolve } from 'path';
@@ -62,6 +69,13 @@ app.use('/api/planets', planetsRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/revolte', revolteRoutes);
 app.use('/api/characters', charactersRoutes);
+app.use('/api/entity-links', entityLinksRoutes);
+app.use('/api/named-npcs', namedNpcsRoutes);
+app.use('/api/figurants', figurantsRoutes);
+app.use('/api/mf-pool', mfPoolRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/chasses-tresor', chassesTresorRoutes);
+app.use('/api/combat-spatial', combatSpatialRoutes);
 app.use(legacyRoutes);
 
 // Clean URL support for pages without .html extension

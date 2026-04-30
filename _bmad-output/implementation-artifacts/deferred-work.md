@@ -1,5 +1,23 @@
 # Deferred Work
 
+## Deferred from: code review of Battlegrid SVG interactive (combat spatial Phase A, 2026-04-30)
+
+Findings from adversarial review surfaced post-implementation. Patches already applied: Math.abs position bug, config validation 400, NaN guards for avantage/structure_actuelle, empty nom check in PATCH ships, nav link visibility for joueurs.
+
+Remaining deferred items (pre-existing patterns or future-phase concerns):
+
+- **journal_json dead code** — Column `journal_json` exists in `combats_spatiaux` but PATCH /:id never writes to it. Intentional placeholder for Phase B (résolveur). To implement in Phase B as append-only combat journal log endpoint.
+- **isMJ() truthy check on is_admin** — `req.user?.is_admin` accepted as truthy rather than `=== true`. Matches project-wide pattern in other routes (chasses-tresor, etc.). Should be addressed project-wide if the user model ever changes.
+- **combat_json / crew_json no size limit** — No content-length guard on JSON blobs in PATCH /:id. Pre-existing project pattern. Acceptable for internal tabletop use; if exposed publicly, add `express.json({ limit: '64kb' })` middleware.
+- **CHECK constraints missing on configuration/orientation/classe** — Only `statut`, `phase`, `camp`, `trajectoire` have DB-level CHECK. Route-level validation compensates. To add CHECK constraints on next schema migration if needed.
+
+
+
+Split décidé par l'utilisateur lors du multi-goal check. Les deux objectifs suivants sont différés après livraison de la Battlegrid (objectif A).
+
+- **B) Résolveur de tests** — Modal dual-mode (dés virtuels d20 + pools Avantage/Désavantage OU saisie manuelle du résultat physique). Résolution selon les actions spatiales (Tirer, Manœuvre défensive/offensive, Viser, etc.), journal de session. Dépend du schéma DB établi en A (tables `combat_sessions`, `combat_ships`). Prérequis : schéma DB de A doit prévoir les colonnes `phase`, `action_log` JSON.
+- **C) Gestion des postes d'équipage** — Assigner PJ/PNJ aux 5 postes (Pilote, Artilleur·s, Méca, Médecin, Passager), fiche de poste accessible par joueur depuis leur vue. Dépend de A pour la liste des vaisseaux en combat. Nécessite colonnes `crew_assignments` JSON ou table dédiée.
+
 ## Deferred from: code review of compendium de règles (2026-04-23)
 
 - Whitelist auth `prefix: true` sur `/api/rules` — pattern fragile si une future route `/api/rules-something` est créée sans auth. À revoir si les routes publiques se multiplient.

@@ -29,10 +29,17 @@ export async function createTestApp() {
   const shipModelsRoutes = (await import('../src/routes/ship-models.js')).default;
   const searchRoutes = (await import('../src/routes/search.js')).default;
   const adminRoutes = (await import('../src/routes/admin.js')).default;
-  const dashboardRoutes = (await import('../src/routes/dashboard.js')).default;
   const previewRoutes = (await import('../src/routes/preview.js')).default;
   const shipsRoutes = (await import('../src/routes/ships.js')).default;
   const travelRoutes = (await import('../src/routes/travel-routes.js')).default;
+  const entityLinksRoutes = (await import('../src/routes/entity-links.js')).default;
+  const charactersRoutes  = (await import('../src/routes/characters.js')).default;
+  const namedNpcsRoutes   = (await import('../src/routes/named-npcs.js')).default;
+  const figurantsRoutes    = (await import('../src/routes/figurants.js')).default;
+  const mfPoolRoutes        = (await import('../src/routes/mf-pool.js')).default;
+  const dashboardRoutes     = (await import('../src/routes/dashboard.js')).default;
+  const chassesTresorRoutes = (await import('../src/routes/chasses-tresor.js')).default;
+  const combatSpatialRoutes = (await import('../src/routes/combat-spatial.js')).default;
 
   const app = express();
   mountMiddleware(app);
@@ -46,10 +53,17 @@ export async function createTestApp() {
   app.use('/api/ship-models', shipModelsRoutes);
   app.use('/api/search', searchRoutes);
   app.use('/api/admin', adminRoutes);
-  app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/preview', previewRoutes);
   app.use('/api/ships', shipsRoutes);
   app.use('/api/travel-routes', travelRoutes);
+  app.use('/api/entity-links', entityLinksRoutes);
+  app.use('/api/characters', charactersRoutes);
+  app.use('/api/named-npcs', namedNpcsRoutes);
+  app.use('/api/figurants', figurantsRoutes);
+  app.use('/api/mf-pool', mfPoolRoutes);
+  app.use('/api/dashboard', dashboardRoutes);
+  app.use('/api/chasses-tresor', chassesTresorRoutes);
+  app.use('/api/combat-spatial', combatSpatialRoutes);
   app.use(errorHandler);
   return app;
 }

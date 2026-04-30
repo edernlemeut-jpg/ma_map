@@ -42,6 +42,8 @@
     <!-- Dashboard (shown when onboarding is not displayed) -->
     <div id="dashboard-container" class="hidden">
       <div class="space-y-6">
+        <!-- MF Pool widget (MJ only, hidden until table context confirmed) -->
+        <div id="mf-pool-widget-container" class="hidden"></div>
         <section>
           <h3 class="text-lg font-semibold mb-3">Acc&egrave;s rapides</h3>
           <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -78,6 +80,12 @@
               <span class="text-sm text-gray-400">Lien d&apos;invitation, membres et gestion de la table.</span>
             </a>
 
+            <a id="home-mf-spending-link" href="/mf-faktor.html" class="hidden bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
+              <span class="text-2xl">🎯</span>
+              <span class="font-medium">Dépenses Metal Faktor</span>
+              <span class="text-sm text-gray-400">Retours de flamme disponibles selon votre réserve MJ.</span>
+            </a>
+
             <a href="/calendrier.html" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
               <span class="text-2xl">📅</span>
               <span class="font-medium">Calendrier</span>
@@ -88,6 +96,18 @@
               <span class="text-2xl">⚔️</span>
               <span class="font-medium">Révoltes</span>
               <span class="text-sm text-gray-400">Gérer et sauvegarder les sessions de révolte.</span>
+            </a>
+
+            <a id="home-tresors-link" href="/tresors.html" class="hidden bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
+              <span class="text-2xl">🗺️</span>
+              <span class="font-medium">Chasses au Trésor</span>
+              <span class="text-sm text-gray-400">Générez et gérez les chasses (supplément TdM).</span>
+            </a>
+
+            <a id="home-combat-spatial-link" href="/combat-spatial.html" class="hidden bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
+              <span class="text-2xl">🚀</span>
+              <span class="font-medium">Combat Spatial</span>
+              <span class="text-sm text-gray-400">Battlegrid interactive — phases et positions de combat.</span>
             </a>
 
             <a href="/personnage.html" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">

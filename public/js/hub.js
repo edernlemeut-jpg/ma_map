@@ -5,6 +5,7 @@ import { initAuthUI, getCurrentUser } from './shared/auth-ui.js';
 import { loadTableContext } from './shared/header.js';
 import { renderTableSelector } from './shared/table-selector.js';
 import { loadOnboarding } from './onboarding.js';
+import { initMFPoolWidget } from './shared/mf-pool-widget.js';
 
 async function init() {
   await initAuthUI();
@@ -35,7 +36,23 @@ async function init() {
   if (table.is_mj) {
     const campaignLink = document.getElementById('home-campaign-link');
     if (campaignLink) campaignLink.classList.remove('hidden');
+
+    // MF Pool widget — visible only for MJ
+    initMFPoolWidget('mf-pool-widget-container', table.id);
+
+    // MF spending link — visible only for MJ
+    const mfSpendingLink = document.getElementById('home-mf-spending-link');
+    if (mfSpendingLink) mfSpendingLink.classList.remove('hidden');
+
+    // Trésor TdM link — visible only for MJ
+    const tresorLink = document.getElementById('home-tresors-link');
+    if (tresorLink) tresorLink.classList.remove('hidden');
+
   }
+
+  // Combat Spatial link — visible for all roles when table is active
+  const combatLink = document.getElementById('home-combat-spatial-link');
+  if (combatLink) combatLink.classList.remove('hidden');
 
   // Show onboarding (first-time admin) or dashboard
   await loadOnboarding();
