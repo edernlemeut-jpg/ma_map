@@ -425,6 +425,71 @@ router.delete('/:id/ships/:shipId', (req, res) => {
   success(res, { deleted: true });
 });
 
+// ── POST /:id/journal — ajouter une entrée au journal ────────────────────────
+router.post('/:id/journal', (req, res) => {
+  if (!requireTable(req, res)) return;
+  if (!isMJ(req)) return forbidden(res);
+
+  const row = db.prepare(
+    `SELECT * FROM combats_spatiaux WHERE id = ? AND table_id = ?`
+  ).get(req.params.id, req.table.id);
+  if (!row) return notFound(res);
+
+  if (row.statut !== 'en_cours') {
+    return validationError(res, 'Le journal ne peut être modifié que pour un combat en cours');
+  }
+
+  const { action, acteur, pool, seuil, resultats, succes, note } = req.body;
+
+  if (!action || !String(action).trim()) {
+    return validationError(res, 'Le champ action est requis');
+  }
+  if (String(action).trim().length > 200) {
+    return validationError(res, 'Le champ action ne peut pas dépasser 200 caractères');
+  }
+  if (acteur && String(acteur).trim().length > 100) {
+    return validationError(res, 'Le champ acteur ne peut pas dépasser 100 caractères');
+  }
+  if (note && String(note).trim().length > 1000) {
+    return validationError(res, 'Le champ note ne peut pas dépasser 1000 caractères');
+  }
+
+  let journal = [];
+  try { journal = row.journal_json ? JSON.parse(row.journal_json) : []; } catch { /* garder vide */ }
+
+  if (journal.length >= 500) {
+    return validationError(res, 'Le journal de ce combat a atteint la limite de 500 entrées');
+  }
+
+  const poolNum  = Number.isFinite(Number(pool))   ? Number(pool)   : null;
+  const seuilNum  = Number.isFinite(Number(seuil))  ? Number(seuil)  : null;
+  const succesNum = Number.isFinite(Number(succes)) ? Number(succes) : null;
+
+  const entry = {
+    id:       Date.now(),
+    ts:       new Date().toISOString(),
+    action:   String(action).trim(),
+    acteur:   acteur ? String(acteur).trim() : null,
+    pool:     (poolNum !== null && poolNum >= 1 && poolNum <= 16)   ? poolNum   : null,
+    seuil:    (seuilNum !== null && seuilNum >= 1 && seuilNum <= 10) ? seuilNum : null,
+    resultats: (Array.isArray(resultats) &&
+                resultats.length >= 1 && resultats.length <= 16 &&
+                resultats.every(r => Number.isInteger(r) && r >= 1 && r <= 10))
+               ? resultats : null,
+    succes:   (succesNum !== null && succesNum >= 0) ? succesNum : null,
+    note:     note ? String(note).trim() : null,
+  };
+
+  // Prépend (ordre chronologique inversé : le plus récent en premier)
+  journal.unshift(entry);
+
+  db.prepare(
+    `UPDATE combats_spatiaux SET journal_json = ?, updated_at = datetime('now') WHERE id = ?`
+  ).run(JSON.stringify(journal), row.id);
+
+  success(res, { journal });
+});
+
 // ── DELETE /:id — supprimer le combat ────────────────────────────────────────
 router.delete('/:id', (req, res) => {
   if (!requireTable(req, res)) return;

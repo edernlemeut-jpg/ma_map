@@ -9,6 +9,7 @@
  *   POST   /:id/ships                    — ajouter vaisseau
  *   PATCH  /:id/ships/:shipId            — déplacer (validation position_k)
  *   DELETE /:id/ships/:shipId            — retirer vaisseau
+ *   POST   /:id/journal                  — inscrire entrée journal (Phase B)
  *   DELETE /:id                          — supprimer combat
  * Droits : MJ → tout ; joueur → lecture ; hors-table → 403/400
  */
@@ -263,6 +264,55 @@ describe('Combat Spatial — API HTTP', () => {
       });
       assert.equal(res.status, 200);
       assert.equal(res.body.data.deleted, true);
+    });
+  });
+
+  // ── Journal ────────────────────────────────────────────────────────────────
+  describe('POST /:id/journal', () => {
+    let combatId;
+
+    before(async () => {
+      const res = await httpRequest(app, {
+        method: 'POST', path: '/api/combat-spatial',
+        cookies: mjCookie, headers: mjH(),
+        body: { nom: `${TEST_PREFIX}Combat Journal`, configuration: 'face-a-face' },
+      });
+      combatId = res.body.data.id;
+    });
+
+    it('MJ peut inscrire une entrée valide (200 + journal retourné)', async () => {
+      const res = await httpRequest(app, {
+        method: 'POST', path: `/api/combat-spatial/${combatId}/journal`,
+        cookies: mjCookie, headers: mjH(),
+        body: {
+          action: 'Tirer',
+          acteur: 'Hawk',
+          pool: 3, seuil: 3, resultats: [2, 7, 3], succes: 2,
+          note: '+1d de Viser',
+        },
+      });
+      assert.equal(res.status, 200);
+      assert.ok(Array.isArray(res.body.data.journal));
+      assert.equal(res.body.data.journal[0].action, 'Tirer');
+      assert.equal(res.body.data.journal[0].succes, 2);
+    });
+
+    it('joueur ne peut pas inscrire (403)', async () => {
+      const res = await httpRequest(app, {
+        method: 'POST', path: `/api/combat-spatial/${combatId}/journal`,
+        cookies: joueurCookie, headers: jH(),
+        body: { action: 'Tirer' },
+      });
+      assert.equal(res.status, 403);
+    });
+
+    it('retourne 400 si action manquante', async () => {
+      const res = await httpRequest(app, {
+        method: 'POST', path: `/api/combat-spatial/${combatId}/journal`,
+        cookies: mjCookie, headers: mjH(),
+        body: { acteur: 'Hawk', succes: 2 },
+      });
+      assert.equal(res.status, 400);
     });
   });
 

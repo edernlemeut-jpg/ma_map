@@ -18,6 +18,21 @@ Split décidé par l'utilisateur lors du multi-goal check. Les deux objectifs su
 - **B) Résolveur de tests** — Modal dual-mode (dés virtuels d20 + pools Avantage/Désavantage OU saisie manuelle du résultat physique). Résolution selon les actions spatiales (Tirer, Manœuvre défensive/offensive, Viser, etc.), journal de session. Dépend du schéma DB établi en A (tables `combat_sessions`, `combat_ships`). Prérequis : schéma DB de A doit prévoir les colonnes `phase`, `action_log` JSON.
 - **C) Gestion des postes d'équipage** — Assigner PJ/PNJ aux 5 postes (Pilote, Artilleur·s, Méca, Médecin, Passager), fiche de poste accessible par joueur depuis leur vue. Dépend de A pour la liste des vaisseaux en combat. Nécessite colonnes `crew_assignments` JSON ou table dédiée.
 
+## Deferred from: code review of Résolveur de combat spatial — Phase B (2026-05-XX)
+
+Patches applied: `Viser` added to ACTIONS list, `Autre` libre text input added, server-side `id`/`ts` generation, `statut` check, field length limits, range validation on pool/seuil/succes, resultats element validation, server-confirmed entry dispatched, `_reset()` button text fix.
+
+Remaining deferred items:
+
+- **CSRF** — `POST /:id/journal` uses cookie auth with no CSRF token, same as all other mutation endpoints in the project. Address project-wide with csurf or double-submit cookie pattern.
+- **TOCTOU on 500-entry cap** — read-check-write is not atomic (JSON.parse → length check → unshift → UPDATE). Unlikely in practice (SQLite serialises writes at process level), but a `db.transaction()` wrapper would eliminate any theoretical race.
+- **Full journal on every POST** — `success(res, { journal })` returns the full journal array (up to 500 entries). Client currently uses only `journal[0]`. Return only the new entry when possible; add pagination if the journal grows large.
+- **DOM list unbounded** — `_prependJournalEntry()` never trims the `<ul>` to match the 500-entry server cap. Long-running sessions accumulate unlimited `<li>` nodes. Add a trim to 500 items after each prepend.
+- **`Date.now()` ID collisions** — journal entry `id` is `Date.now()` on the server. Two rapid concurrent requests could get the same millisecond. Consider `crypto.randomUUID()` or a monotonic counter.
+- **CombatResolver init for joueurs** — `new CombatResolver()` injects the resolver modal into the DOM for all users, including joueurs. The modal is not reachable via normal UI and the server enforces 403, so no security impact. Guard with `if (this._mj)` to keep joueur DOM clean.
+- **Test coverage for boundary cases** — missing test coverage: pool/seuil out-of-range, oversized action/note, statut check (posting to finished combat), exact 499/500/501 entry boundary, client-supplied id/ts ignored.
+- **JSDoc signature incorrect** — `CombatResolver.open()` jsdoc says `open(combatId, combat)` but implementation is `open(combatId)`. Update docblock.
+
 ## Deferred from: code review of compendium de règles (2026-04-23)
 
 - Whitelist auth `prefix: true` sur `/api/rules` — pattern fragile si une future route `/api/rules-something` est créée sans auth. À revoir si les routes publiques se multiplient.

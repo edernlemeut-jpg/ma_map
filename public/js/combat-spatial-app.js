@@ -5,6 +5,7 @@
 import { getActiveTableId, fetchWithTable, isMJ } from '/js/shared/table-selector.js';
 import { initHeader } from '/js/shared/header.js';
 import { CombatRadar } from '/js/combat-radar.js';
+import { CombatResolver } from '/js/combat-resolver.js';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ class CombatSpatialApp {
   constructor() {
     this._currentCombat = null;
     this._radar         = null;
+    this._resolver      = null;
     this._mj            = false;
   }
 
@@ -61,7 +63,8 @@ class CombatSpatialApp {
       return;
     }
 
-    this._radar = new CombatRadar(document.getElementById('radar-container'));
+    this._radar    = new CombatRadar(document.getElementById('radar-container'));
+    this._resolver  = new CombatResolver();
 
     this._bindEvents();
     this._updateMJUI();
@@ -155,6 +158,9 @@ class CombatSpatialApp {
 
     // Liste vaisseaux (panneau latéral bas)
     this._renderShipList(combat.vaisseaux ?? []);
+
+    // Journal
+    this._renderJournal(combat.journal ?? []);
   }
 
   _renderPhaseBadge(phase) {
@@ -171,6 +177,7 @@ class CombatSpatialApp {
 
     const nextPhase = PHASES[PHASE_ORDER[combat.phase] + 1];
     const canAdvance = Boolean(nextPhase) && combat.statut === 'en_cours';
+    const canResolve = this._mj && combat.statut === 'en_cours';
 
     controls.innerHTML = `
       <div class="flex flex-wrap gap-2">
@@ -183,6 +190,11 @@ class CombatSpatialApp {
           class="px-3 py-1.5 rounded text-xs font-medium bg-green-800 hover:bg-green-700 text-white">
           + Vaisseau
         </button>
+        ${canResolve ? `
+          <button id="btn-resolve"
+            class="px-3 py-1.5 rounded text-xs font-medium bg-indigo-700 hover:bg-indigo-600 text-white">
+            🎲 Résoudre
+          </button>` : ''}
         <button id="btn-delete-combat"
           class="px-3 py-1.5 rounded text-xs font-medium bg-red-900 hover:bg-red-800 text-white ml-auto">
           Supprimer combat
@@ -197,6 +209,11 @@ class CombatSpatialApp {
     document.getElementById('btn-add-ship').addEventListener('click', () => {
       this._openAddShipModal(combat.id);
     });
+    if (document.getElementById('btn-resolve')) {
+      document.getElementById('btn-resolve').addEventListener('click', () => {
+        this._resolver.open(combat.id);
+      });
+    }
     document.getElementById('btn-delete-combat').addEventListener('click', () => {
       this._deleteCombat(combat.id);
     });
@@ -263,6 +280,13 @@ class CombatSpatialApp {
       await this._submitShipForm();
     });
 
+    // Journal entries depuis le résolveur
+    document.addEventListener('journal-entry', (e) => {
+      if (e.detail.combatId === this._currentCombat?.id) {
+        this._prependJournalEntry(e.detail.entry);
+      }
+    });
+
     // Drag-drop radar
     const radarEl = document.getElementById('radar-container');
     radarEl.addEventListener('ship-moved', async (e) => {
@@ -279,7 +303,13 @@ class CombatSpatialApp {
 
   _updateMJUI() {
     const btnNew = document.getElementById('btn-new-combat');
-    if (btnNew) btnNew.style.display = this._mj ? '' : 'none';
+    if (btnNew) {
+      if (this._mj) {
+        btnNew.classList.remove('hidden');
+      } else {
+        btnNew.classList.add('hidden');
+      }
+    }
   }
 
   // ── Actions MJ ───────────────────────────────────────────────────────────────
@@ -502,6 +532,58 @@ class CombatSpatialApp {
       </p>`;
   }
 
+  // ── Journal ───────────────────────────────────────────────────────────────────
+
+  _renderJournal(entries) {
+    const panel = document.getElementById('journal-panel');
+    if (!panel) return;
+
+    if (!entries || entries.length === 0) {
+      panel.classList.add('hidden');
+      return;
+    }
+
+    panel.classList.remove('hidden');
+    const list = document.getElementById('journal-list');
+    list.innerHTML = '';
+    entries.forEach(e => list.appendChild(this._buildJournalItem(e)));
+  }
+
+  _prependJournalEntry(entry) {
+    const panel = document.getElementById('journal-panel');
+    if (!panel) return;
+    panel.classList.remove('hidden');
+    const list = document.getElementById('journal-list');
+    list.insertBefore(this._buildJournalItem(entry), list.firstChild);
+  }
+
+  _buildJournalItem(e) {
+    const li = document.createElement('li');
+    li.className = 'px-3 py-2 rounded border border-gray-700 text-sm space-y-0.5';
+
+    const ts     = e.ts ? new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—';
+    const acteur = e.acteur ? ` — <span class="text-gray-400">${this._esc(e.acteur)}</span>` : '';
+    const succes = e.succes != null
+      ? `<span class="${e.succes === 0 ? 'text-red-400' : 'text-green-400'} font-semibold">${e.succes} succès</span>`
+      : '';
+    const pool = e.pool != null
+      ? `<span class="text-gray-500 text-xs">${e.pool}d10 ≤${e.seuil}</span>`
+      : '<span class="text-gray-500 text-xs">Manuel</span>';
+    const note = e.note
+      ? `<div class="text-xs text-gray-500 italic">${this._esc(e.note)}</div>`
+      : '';
+
+    li.innerHTML = `
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-gray-500 font-mono text-xs">[${ts}]</span>
+        <span class="font-medium text-gray-200">${this._esc(e.action)}</span>${acteur}
+        ${pool}
+        ${succes}
+      </div>
+      ${note}`;
+    return li;
+  }
+
   _showError(msg) {
     const toast = document.createElement('div');
     toast.className = 'fixed bottom-4 right-4 bg-red-800 text-white px-4 py-2.5 rounded-lg shadow-xl text-sm z-50';
@@ -514,3 +596,4 @@ class CombatSpatialApp {
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 const app = new CombatSpatialApp();
 app.init();
+
