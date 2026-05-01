@@ -931,9 +931,17 @@ export class CombatResolver {
         : entry;
 
       // Transfert Metal Faktor (uniquement en mode dés avec dés MF)
-      const mfDice   = (this._mode === 'des' ? this._lastRoll?.mfDice : null) || 0;
-      const violent  = this._el.querySelector('#res-mf-violent').checked;
+      const mfDice     = (this._mode === 'des' ? this._lastRoll?.mfDice : null) || 0;
+      const violent    = this._el.querySelector('#res-mf-violent').checked;
       const mfTransfer = Math.max(0, mfDice - (violent ? 1 : 0));
+      console.log('[MF] mode:', this._mode, '| mfDice:', mfDice, '| violent:', violent, '| transfer:', mfTransfer, '| direction:', this._mfDirection);
+      const _showMFNotif = (cls, msg) => {
+        const n = document.createElement('div');
+        n.className   = `fixed bottom-4 right-4 ${cls} text-white px-4 py-2.5 rounded-lg shadow-xl text-sm z-50`;
+        n.textContent = msg;
+        document.body.appendChild(n);
+        setTimeout(() => n.remove(), 6000);
+      };
       if (mfTransfer > 0) {
         try {
           const mfRes = await fetchWithTable('/api/mf-pool/transfer', {
@@ -941,23 +949,23 @@ export class CombatResolver {
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ delta: mfTransfer, direction: this._mfDirection }),
           });
+          const mfJson = await mfRes.json().catch(() => ({}));
+          console.log('[MF] réponse:', mfRes.status, mfJson);
           if (mfRes.ok) {
-            const mfJson = await mfRes.json();
-            // Met à jour le cache local pour l'affichage
             if (mfJson.data) this._mfPool = mfJson.data;
-            // Notifie les autres widgets (mf-pool-widget sur index/itineraire)
             document.dispatchEvent(new CustomEvent('mf-pool-transferred', { detail: mfJson.data }));
+            const from = this._mfDirection === 'pj_to_mj' ? 'PJ' : 'MJ';
+            const to   = this._mfDirection === 'pj_to_mj' ? 'MJ' : 'PJ';
+            const pj   = mfJson.data?.pj_pool ?? '?';
+            const mj   = mfJson.data?.mj_pool ?? '?';
+            _showMFNotif('bg-yellow-700', `⚡ ${mfTransfer} dé${mfTransfer > 1 ? 's' : ''} MF transféré${mfTransfer > 1 ? 's' : ''} ${from}→${to} · Pool : PJ ${pj} / MJ ${mj}`);
           } else {
-            const mfJson = await mfRes.json().catch(() => ({}));
-            console.warn('[MF] Transfert échoué:', mfRes.status, mfJson);
-            const notif = document.createElement('div');
-            notif.className   = 'fixed bottom-4 right-4 bg-yellow-800 text-white px-4 py-2.5 rounded-lg shadow-xl text-sm z-50';
-            notif.textContent = `⚡ Transfert MF échoué (${mfRes.status}${mfJson.error ? ' — ' + mfJson.error : ''})`;
-            document.body.appendChild(notif);
-            setTimeout(() => notif.remove(), 5000);
+            console.warn('[MF] Transfert refusé:', mfRes.status, mfJson);
+            _showMFNotif('bg-red-800', `⚡ Transfert MF impossible (${mfRes.status}${mfJson.error ? ' — ' + mfJson.error : ''})`);
           }
         } catch (mfErr) {
-          console.warn('[MF] Erreur réseau transfert:', mfErr);
+          console.error('[MF] Erreur réseau:', mfErr);
+          _showMFNotif('bg-red-800', `⚡ Transfert MF — erreur réseau`);
         }
       }
 
