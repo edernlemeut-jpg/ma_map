@@ -566,16 +566,20 @@ class CombatSpatialApp {
     const succes = e.succes != null
       ? `<span class="${e.succes === 0 ? 'text-red-400' : 'text-green-400'} font-semibold">${e.succes} succès</span>`
       : '';
-
-    // Description du jet : pool, difficulté, modificateur
-    let jetDesc = '<span class="text-gray-500 text-xs">Manuel</span>';
-    if (e.pool != null) {
-      const diffLabel = e.diff === 'TD' ? ' TD' : e.diff === 'TF' ? ' TF' : '';
-      const modifLabel = e.modif ? ` · ${e.modif}` : '';
-      const bonusDiffLabel = e.bonus_diff ? ` · D+${e.bonus_diff}` : '';
-      jetDesc = `<span class="text-gray-500 text-xs">${e.pool}d6${diffLabel}${modifLabel}${bonusDiffLabel}</span>`;
+    let poolLabel;
+    if (e.pool == null) {
+      poolLabel = '<span class="text-gray-500 text-xs">Manuel</span>';
+    } else if (e.difficulte) {
+      const diffStr  = e.difficulte === 'normal' ? '4+' : e.difficulte;
+      const modsStr  = e.mods ? ` [${this._esc(e.mods)}]` : '';
+      const mfStr    = e.mfDice ? ` <span class="text-yellow-400">+${e.mfDice}⚡</span>` : '';
+      poolLabel = `<span class="text-gray-500 text-xs">${e.pool}d6 ${diffStr}${modsStr}${mfStr}</span>`;
+    } else {
+      // entrée ancienne format (seuil d10)
+      const seuilStr = e.seuil != null ? `d10 ≤${e.seuil}` : 'd6';
+      poolLabel = `<span class="text-gray-500 text-xs">${e.pool}${seuilStr}</span>`;
     }
-
+    const pool = poolLabel;
     const note = e.note
       ? `<div class="text-xs text-gray-500 italic">${this._esc(e.note)}</div>`
       : '';
@@ -584,7 +588,7 @@ class CombatSpatialApp {
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-gray-500 font-mono text-xs">[${ts}]</span>
         <span class="font-medium text-gray-200">${this._esc(e.action)}</span>${acteur}
-        ${jetDesc}
+        ${pool}
         ${succes}
       </div>
       ${note}`;

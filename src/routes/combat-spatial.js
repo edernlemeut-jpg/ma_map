@@ -439,7 +439,8 @@ router.post('/:id/journal', (req, res) => {
     return validationError(res, 'Le journal ne peut être modifié que pour un combat en cours');
   }
 
-  const { action, acteur, pool, diff, modif, bonus_diff, resultats, relances, succes, note } = req.body;
+  const { action, acteur, pool, mfDice, difficulte, mods, diffPlus,
+          resultats, e2fResultats, bonusResultats, bonusType, succes, note } = req.body;
 
   if (!action || !String(action).trim()) {
     return validationError(res, 'Le champ action est requis');
@@ -453,6 +454,19 @@ router.post('/:id/journal', (req, res) => {
   if (note && String(note).trim().length > 1000) {
     return validationError(res, 'Le champ note ne peut pas dépasser 1000 caractères');
   }
+  if (difficulte != null && !['normal', 'TD', 'TF'].includes(difficulte)) {
+    return validationError(res, 'difficulte doit être normal, TD ou TF');
+  }
+  if (mods != null && String(mods).length > 30) {
+    return validationError(res, 'Le champ mods ne peut pas dépasser 30 caractères');
+  }
+  if (bonusType != null && String(bonusType).length > 10) {
+    return validationError(res, 'Le champ bonusType ne peut pas dépasser 10 caractères');
+  }
+
+  const isValidD6Array = (arr, maxLen = 20) =>
+    Array.isArray(arr) && arr.length >= 1 && arr.length <= maxLen &&
+    arr.every(r => Number.isInteger(r) && r >= 1 && r <= 6);
 
   let journal = [];
   try { journal = row.journal_json ? JSON.parse(row.journal_json) : []; } catch { /* garder vide */ }
@@ -461,32 +475,27 @@ router.post('/:id/journal', (req, res) => {
     return validationError(res, 'Le journal de ce combat a atteint la limite de 500 entrées');
   }
 
-  const poolNum   = Number.isFinite(Number(pool))       ? Number(pool)       : null;
-  const succesNum = Number.isFinite(Number(succes))      ? Number(succes)     : null;
-  const bonusDiffNum = Number.isFinite(Number(bonus_diff)) ? Number(bonus_diff) : null;
-
-  const VALID_DIFF  = ['standard', 'TD', 'TF'];
-  const VALID_MODIF = ['E2F', 'e2f', 'SC', 'sc', 'PMF', 'pmf', 'aucun'];
+  const poolNum   = Number.isFinite(Number(pool))    ? Number(pool)    : null;
+  const mfDiceNum = Number.isFinite(Number(mfDice))  ? Number(mfDice)  : null;
+  const diffPlusN = Number.isFinite(Number(diffPlus)) ? Number(diffPlus) : null;
+  const succesNum = Number.isFinite(Number(succes))  ? Number(succes)  : null;
 
   const entry = {
-    id:         Date.now(),
-    ts:         new Date().toISOString(),
-    action:     String(action).trim(),
-    acteur:     acteur ? String(acteur).trim() : null,
-    pool:       (poolNum !== null && poolNum >= 1 && poolNum <= 20) ? poolNum : null,
-    diff:       VALID_DIFF.includes(diff) ? diff : null,
-    modif:      VALID_MODIF.includes(modif) ? modif : null,
-    bonus_diff: (bonusDiffNum !== null && bonusDiffNum >= 0) ? bonusDiffNum : null,
-    resultats:  (Array.isArray(resultats) &&
-                 resultats.length >= 1 && resultats.length <= 20 &&
-                 resultats.every(r => Number.isInteger(r) && r >= 1 && r <= 6))
-                ? resultats : null,
-    relances:   (Array.isArray(relances) &&
-                 relances.length >= 1 && relances.length <= 20 &&
-                 relances.every(r => r === null || (Number.isInteger(r) && r >= 1 && r <= 6)))
-                ? relances : null,
-    succes:     (succesNum !== null && succesNum >= 0) ? succesNum : null,
-    note:       note ? String(note).trim() : null,
+    id:             Date.now(),
+    ts:             new Date().toISOString(),
+    action:         String(action).trim(),
+    acteur:         acteur ? String(acteur).trim() : null,
+    pool:           (poolNum !== null && poolNum >= 1 && poolNum <= 30) ? poolNum : null,
+    mfDice:         (mfDiceNum !== null && mfDiceNum >= 0 && mfDiceNum <= 50) ? mfDiceNum : null,
+    difficulte:     ['normal', 'TD', 'TF'].includes(difficulte) ? difficulte : null,
+    mods:           mods ? String(mods).trim().slice(0, 30) : null,
+    diffPlus:       (diffPlusN !== null && diffPlusN >= 0) ? diffPlusN : null,
+    resultats:      isValidD6Array(resultats)      ? resultats      : null,
+    e2fResultats:   isValidD6Array(e2fResultats)   ? e2fResultats   : null,
+    bonusResultats: isValidD6Array(bonusResultats) ? bonusResultats : null,
+    bonusType:      bonusType ? String(bonusType).trim().slice(0, 10) : null,
+    succes:         (succesNum !== null && succesNum >= 0) ? succesNum : null,
+    note:           note ? String(note).trim() : null,
   };
 
   // Prépend (ordre chronologique inversé : le plus récent en premier)
