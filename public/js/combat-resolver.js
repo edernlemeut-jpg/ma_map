@@ -412,6 +412,12 @@ export class CombatResolver {
 
               <!-- Total -->
               <div id="res-successes" class="pt-2 border-t border-gray-700 text-center text-lg font-bold"></div>
+
+              <!-- Blessures MF accident -->
+              <div id="res-step-mf-accident" class="hidden pt-2 border-t border-red-900/40 bg-red-950/30 rounded-b-lg px-2 py-2">
+                <div class="text-xs text-red-400 font-semibold mb-0.5">🩸 Risque d'accident</div>
+                <div id="res-mf-accident-detail" class="text-xs text-red-300"></div>
+              </div>
             </div>
 
           </div><!-- /panneau dés -->
@@ -796,11 +802,36 @@ export class CombatResolver {
     this._el.querySelector('#res-successes').innerHTML =
       `<span class="${sucColor}">${sucTitle}</span>${diffHint}`;
 
+    // ── Accidents MF ─────────────────────────────────────────────────────────
+    // Règle : tout dé MF affichant 1 inflige 1S (ignore Blindage & Protection)
+    const actionVal   = this._el.querySelector('#res-action').value;
+    const actionInfo  = ACTIONS.find(a => a.value === actionVal);
+    const mfAccidents = initialMF.filter(v => v === 1).length;
+    const stepAcc     = this._el.querySelector('#res-step-mf-accident');
+    const detailAcc   = this._el.querySelector('#res-mf-accident-detail');
+
+    if (actionInfo?.accidentRisk && mfCount > 0) {
+      stepAcc.classList.remove('hidden');
+      if (mfAccidents === 0) {
+        detailAcc.innerHTML =
+          `${mfCount} dé${mfCount > 1 ? 's' : ''} MF lancé${mfCount > 1 ? 's' : ''} — ` +
+          `<span class="text-green-400">aucun 1 → pas de blessure</span>`;
+      } else {
+        detailAcc.innerHTML =
+          `${mfCount} dé${mfCount > 1 ? 's' : ''} MF lancé${mfCount > 1 ? 's' : ''} — ` +
+          `<strong class="text-red-300">${mfAccidents} dé${mfAccidents > 1 ? 's' : ''} à 1 → ${mfAccidents}S</strong> ` +
+          `<span class="text-gray-400">(ignore Blindage &amp; Protection)</span>`;
+      }
+    } else {
+      stepAcc.classList.add('hidden');
+    }
+
     this._el.querySelector('#res-results').classList.remove('hidden');
 
     this._lastRoll = {
       pool:           totalPool,
       mfDice:         mfCount || null,
+      mfAccidents:    (actionInfo?.accidentRisk && mfCount > 0 && mfAccidents > 0) ? mfAccidents : null,
       difficulte:     this._diff,
       mods:           modsLabel(net) || null,
       diffPlus:       diffPlus || null,
