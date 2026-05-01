@@ -439,7 +439,7 @@ router.post('/:id/journal', (req, res) => {
     return validationError(res, 'Le journal ne peut être modifié que pour un combat en cours');
   }
 
-  const { action, acteur, pool, mfDice, difficulte, mods, diffPlus,
+  const { action, acteur, pool, mfDice, mfAccidents, difficulte, mods, diffPlus,
           resultats, e2fResultats, bonusResultats, bonusType, succes, note } = req.body;
 
   if (!action || !String(action).trim()) {
@@ -475,10 +475,11 @@ router.post('/:id/journal', (req, res) => {
     return validationError(res, 'Le journal de ce combat a atteint la limite de 500 entrées');
   }
 
-  const poolNum   = Number.isFinite(Number(pool))    ? Number(pool)    : null;
-  const mfDiceNum = Number.isFinite(Number(mfDice))  ? Number(mfDice)  : null;
-  const diffPlusN = Number.isFinite(Number(diffPlus)) ? Number(diffPlus) : null;
-  const succesNum = Number.isFinite(Number(succes))  ? Number(succes)  : null;
+  const poolNum      = Number.isFinite(Number(pool))         ? Number(pool)         : null;
+  const mfDiceNum    = Number.isFinite(Number(mfDice))       ? Number(mfDice)       : null;
+  const mfAccidentsN = Number.isFinite(Number(mfAccidents))  ? Number(mfAccidents)  : null;
+  const diffPlusN    = Number.isFinite(Number(diffPlus))     ? Number(diffPlus)     : null;
+  const succesNum    = Number.isFinite(Number(succes))       ? Number(succes)       : null;
 
   const entry = {
     id:             Date.now(),
@@ -487,6 +488,7 @@ router.post('/:id/journal', (req, res) => {
     acteur:         acteur ? String(acteur).trim() : null,
     pool:           (poolNum !== null && poolNum >= 1 && poolNum <= 30) ? poolNum : null,
     mfDice:         (mfDiceNum !== null && mfDiceNum >= 0 && mfDiceNum <= 50) ? mfDiceNum : null,
+    mfAccidents:    (mfAccidentsN !== null && mfAccidentsN >= 0 && mfAccidentsN <= 50) ? mfAccidentsN : null,
     difficulte:     ['normal', 'TD', 'TF'].includes(difficulte) ? difficulte : null,
     mods:           mods ? String(mods).trim().slice(0, 30) : null,
     diffPlus:       (diffPlusN !== null && diffPlusN >= 0) ? diffPlusN : null,
