@@ -844,7 +844,7 @@ export class CombatResolver {
 
     // Transfert + inscription immédiats au moment du jet
     if (mfCount > 0) await this._doMFTransfer(mfCount);
-    await this._inscrire();
+    await this._inscrire(false);
   }
 
   // ── Transfert Metal Faktor ──────────────────────────────────────────────────────
@@ -898,7 +898,7 @@ export class CombatResolver {
     this._el.querySelector('#res-inscrire-manuel').disabled = !canInscrire;
   }
 
-  async _inscrire() {
+  async _inscrire(closeAfter = true) {
     const sel    = this._el.querySelector('#res-action');
     const action = sel.value === 'Autre'
       ? this._el.querySelector('#res-action-text').value.trim()
@@ -970,7 +970,7 @@ export class CombatResolver {
       document.dispatchEvent(new CustomEvent('journal-entry', {
         detail: { combatId: this._combatId, entry: confirmedEntry },
       }));
-      this.close();
+      if (closeAfter) this.close();
     } catch (err) {
       const errEl = document.createElement('div');
       errEl.className   = 'fixed bottom-4 right-4 bg-red-800 text-white px-4 py-2.5 rounded-lg shadow-xl text-sm z-50';
