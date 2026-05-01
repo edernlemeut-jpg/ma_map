@@ -434,6 +434,10 @@ export class CombatResolver {
               <textarea id="res-note-manuel" rows="2" placeholder="Ex : +1d de Viser, manœuvre défensive active…"
                 class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500 resize-none"></textarea>
             </div>
+            <button id="res-inscrire-manuel" disabled
+              class="w-full py-2 text-sm rounded bg-green-800 hover:bg-green-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              Inscrire au journal
+            </button>
           </div>
 
           <!-- Note (mode dés) -->
@@ -448,10 +452,6 @@ export class CombatResolver {
         <!-- Pied -->
         <div class="px-5 pb-5 pt-4 border-t border-gray-700 flex justify-end gap-3">
           <button id="res-cancel" class="px-4 py-2 text-sm text-gray-400 hover:text-gray-200">Fermer</button>
-          <button id="res-inscrire" disabled
-            class="px-4 py-2 text-sm rounded bg-green-800 hover:bg-green-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-            Inscrire au journal
-          </button>
         </div>
       </div>`;
   }
@@ -529,7 +529,7 @@ export class CombatResolver {
     });
 
     el.querySelector('#res-lancer').addEventListener('click',   () => this._lancerDes());
-    el.querySelector('#res-inscrire').addEventListener('click', () => this._inscrire());
+    el.querySelector('#res-inscrire-manuel').addEventListener('click', () => this._inscrire());
     el.querySelector('#res-succes-manuel').addEventListener('input', () => this._updateInscireBtn());
 
     this._updateDiffUI();
@@ -842,10 +842,9 @@ export class CombatResolver {
       succes:         successesNow,
     };
 
-    // Transfert immédiat au moment du jet (pas à l'inscription)
+    // Transfert + inscription immédiats au moment du jet
     if (mfCount > 0) await this._doMFTransfer(mfCount);
-
-    this._updateInscireBtn();
+    await this._inscrire();
   }
 
   // ── Transfert Metal Faktor ──────────────────────────────────────────────────────
@@ -890,16 +889,13 @@ export class CombatResolver {
   }
 
   _updateInscireBtn() {
+    if (this._mode !== 'manuel') return;
     const sel    = this._el.querySelector('#res-action');
     const action = sel.value;
-    let canInscrire = Boolean(action);
-
-    if (action === 'Autre') {
-      canInscrire = Boolean(this._el.querySelector('#res-action-text').value.trim());
-    }
-    if (this._mode === 'des' && !this._lastRoll) canInscrire = false;
-
-    this._el.querySelector('#res-inscrire').disabled = !canInscrire;
+    const canInscrire = action === 'Autre'
+      ? Boolean(this._el.querySelector('#res-action-text').value.trim())
+      : Boolean(action);
+    this._el.querySelector('#res-inscrire-manuel').disabled = !canInscrire;
   }
 
   async _inscrire() {
@@ -958,10 +954,6 @@ export class CombatResolver {
       return;
     }
 
-    const btn = this._el.querySelector('#res-inscrire');
-    btn.disabled    = true;
-    btn.textContent = 'Inscription…';
-
     try {
       const res = await fetchWithTable(`/api/combat-spatial/${this._combatId}/journal`, {
         method:  'POST',
@@ -975,18 +967,14 @@ export class CombatResolver {
         ? json.data.journal[0]
         : entry;
 
-      // (Transfert MF déjà effectué au moment du jet)
-
       document.dispatchEvent(new CustomEvent('journal-entry', {
         detail: { combatId: this._combatId, entry: confirmedEntry },
       }));
       this.close();
     } catch (err) {
-      btn.disabled    = false;
-      btn.textContent = 'Inscrire au journal';
       const errEl = document.createElement('div');
       errEl.className   = 'fixed bottom-4 right-4 bg-red-800 text-white px-4 py-2.5 rounded-lg shadow-xl text-sm z-50';
-      errEl.textContent = err.message;
+      errEl.textContent = `Erreur inscription : ${err.message}`;
       document.body.appendChild(errEl);
       setTimeout(() => errEl.remove(), 4000);
     }
@@ -1000,7 +988,6 @@ export class CombatResolver {
     this._el.querySelector('#res-action-libre').classList.add('hidden');
     this._el.querySelector('#res-action-text').value    = '';
     this._el.querySelector('#res-acteur').value         = '';
-    this._el.querySelector('#res-inscrire').textContent = 'Inscrire au journal';
     this._el.querySelector('#res-pool').value           = '3';
     this._el.querySelector('#res-plus1d').value         = '0';
     this._el.querySelector('#res-dplus1').value         = '0';
