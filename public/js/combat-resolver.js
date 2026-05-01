@@ -930,18 +930,35 @@ export class CombatResolver {
         ? json.data.journal[0]
         : entry;
 
-      // Transfert Metal Faktor
-      const mfDice   = this._lastRoll?.mfDice || 0;
+      // Transfert Metal Faktor (uniquement en mode dés avec dés MF)
+      const mfDice   = (this._mode === 'des' ? this._lastRoll?.mfDice : null) || 0;
       const violent  = this._el.querySelector('#res-mf-violent').checked;
-      const transfer = Math.max(0, mfDice - (violent ? 1 : 0));
-      if (transfer > 0) {
+      const mfTransfer = Math.max(0, mfDice - (violent ? 1 : 0));
+      if (mfTransfer > 0) {
         try {
-          await fetchWithTable('/api/mf-pool/transfer', {
+          const mfRes = await fetchWithTable('/api/mf-pool/transfer', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ delta: transfer, direction: this._mfDirection }),
+            body:    JSON.stringify({ delta: mfTransfer, direction: this._mfDirection }),
           });
-        } catch { /* transfert MF silencieux */ }
+          if (mfRes.ok) {
+            const mfJson = await mfRes.json();
+            // Met à jour le cache local pour l'affichage
+            if (mfJson.data) this._mfPool = mfJson.data;
+            // Notifie les autres widgets (mf-pool-widget sur index/itineraire)
+            document.dispatchEvent(new CustomEvent('mf-pool-transferred', { detail: mfJson.data }));
+          } else {
+            const mfJson = await mfRes.json().catch(() => ({}));
+            console.warn('[MF] Transfert échoué:', mfRes.status, mfJson);
+            const notif = document.createElement('div');
+            notif.className   = 'fixed bottom-4 right-4 bg-yellow-800 text-white px-4 py-2.5 rounded-lg shadow-xl text-sm z-50';
+            notif.textContent = `⚡ Transfert MF échoué (${mfRes.status}${mfJson.error ? ' — ' + mfJson.error : ''})`;
+            document.body.appendChild(notif);
+            setTimeout(() => notif.remove(), 5000);
+          }
+        } catch (mfErr) {
+          console.warn('[MF] Erreur réseau transfert:', mfErr);
+        }
       }
 
       document.dispatchEvent(new CustomEvent('journal-entry', {
