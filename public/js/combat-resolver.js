@@ -710,7 +710,7 @@ export class CombatResolver {
     this._updateInscireBtn();
   }
 
-  _lancerDes() {
+  async _lancerDes() {
     const poolBase    = Math.max(1, Math.min(20, parseInt(this._el.querySelector('#res-pool').value)      || 3));
     const plus1d      = Math.max(0, Math.min(10, parseInt(this._el.querySelector('#res-plus1d').value)    || 0));
     const diffPlus    = Math.max(0, Math.min(10, parseInt(this._el.querySelector('#res-dplus1').value)    || 0));
