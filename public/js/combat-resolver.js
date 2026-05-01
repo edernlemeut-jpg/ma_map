@@ -841,7 +841,52 @@ export class CombatResolver {
       bonusType,
       succes:         successesNow,
     };
+
+    // Transfert immédiat au moment du jet (pas à l'inscription)
+    if (mfCount > 0) await this._doMFTransfer(mfCount);
+
     this._updateInscireBtn();
+  }
+
+  // ── Transfert Metal Faktor ──────────────────────────────────────────────────────
+  async _doMFTransfer(mfCount) {
+    const violent    = this._el.querySelector('#res-mf-violent').checked;
+    const mfTransfer = Math.max(0, mfCount - (violent ? 1 : 0));
+    const _showMFNotif = (cls, msg) => {
+      const n = document.createElement('div');
+      n.className   = `fixed bottom-4 right-4 ${cls} text-white px-4 py-2.5 rounded-lg shadow-xl text-sm z-50`;
+      n.textContent = msg;
+      document.body.appendChild(n);
+      setTimeout(() => n.remove(), 6000);
+    };
+    if (mfTransfer === 0) {
+      _showMFNotif('bg-gray-700', `⚡ ${mfCount} dé${mfCount > 1 ? 's' : ''} MF · aucun transfert (action violente)`);
+      return;
+    }
+    try {
+      const mfRes = await fetchWithTable('/api/mf-pool/transfer', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ delta: mfTransfer, direction: this._mfDirection }),
+      });
+      const mfJson = await mfRes.json().catch(() => ({}));
+      if (mfRes.ok) {
+        if (mfJson.data) {
+          this._mfPool = mfJson.data;
+          this._updateMFUI();
+        }
+        document.dispatchEvent(new CustomEvent('mf-pool-transferred', { detail: mfJson.data }));
+        const from = this._mfDirection === 'pj_to_mj' ? 'PJ' : 'MJ';
+        const to   = this._mfDirection === 'pj_to_mj' ? 'MJ' : 'PJ';
+        const pj   = mfJson.data?.pj_pool ?? '?';
+        const mj   = mfJson.data?.mj_pool ?? '?';
+        _showMFNotif('bg-yellow-700', `⚡ ${mfTransfer} dé${mfTransfer > 1 ? 's' : ''} MF transféré${mfTransfer > 1 ? 's' : ''} ${from}→${to} · PJ ${pj} / MJ ${mj}`);
+      } else {
+        _showMFNotif('bg-red-800', `⚡ Transfert MF impossible (${mfRes.status}${mfJson.error ? ' — ' + mfJson.error : ''})`);
+      }
+    } catch {
+      _showMFNotif('bg-red-800', `⚡ Transfert MF — erreur réseau`);
+    }
   }
 
   _updateInscireBtn() {
@@ -930,51 +975,7 @@ export class CombatResolver {
         ? json.data.journal[0]
         : entry;
 
-      // Transfert Metal Faktor (uniquement en mode dés avec dés MF)
-      const mfDice     = (this._mode === 'des' ? this._lastRoll?.mfDice : null) || 0;
-      const violent    = this._el.querySelector('#res-mf-violent').checked;
-      const mfTransfer = Math.max(0, mfDice - (violent ? 1 : 0));
-      console.log('[MF] mode:', this._mode, '| mfDice:', mfDice, '| violent:', violent, '| transfer:', mfTransfer, '| direction:', this._mfDirection);
-      const _showMFNotif = (cls, msg) => {
-        const n = document.createElement('div');
-        n.className   = `fixed bottom-4 right-4 ${cls} text-white px-4 py-2.5 rounded-lg shadow-xl text-sm z-50`;
-        n.textContent = msg;
-        document.body.appendChild(n);
-        setTimeout(() => n.remove(), 6000);
-      };
-      if (mfDice === 0) {
-        // Aucun dé MF utilisé — pas de transfert
-      } else if (mfTransfer === 0) {
-        _showMFNotif('bg-gray-700', `⚡ ${mfDice} dé${mfDice > 1 ? 's' : ''} MF · aucun transfert (action violente)`);
-      } else {
-        try {
-          const mfRes = await fetchWithTable('/api/mf-pool/transfer', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ delta: mfTransfer, direction: this._mfDirection }),
-          });
-          const mfJson = await mfRes.json().catch(() => ({}));
-          console.log('[MF] réponse:', mfRes.status, mfJson);
-          if (mfRes.ok) {
-            if (mfJson.data) {
-              this._mfPool = mfJson.data;
-              this._updateMFUI();
-            }
-            document.dispatchEvent(new CustomEvent('mf-pool-transferred', { detail: mfJson.data }));
-            const from = this._mfDirection === 'pj_to_mj' ? 'PJ' : 'MJ';
-            const to   = this._mfDirection === 'pj_to_mj' ? 'MJ' : 'PJ';
-            const pj   = mfJson.data?.pj_pool ?? '?';
-            const mj   = mfJson.data?.mj_pool ?? '?';
-            _showMFNotif('bg-yellow-700', `⚡ ${mfTransfer} dé${mfTransfer > 1 ? 's' : ''} MF transféré${mfTransfer > 1 ? 's' : ''} ${from}→${to} · Pool : PJ ${pj} / MJ ${mj}`);
-          } else {
-            console.warn('[MF] Transfert refusé:', mfRes.status, mfJson);
-            _showMFNotif('bg-red-800', `⚡ Transfert MF impossible (${mfRes.status}${mfJson.error ? ' — ' + mfJson.error : ''})`);
-          }
-        } catch (mfErr) {
-          console.error('[MF] Erreur réseau:', mfErr);
-          _showMFNotif('bg-red-800', `⚡ Transfert MF — erreur réseau`);
-        }
-      }
+      // (Transfert MF déjà effectué au moment du jet)
 
       document.dispatchEvent(new CustomEvent('journal-entry', {
         detail: { combatId: this._combatId, entry: confirmedEntry },

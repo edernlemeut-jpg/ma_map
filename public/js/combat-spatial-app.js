@@ -575,13 +575,32 @@ class CombatSpatialApp {
       const mfStr    = e.mfDice ? ` <span class="text-yellow-400">+${e.mfDice}⚡</span>` : '';
       poolLabel = `<span class="text-gray-500 text-xs">${e.pool}d6 ${diffStr}${modsStr}${mfStr}</span>`;
     } else {
-      // entrée ancienne format (seuil d10)
       const seuilStr = e.seuil != null ? `d10 ≤${e.seuil}` : 'd6';
       poolLabel = `<span class="text-gray-500 text-xs">${e.pool}${seuilStr}</span>`;
     }
     const pool = poolLabel;
     const note = e.note
       ? `<div class="text-xs text-gray-500 italic">${this._esc(e.note)}</div>`
+      : '';
+
+    // Affichage des dés (résultats bruts)
+    let diceRow = '';
+    if (Array.isArray(e.resultats) && e.resultats.length > 0) {
+      const mfOffset = (e.resultats.length) - (e.mfDice || 0);
+      const dice = e.resultats.map((v, i) => {
+        const isMF  = i >= mfOffset;
+        const isSucc = e.difficulte === 'TF' ? (v >= 6) : e.difficulte === 'TD' ? (v >= 5) : (v >= 4);
+        const bg = isMF
+          ? (isSucc ? 'bg-green-900 border-yellow-500 text-yellow-200' : 'bg-red-950 border-yellow-700 text-red-400')
+          : (isSucc ? 'bg-green-900 border-green-600 text-green-200'   : 'bg-gray-800 border-gray-600 text-gray-400');
+        return `<span class="inline-flex items-center justify-center w-6 h-6 rounded border text-xs font-mono font-bold ${bg}">${isMF ? '⚡' : ''}${v}</span>`;
+      }).join('\u200b');
+      diceRow = `<div class="flex flex-wrap gap-0.5 mt-1">${dice}</div>`;
+    }
+
+    // Dégâts accident MF
+    const accidentRow = (e.mfAccidents > 0)
+      ? `<div class="text-xs text-red-400 mt-0.5">🩸 ${e.mfAccidents}S — dés MF ⚡ à 1 (ignore Blindage)</div>`
       : '';
 
     li.innerHTML = `
@@ -591,6 +610,8 @@ class CombatSpatialApp {
         ${pool}
         ${succes}
       </div>
+      ${diceRow}
+      ${accidentRow}
       ${note}`;
     return li;
   }
