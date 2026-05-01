@@ -942,7 +942,11 @@ export class CombatResolver {
         document.body.appendChild(n);
         setTimeout(() => n.remove(), 6000);
       };
-      if (mfTransfer > 0) {
+      if (mfDice === 0) {
+        // Aucun dé MF utilisé — pas de transfert
+      } else if (mfTransfer === 0) {
+        _showMFNotif('bg-gray-700', `⚡ ${mfDice} dé${mfDice > 1 ? 's' : ''} MF · aucun transfert (action violente)`);
+      } else {
         try {
           const mfRes = await fetchWithTable('/api/mf-pool/transfer', {
             method:  'POST',
