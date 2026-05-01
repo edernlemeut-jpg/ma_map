@@ -952,7 +952,10 @@ export class CombatResolver {
           const mfJson = await mfRes.json().catch(() => ({}));
           console.log('[MF] réponse:', mfRes.status, mfJson);
           if (mfRes.ok) {
-            if (mfJson.data) this._mfPool = mfJson.data;
+            if (mfJson.data) {
+              this._mfPool = mfJson.data;
+              this._updateMFUI();
+            }
             document.dispatchEvent(new CustomEvent('mf-pool-transferred', { detail: mfJson.data }));
             const from = this._mfDirection === 'pj_to_mj' ? 'PJ' : 'MJ';
             const to   = this._mfDirection === 'pj_to_mj' ? 'MJ' : 'PJ';

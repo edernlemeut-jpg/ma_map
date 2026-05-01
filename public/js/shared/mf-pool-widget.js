@@ -103,10 +103,12 @@ export async function initMFPoolWidget(containerId, tableId) {
   // ── Load initial state ──
   await loadPool(tableId);
 
-  // Rafraîchit automatiquement quand un autre composant (combat resolver…) effectue un transfert
+  // ── Écoute les transferts déclenchés par le combat resolver (autre composant) ──
   document.addEventListener('mf-pool-transferred', (e) => {
-    if (e.detail) { state = e.detail; renderState(); }
-    else { loadPool(tableId); }
+    if (e.detail) {
+      state = e.detail;
+      renderState();
+    }
   });
 
   // ── Helpers ──
