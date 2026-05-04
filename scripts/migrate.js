@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 
 function migrate() {
   const currentVersion = db.pragma('user_version', { simple: true });
@@ -30,6 +30,7 @@ function migrate() {
   if (currentVersion < 9) migrateV9();
   if (currentVersion < 10) migrateV10();
   if (currentVersion < 11) migrateV11();
+  if (currentVersion < 12) migrateV12();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
   console.log(`✅ Migrated to schema version ${SCHEMA_VERSION}`);
@@ -78,6 +79,7 @@ function migrateV1() {
       route TEXT DEFAULT '',
       gouvernement TEXT DEFAULT '',
       description TEXT DEFAULT '',
+      texte_ambiance TEXT DEFAULT '',
       soleil_json TEXT DEFAULT '{}',
       corps_celestes_json TEXT DEFAULT '[]',
       patrouilles_json TEXT DEFAULT '[]',
@@ -469,15 +471,6 @@ function migrateV9() {
   console.log('✅ v9: ships.position_json column added');
 }
 
-function migrateV11() {
-  console.log('🔧 Applying migration v11...');
-  const shipCols = db.prepare('PRAGMA table_info(ships)').all().map(c => c.name);
-  if (!shipCols.includes('owner_character_id')) {
-    db.exec("ALTER TABLE ships ADD COLUMN owner_character_id TEXT DEFAULT NULL");
-  }
-  console.log('✅ v11: ships.owner_character_id column added');
-}
-
 function migrateV10() {
   console.log('🔧 Applying migration v10...');
   db.exec(`
@@ -504,6 +497,29 @@ function migrateV10() {
     db.exec("ALTER TABLE systems ADD COLUMN peril_list_id TEXT DEFAULT ''");
   }
   console.log('✅ v10: admin_peril_tables, admin_quadrant_defaults, admin_systems, systems.peril_list_id');
+}
+
+function migrateV12() {
+  console.log('🔧 Applying migration v11...');
+  const sCols = db.prepare('PRAGMA table_info(ships)').all().map(c => c.name);
+  if (!sCols.includes('equipage_detail_json')) {
+    db.exec("ALTER TABLE ships ADD COLUMN equipage_detail_json TEXT DEFAULT '[]'");
+  }
+  if (!sCols.includes('systemes_secondaires_etat_json')) {
+    db.exec("ALTER TABLE ships ADD COLUMN systemes_secondaires_etat_json TEXT DEFAULT '[]'");
+  }
+  if (!sCols.includes('armement_etat_json')) {
+    db.exec("ALTER TABLE ships ADD COLUMN armement_etat_json TEXT DEFAULT '[]'");
+  }
+  // ship_models: add tonnage + longueur if missing (they were added in earlier versions but may be absent)
+  const smCols = db.prepare('PRAGMA table_info(ship_models)').all().map(c => c.name);
+  if (!smCols.includes('tonnage')) {
+    db.exec("ALTER TABLE ship_models ADD COLUMN tonnage TEXT DEFAULT ''");
+  }
+  if (!smCols.includes('longueur')) {
+    db.exec("ALTER TABLE ship_models ADD COLUMN longueur TEXT DEFAULT ''");
+  }
+  console.log('✅ v12: ships.equipage_detail_json, systemes_secondaires_etat_json, armement_etat_json');
 }
 
 migrate();

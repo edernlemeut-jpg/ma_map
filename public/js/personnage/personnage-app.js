@@ -3,6 +3,72 @@
  */
 import { initHeader } from '/js/shared/header.js';
 import { isMJ, getActiveTableId, fetchWithTable } from '/js/shared/table-selector.js';
+import { DiceRollerModal } from '/js/shared/dice-roller.js';
+
+// ── Dés — singleton lazy ──────────────────────────────────────────────────────
+let _diceRoller = null;
+function getDiceRoller() {
+  if (!_diceRoller) _diceRoller = new DiceRollerModal();
+  return _diceRoller;
+}
+
+/**
+ * Affiche une modale d'info pour une compétence (description + bouton lancer).
+ * @param {string} name  — nom de la compétence
+ * @param {number} pool  — dés calculés (attribut + rang)
+ */
+function openCompInfo(name, pool) {
+  const comp = (REF?.competences || []).find(c => c.name === name);
+  // Pour les variantes "Au choix" typées (ex : "Pilotage (vaisseau spatial)"),
+  // chercher la compétence parente générique pour la description et les spécialités.
+  let parentComp = null;
+  if (!comp?.description) {
+    const base = name.split('(')[0].trim().toLowerCase();
+    parentComp = (REF?.competences || []).find(c =>
+      /\(au choix/i.test(c.name) && c.name.split('(')[0].trim().toLowerCase() === base
+    );
+  }
+  const domainId    = comp?.domain || parentComp?.domain || findCompDomain(name);
+  const domainLabel = (REF?.domaines || []).find(d => d.id === domainId)?.nom || domainId;
+  const desc        = comp?.description || parentComp?.description || '';
+  const specs       = comp?.specialites || parentComp?.specialites;
+  document.getElementById('dr-comp-info-overlay')?.remove();
+  const el = document.createElement('div');
+  el.id = 'dr-comp-info-overlay';
+  el.className = 'fixed inset-0 bg-black/70 z-50 flex items-start justify-center p-4 pt-20 overflow-y-auto';
+  const specsHtml = specs?.length
+    ? `<div class="mb-4">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5">Spécialités</p>
+        <div class="flex flex-wrap gap-1.5">${specs.map(s => `<span class="text-xs bg-indigo-900/60 text-indigo-200 px-2 py-0.5 rounded-full border border-indigo-700/50">${esc(s)}</span>`).join('')}</div>
+      </div>`
+    : '';
+  el.innerHTML = `
+    <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md border border-gray-600 p-5">
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <h3 class="font-semibold text-gray-100 text-base">${esc(name)}</h3>
+          ${domainLabel ? `<p class="text-xs text-indigo-300 mt-0.5">${esc(domainLabel)}</p>` : ''}
+        </div>
+        <button id="dr-comp-info-close" class="text-gray-400 hover:text-white text-xl leading-none ml-3 flex-shrink-0">&times;</button>
+      </div>
+      ${desc
+        ? `<p class="text-sm text-gray-300 leading-relaxed mb-4">${esc(desc)}</p>`
+        : '<p class="text-sm text-gray-500 italic mb-4">Aucune description disponible.</p>'}
+      ${specsHtml}
+      <button id="dr-comp-info-roll"
+        class="w-full py-2.5 rounded font-medium text-sm bg-red-800 hover:bg-red-700 text-white transition-colors flex items-center justify-center gap-2">
+        🎲 Lancer les dés
+        <span class="text-red-200 text-xs">(${pool}d)</span>
+      </button>
+    </div>`;
+  document.body.appendChild(el);
+  el.querySelector('#dr-comp-info-close').addEventListener('click', () => el.remove());
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+  el.querySelector('#dr-comp-info-roll').addEventListener('click', () => {
+    el.remove();
+    getDiceRoller().open({ title: name, pool, context: domainLabel });
+  });
+}
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const API = {
@@ -171,6 +237,7 @@ let CHARS_CACHE   = [];          // dernier fetch de la liste (pour changer d'on
 let MUTATION_TAB  = 'basique';               // UI-only : onglet actif de l'étape Mutations
 let SHEET_TAB     = 'caracteristiques';      // UI-only : onglet actif de la fiche
 let CURRENT_SHEET_CHAR = null;               // char courant affiché en fiche
+let SHEET_POLL = null;                       // intervalle de polling pour la fiche
 
 // ── Initialisation ────────────────────────────────────────────────────────────
 async function init() {
@@ -194,7 +261,30 @@ async function init() {
   }
 
   document.getElementById('loading').classList.add('hidden');
-  showListView();
+
+  const params = new URLSearchParams(window.location.search);
+  const newParam  = params.get('new');
+  const viewParam = params.get('view');
+  const editParam = params.get('edit');
+
+  if (newParam === 'pj' || newParam === 'pnj') {
+    // Masquer le header et la barre titre/actions — mode création depuis univers
+    document.querySelector('header')?.classList.add('hidden');
+    document.querySelector('main > div.flex.items-center.justify-between')?.classList.add('hidden');
+    startWizard(newParam);
+  } else if (editParam) {
+    // Lancer directement le wizard en mode édition
+    document.querySelector('header')?.classList.add('hidden');
+    document.querySelector('main > div.flex.items-center.justify-between')?.classList.add('hidden');
+    await editChar(editParam);
+  } else if (viewParam) {
+    // Afficher directement la fiche en lecture (embed dans modal univers)
+    document.querySelector('header')?.classList.add('hidden');
+    document.querySelector('main > div.flex.items-center.justify-between')?.classList.add('hidden');
+    await showSheet(viewParam);
+  } else {
+    showListView();
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);
@@ -438,6 +528,24 @@ async function showSheet(id) {
     const { data: char } = await r.json();
     CURRENT_SHEET_CHAR = char;
     renderAndAttachSheet(container, char);
+    // Polling 5s pour synchroniser les changements MJ↔joueur
+    SHEET_POLL = setInterval(async () => {
+      if (!CURRENT_SHEET_CHAR) return;
+      try {
+        const fr = await fetchWithTable(`${API.characters}/${id}`, { credentials: 'include' });
+        if (!fr.ok) return;
+        const { data: fresh } = await fr.json();
+        const changed = fresh.pp !== CURRENT_SHEET_CHAR.pp ||
+          fresh.energie_x_cur !== CURRENT_SHEET_CHAR.energie_x_cur ||
+          JSON.stringify(fresh.sante) !== JSON.stringify(CURRENT_SHEET_CHAR.sante);
+        if (changed) {
+          CURRENT_SHEET_CHAR = fresh;
+          const c = document.getElementById('sheet-view');
+          if (c && SHEET_TAB === 'caracteristiques') renderAndAttachSheet(c, fresh);
+          else if (c) { /* mise à jour silencieuse, sera visible au prochain changement d'onglet */ }
+        }
+      } catch { /* ignore */ }
+    }, 5000);
   } catch {
     container.innerHTML = '<p class="text-red-400">Impossible de charger le personnage.</p>';
   }
@@ -445,13 +553,18 @@ async function showSheet(id) {
 
 function renderAndAttachSheet(container, char) {
   container.innerHTML = renderSheet(char);
-  // Trackers
-  const state = _loadTrackerState(char.id);
-  _applyTrackerState(container, state);
+  // Trackers — état depuis le serveur (sante, pp, energie_x_cur)
+  _applyTrackerStateFromServer(container, char);
   container.querySelectorAll('.tracker-box[data-tracker-id]').forEach(box => {
-    box.addEventListener('click', () => {
-      box.classList.toggle('checked');
-      _saveTrackerState(char.id, _collectTrackerState(container));
+    box.addEventListener('click', async () => {
+      const tid = box.dataset.trackerId;
+      if (tid.startsWith('pnj-e')) {
+        // Entités PNJ → localStorage uniquement
+        box.classList.toggle('checked');
+        _saveTrackerState(char.id, _collectTrackerState(container));
+        return;
+      }
+      await _patchTracker(char, tid, container);
     });
   });
   // Onglets de la fiche
@@ -582,6 +695,23 @@ function renderAndAttachSheet(container, char) {
   });
   // Champs éditables (background, notes, inventaire, crédits)
   attachSheetEditListeners(container, char);
+
+  // Compétences — info modal + lancer de dés
+  container.querySelectorAll('.comp-info-btn').forEach(btn => {
+    btn.addEventListener('click', () =>
+      openCompInfo(btn.dataset.compName, parseInt(btn.dataset.compPool)));
+  });
+  container.querySelectorAll('.comp-roll-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const domainId    = findCompDomain(btn.dataset.compName);
+      const domainLabel = (REF?.domaines || []).find(d => d.id === domainId)?.nom || '';
+      getDiceRoller().open({
+        title:   btn.dataset.compName,
+        pool:    parseInt(btn.dataset.compPool),
+        context: domainLabel,
+      });
+    });
+  });
 }
 
 async function patchSheet(char) {
@@ -736,6 +866,138 @@ function _collectTrackerState(container) {
   return state;
 }
 
+// ── Trackers server-side ──────────────────────────────────────────────────────
+function _applyTrackerStateFromServer(container, char) {
+  const santeNiveaux = char.sante?.niveaux ?? [];
+  const pp = char.pp ?? 3;
+  const energieXCur = char.energie_x_cur ?? 0;
+  const localState = _loadTrackerState(char.id); // pour les entités PNJ
+
+  container.querySelectorAll('.tracker-box[data-tracker-id]').forEach(box => {
+    const tid = box.dataset.trackerId;
+
+    const santeM = tid.match(/^sante-(\d+)-(\d+)$/);
+    if (santeM) {
+      const etat = santeNiveaux[parseInt(santeM[1])]?.cases?.[parseInt(santeM[2])]?.etat ?? 'vide';
+      box.classList.toggle('checked', etat !== 'vide');
+      return;
+    }
+
+    const panacheM = tid.match(/^panache-(\d+)$/);
+    if (panacheM) {
+      box.classList.toggle('checked', parseInt(panacheM[1]) < pp);
+      return;
+    }
+
+    const exM = tid.match(/^energie-x-(\d+)$/);
+    if (exM) {
+      box.classList.toggle('checked', parseInt(exM[1]) < energieXCur);
+      return;
+    }
+
+    // Entités PNJ → localStorage
+    if (localState[tid] !== undefined) box.classList.toggle('checked', !!localState[tid]);
+  });
+}
+
+async function _patchTracker(char, tid, container) {
+  const santeM = tid.match(/^sante-(\d+)-(\d+)$/);
+  if (santeM) {
+    const niv = parseInt(santeM[1]);
+    const clickedCase = parseInt(santeM[2]);
+
+    // Retourne les cases actuelles pour ce niveau (mises à jour après chaque PATCH)
+    const getCases = () => char.sante?.niveaux?.[niv]?.cases ?? [];
+
+    // Compte les cases remplies contiguës depuis la gauche
+    const countFill = () => {
+      let f = 0;
+      for (const cs of getCases()) {
+        if ((cs?.etat ?? 'vide') !== 'vide') f++;
+        else break;
+      }
+      return f;
+    };
+
+    const curFill = countFill();
+    // Comportement identique au Panache : clic sur la dernière case remplie → recule d'un, sinon remplit jusqu'à cette case
+    const newFill = (curFill === clickedCase + 1) ? clickedCase : clickedCase + 1;
+
+    const patchOne = async (c, etat) => {
+      const resp = await fetchWithTable(`${API.characters}/${char.id}/health`, {
+        method: 'PATCH', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ niveau_index: niv, case_index: c, etat }),
+      });
+      if (resp.ok) {
+        const { data: updated } = await resp.json();
+        char.sante = updated.sante; char.pp = updated.pp;
+        char.energie_x_cur = updated.energie_x_cur; char.updated_at = updated.updated_at;
+        if (CURRENT_SHEET_CHAR?.id === char.id) Object.assign(CURRENT_SHEET_CHAR, { sante: char.sante, pp: char.pp, energie_x_cur: char.energie_x_cur, updated_at: char.updated_at });
+      }
+      return resp.ok;
+    };
+
+    if (newFill > curFill) {
+      // Remplir les cases curFill..newFill-1 (ignorer les cases déjà remplies ou noircies)
+      for (let c = curFill; c < newFill; c++) {
+        const curEtat = getCases()[c]?.etat ?? 'vide';
+        if (curEtat !== 'vide') continue; // déjà remplie (cochée ou noircie) → skip
+        if (!await patchOne(c, 'cochée')) break;
+      }
+    } else if (newFill < curFill) {
+      // Décocher les cases newFill..curFill-1 (seulement les cochées, pas les noircies)
+      for (let c = curFill - 1; c >= newFill; c--) {
+        const curEtat = getCases()[c]?.etat ?? 'vide';
+        if (curEtat !== 'cochée') continue; // laisser les noircies intactes
+        if (!await patchOne(c, 'vide')) break;
+      }
+    }
+
+    _applyTrackerStateFromServer(container, char);
+    return;
+  }
+
+  const panacheM = tid.match(/^panache-(\d+)$/);
+  if (panacheM) {
+    const dotIdx = parseInt(panacheM[1]);
+    const cur = char.pp ?? 3;
+    const newPP = (dotIdx + 1 === cur) ? dotIdx : dotIdx + 1;
+    const resp = await fetchWithTable(`${API.characters}/${char.id}/resources`, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ delta_pp: newPP - cur }),
+    });
+    if (resp.ok) {
+      const { data: updated } = await resp.json();
+      char.sante = updated.sante; char.pp = updated.pp;
+      char.energie_x_cur = updated.energie_x_cur; char.updated_at = updated.updated_at;
+      if (CURRENT_SHEET_CHAR?.id === char.id) Object.assign(CURRENT_SHEET_CHAR, { sante: char.sante, pp: char.pp, energie_x_cur: char.energie_x_cur, updated_at: char.updated_at });
+      _applyTrackerStateFromServer(container, char);
+    }
+    return;
+  }
+
+  const exM = tid.match(/^energie-x-(\d+)$/);
+  if (exM) {
+    const dotIdx = parseInt(exM[1]);
+    const cur = char.energie_x_cur ?? 0;
+    const newVal = (dotIdx + 1 === cur) ? dotIdx : dotIdx + 1;
+    const resp = await fetchWithTable(`${API.characters}/${char.id}/resources`, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ delta_energie_x: newVal - cur }),
+    });
+    if (resp.ok) {
+      const { data: updated } = await resp.json();
+      char.sante = updated.sante; char.pp = updated.pp;
+      char.energie_x_cur = updated.energie_x_cur; char.updated_at = updated.updated_at;
+      if (CURRENT_SHEET_CHAR?.id === char.id) Object.assign(CURRENT_SHEET_CHAR, { sante: char.sante, pp: char.pp, energie_x_cur: char.energie_x_cur, updated_at: char.updated_at });
+      _applyTrackerStateFromServer(container, char);
+    }
+  }
+}
+
 // ── Entités PNJ multiples (non-nommés) ────────────────────────────────────────
 function _loadPnjEntities(charId) {
   try { return JSON.parse(localStorage.getItem(`pnj_entities_${charId}`) || 'null') || { names: [] }; }
@@ -820,9 +1082,14 @@ function renderCompetencesSheet(comps, finalAttrs, domPriv) {
       const dice = attrVal + v.total;
       return `
       <div class="py-0.5 border-b border-gray-700/60 text-xs">
-        <div class="flex items-center justify-between">
-          <span class="${isPriv ? 'text-yellow-300' : 'text-gray-300'}">${esc(name)}</span>
-          <span class="font-mono text-gray-200 shrink-0 ml-2">${dice}d <span class="text-gray-500">(${attrVal}+${v.total})</span></span>
+        <div class="flex items-center gap-1">
+          <button class="comp-info-btn bg-transparent p-0 text-left flex-1 truncate ${isPriv ? 'text-yellow-300 hover:text-yellow-100' : 'text-gray-300 hover:text-white'} transition-colors"
+            data-comp-name="${esc(name)}" data-comp-pool="${dice}">${esc(name)}</button>
+          <div class="flex items-center gap-1 shrink-0">
+            <span class="font-mono text-gray-200">${dice}d <span class="text-gray-500">(${attrVal}+${v.total})</span></span>
+            <button class="comp-roll-btn w-6 h-6 flex items-center justify-center rounded bg-red-900/50 hover:bg-red-700 text-base leading-none transition-colors"
+              title="Lancer les dés — ${esc(name)}" data-comp-name="${esc(name)}" data-comp-pool="${dice}">🎲</button>
+          </div>
         </div>
         ${v.specialite ? `<div class="text-gray-500 mt-0.5">Spécialité : <span class="text-purple-300">${esc(v.specialite)}</span></div>` : ''}
       </div>`;
@@ -3586,6 +3853,7 @@ async function saveCharacter() {
 
 // ── Helpers globaux ───────────────────────────────────────────────────────────
 function setView(v) {
+  if (v !== 'sheet' && SHEET_POLL) { clearInterval(SHEET_POLL); SHEET_POLL = null; }
   document.getElementById('loading').classList.add('hidden');
   document.getElementById('char-list-view').classList.toggle('hidden', v !== 'list');
   document.getElementById('wizard-view').classList.toggle('hidden', v !== 'wizard');

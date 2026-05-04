@@ -14,10 +14,12 @@ const SHIP_SELECT = `
   s.image,
   s.ship_stats_json,
   s.position_json,
-  s.owner_character_id,
+  s.equipage_detail_json,
+  s.systemes_secondaires_etat_json,
+  s.armement_etat_json,
+  s.hull_state_json,
   s.created_at,
   s.updated_at,
-  chr.name AS owner_name,
   sm.nom AS model_name,
   sm.classe AS model_classe,
   sm.origine AS model_origine,
@@ -36,7 +38,9 @@ const SHIP_SELECT = `
   sm.manoeuvrabilite AS model_manoeuvrabilite,
   sm.senseurs_k AS model_senseurs_k,
   sm.senseurs_us AS model_senseurs_us,
-  sm.prix AS model_prix
+  sm.prix AS model_prix,
+  sm.armement_json AS model_armement_json,
+  sm.systemes_secondaires_json AS model_systemes_secondaires_json
 `;
 
 function toNumberOrDefault(value, fallback = 0) {
@@ -71,8 +75,10 @@ function mapShipRow(row, tableId, role) {
     notes: row.notes || '',
     ship_stats_json: row.ship_stats_json || null,
     position: (() => { try { return JSON.parse(row.position_json || 'null'); } catch { return null; } })(),
-    owner_character_id: row.owner_character_id || null,
-    owner_name: row.owner_name || null,
+    equipage_detail: (() => { try { return JSON.parse(row.equipage_detail_json || '[]'); } catch { return []; } })(),
+    systemes_secondaires_etat: (() => { try { return JSON.parse(row.systemes_secondaires_etat_json || '[]'); } catch { return []; } })(),
+    armement_etat: (() => { try { return JSON.parse(row.armement_etat_json || '[]'); } catch { return []; } })(),
+    hull_state: (() => { try { return JSON.parse(row.hull_state_json || '{}'); } catch { return {}; } })(),
     // Full model data for fleet card display, merged with per-ship overrides
     model: row.model_id ? {
       nom: row.model_name || null,
@@ -94,7 +100,8 @@ function mapShipRow(row, tableId, role) {
       senseurs_k: statsOverride.senseurs_k ?? row.model_senseurs_k ?? null,
       senseurs_us: statsOverride.senseurs_us ?? row.model_senseurs_us ?? null,
       prix: statsOverride.prix ?? row.model_prix ?? null,
-      armement_json: statsOverride.armement_json ?? null,
+      armement_json: statsOverride.armement_json ?? row.model_armement_json ?? null,
+      systemes_secondaires_json: row.model_systemes_secondaires_json ?? null,
       description: statsOverride.description ?? null,
     } : statsOverride.classe ? {
       // No model but has overrides (ship built from scratch)
@@ -116,7 +123,6 @@ export function listShips(tableId, role) {
     `SELECT ${SHIP_SELECT}
      FROM ships s
      LEFT JOIN ship_models sm ON sm.id = s.model_id
-     LEFT JOIN characters chr ON chr.id = s.owner_character_id
      WHERE s.table_id = ? AND s.deleted_at IS NULL
      ORDER BY lower(s.nom) ASC`
   ).all(tableId);
@@ -135,7 +141,6 @@ export function getShipById(id, tableId, role) {
     `SELECT ${SHIP_SELECT}
      FROM ships s
      LEFT JOIN ship_models sm ON sm.id = s.model_id
-     LEFT JOIN characters chr ON chr.id = s.owner_character_id
      WHERE s.id = ? AND s.table_id = ? AND s.deleted_at IS NULL`
   ).get(id, tableId);
 
@@ -165,6 +170,10 @@ export function createShip(tableId, payload) {
     image: payload.image !== undefined ? (payload.image || null) : null,
     ship_stats_json: Object.keys(statsOverride).length ? JSON.stringify(statsOverride) : null,
     position_json: payload.position_json !== undefined ? (payload.position_json || null) : null,
+    equipage_detail_json: payload.equipage_detail_json !== undefined ? (payload.equipage_detail_json || '[]') : '[]',
+    systemes_secondaires_etat_json: payload.systemes_secondaires_etat_json !== undefined ? (payload.systemes_secondaires_etat_json || '[]') : '[]',
+    armement_etat_json: payload.armement_etat_json !== undefined ? (payload.armement_etat_json || '[]') : '[]',
+    hull_state_json: payload.hull_state_json !== undefined ? (payload.hull_state_json || '{}') : '{}',
   };
 
   if (!ship.name) {
@@ -172,8 +181,8 @@ export function createShip(tableId, payload) {
   }
 
   db.prepare(
-    `INSERT INTO ships (id, table_id, nom, model_id, hull, crew, cargo_capacity, notes, image, ship_stats_json, position_json)
-     VALUES (@id, @table_id, @name, @model_id, @hull, @crew, @cargo_capacity, @notes, @image, @ship_stats_json, @position_json)`
+    `INSERT INTO ships (id, table_id, nom, model_id, hull, crew, cargo_capacity, notes, image, ship_stats_json, position_json, equipage_detail_json, systemes_secondaires_etat_json, armement_etat_json, hull_state_json)
+     VALUES (@id, @table_id, @name, @model_id, @hull, @crew, @cargo_capacity, @notes, @image, @ship_stats_json, @position_json, @equipage_detail_json, @systemes_secondaires_etat_json, @armement_etat_json, @hull_state_json)`
   ).run(ship);
 
   return getShipById(ship.id, tableId, 'mj');
@@ -211,7 +220,10 @@ export function updateShip(id, tableId, payload) {
   const nextNotes = payload.notes !== undefined ? String(payload.notes || '').trim() : existing.notes;
   const nextImage = payload.image !== undefined ? (payload.image || null) : existing.image;
   const nextPositionJson = payload.position_json !== undefined ? (payload.position_json || null) : (existing.position ? JSON.stringify(existing.position) : null);
-  const nextOwnerCharacterId = 'owner_character_id' in payload ? (payload.owner_character_id || null) : existing.owner_character_id;
+  const nextEquipageDetailJson = payload.equipage_detail_json !== undefined ? (payload.equipage_detail_json || '[]') : JSON.stringify(existing.equipage_detail || []);
+  const nextSystemesEtatJson = payload.systemes_secondaires_etat_json !== undefined ? (payload.systemes_secondaires_etat_json || '[]') : JSON.stringify(existing.systemes_secondaires_etat || []);
+  const nextArmementEtatJson = payload.armement_etat_json !== undefined ? (payload.armement_etat_json || '[]') : JSON.stringify(existing.armement_etat || []);
+  const nextHullStateJson = payload.hull_state_json !== undefined ? (payload.hull_state_json || '{}') : JSON.stringify(existing.hull_state || {});
 
   // Merge stat overrides with existing
   const newOverrides = extractStatsOverride(payload);
@@ -221,9 +233,9 @@ export function updateShip(id, tableId, payload) {
 
   db.prepare(
     `UPDATE ships
-     SET nom = ?, model_id = ?, hull = ?, crew = ?, cargo_capacity = ?, notes = ?, image = ?, ship_stats_json = ?, position_json = ?, owner_character_id = ?, updated_at = datetime('now')
+     SET nom = ?, model_id = ?, hull = ?, crew = ?, cargo_capacity = ?, notes = ?, image = ?, ship_stats_json = ?, position_json = ?, equipage_detail_json = ?, systemes_secondaires_etat_json = ?, armement_etat_json = ?, hull_state_json = ?, updated_at = datetime('now')
      WHERE id = ? AND table_id = ? AND deleted_at IS NULL`
-  ).run(nextName, nextModelId, nextHull, nextCrew, nextCargoCapacity, nextNotes, nextImage, nextStatsJson, nextPositionJson, nextOwnerCharacterId, id, tableId);
+  ).run(nextName, nextModelId, nextHull, nextCrew, nextCargoCapacity, nextNotes, nextImage, nextStatsJson, nextPositionJson, nextEquipageDetailJson, nextSystemesEtatJson, nextArmementEtatJson, nextHullStateJson, id, tableId);
 
   return getShipById(id, tableId, 'mj');
 }

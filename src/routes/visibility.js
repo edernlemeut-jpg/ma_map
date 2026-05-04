@@ -4,9 +4,9 @@ import { success, forbidden, validationError } from '../utils/response.js';
 
 const router = Router();
 
-const VALID_ENTITY_TYPES = ['systems', 'factions', 'ship_models', 'ships', 'npcs', 'quadrants', 'travel_routes', 'route_perils'];
+const VALID_ENTITY_TYPES = ['systems', 'factions', 'ship_models', 'ships', 'npcs', 'quadrants', 'travel_routes', 'route_perils', 'secondary_systems'];
 // Entity types that support bulk operations
-const BULK_ENTITY_TYPES = ['systems', 'factions', 'ship_models'];
+const BULK_ENTITY_TYPES = ['systems', 'factions', 'ship_models', 'secondary_systems'];
 
 /**
  * POST /bulk — Bulk set visibility for all entities of a type (MJ only)

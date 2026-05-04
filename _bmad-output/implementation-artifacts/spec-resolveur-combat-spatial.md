@@ -1,4 +1,4 @@
----
+sc---
 title: 'Résolveur de tests — Combat spatial (Phase B)'
 type: 'feature'
 created: '2026-04-30'

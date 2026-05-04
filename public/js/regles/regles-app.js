@@ -174,12 +174,19 @@ function renderDetail(id, container) {
   let extraHtml = '';
 
   if (entry.category === 'competences') {
+    const specsHtml = Array.isArray(ex.specialites) && ex.specialites.length
+      ? `<div class="mt-3">
+           <p class="text-xs text-gray-400 uppercase tracking-wide mb-1.5">Spécialités</p>
+           <div class="flex flex-wrap gap-1.5">${ex.specialites.map(s => `<span class="text-xs bg-indigo-900/60 text-indigo-200 px-2 py-0.5 rounded-full border border-indigo-700/50">${esc(s)}</span>`).join('')}</div>
+         </div>`
+      : '';
     extraHtml = `
       <div class="flex flex-wrap gap-3 text-sm mt-3">
         ${ex.domain ? `<span class="bg-gray-700 px-2 py-0.5 rounded">🏷️ ${esc(ex.domain)}</span>` : ''}
         ${ex.is_closed ? '<span class="bg-gray-700 px-2 py-0.5 rounded">🔒 Fermée</span>' : ''}
         ${ex.is_violent ? '<span class="bg-red-900 text-red-300 px-2 py-0.5 rounded">⚔️ Violente</span>' : ''}
-      </div>`;
+      </div>
+      ${specsHtml}`;
   } else if (entry.category === 'qualites' || entry.category === 'defauts') {
     extraHtml = `
       <div class="flex flex-wrap gap-3 text-sm mt-3">

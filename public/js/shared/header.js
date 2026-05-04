@@ -11,7 +11,7 @@
  */
 
 import { initAuthUI } from '/js/shared/auth-ui.js';
-import { getActiveTableId, fetchWithTable, clearActiveTable } from '/js/shared/table-selector.js';
+import { getActiveTableId, setActiveTable, fetchWithTable, clearActiveTable } from '/js/shared/table-selector.js';
 
 /**
  * Initialize the shared header: auth UI + active table context.
@@ -61,6 +61,9 @@ export async function loadTableContext() {
     }
 
     if (tableInfo) tableInfo.classList.remove('hidden');
+
+    // Sync role in localStorage so isMJ() stays accurate
+    setActiveTable(tableId, table.is_mj ? 'mj' : 'joueur');
 
     if (tableName) {
       tableName.textContent = table.name;

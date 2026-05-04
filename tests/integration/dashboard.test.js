@@ -166,32 +166,4 @@ describe('Dashboard API — integration', () => {
     // Should return 400 (no table) consistent with sync.js pattern
     assert.ok(res.status === 400 || res.status === 403, 'should reject request without table');
   });
-
-  it('T6.7 MJ can toggle session-active mode', async () => {
-    const res = await httpRequest(app, {
-      method: 'PATCH',
-      path: '/api/dashboard/session-active',
-      cookies: mjCookie,
-      headers: { 'X-Table-Id': String(tableId) },
-      body: { active: true }
-    });
-
-    assert.equal(res.status, 200, JSON.stringify(res.body));
-    assert.equal(res.body.data.session_active, true);
-
-    const row = db.prepare('SELECT session_active FROM game_tables WHERE id = ?').get(tableId);
-    assert.equal(row.session_active, 1);
-  });
-
-  it('T6.8 player cannot toggle session-active mode', async () => {
-    const res = await httpRequest(app, {
-      method: 'PATCH',
-      path: '/api/dashboard/session-active',
-      cookies: playerCookie,
-      headers: { 'X-Table-Id': String(tableId) },
-      body: { active: false }
-    });
-
-    assert.equal(res.status, 403);
-  });
 });

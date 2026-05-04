@@ -64,6 +64,7 @@ async function init() {
 
   loadingEl.classList.add('hidden');
   panelEl.classList.remove('hidden');
+  document.dispatchEvent(new CustomEvent('table-role-loaded', { detail: { role: 'mj' } }));
 
   bindActions();
   await loadMembers();

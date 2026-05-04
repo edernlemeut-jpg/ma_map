@@ -28,7 +28,47 @@ function isMJorAdmin(req) {
 router.get('/', (req, res) => {
   const systemId = req.query.system_id ? Number(req.query.system_id) : null;
   if (systemId) {
-    const planets = db.prepare(`SELECT ${COLS} FROM planets WHERE system_id = ? ORDER BY ordre_orbital, nom`).all(systemId);
+    let planets = db.prepare(`SELECT ${COLS} FROM planets WHERE system_id = ? ORDER BY ordre_orbital, nom`).all(systemId);
+
+    // Fallback: parse corps_celestes_json from the system when no rows in planets table
+    if (planets.length === 0) {
+      const sys = db.prepare('SELECT corps_celestes_json FROM systems WHERE id = ?').get(systemId);
+      if (sys?.corps_celestes_json) {
+        try {
+          const corps = JSON.parse(sys.corps_celestes_json);
+          planets = corps
+            .filter(c => c && c.nom)
+            .map((c, i) => {
+              // Parse population text: "3 milliards" → 3, "100 milliards" → 100
+              const popStr   = String(c.population || '');
+              const popMatch = popStr.match(/([\d]+(?:[.,]\d+)?)/);
+              const pop      = popMatch ? parseFloat(popMatch[1].replace(',', '.')) : null;
+              return {
+                id:               `sys_${systemId}_${i}`,
+                system_id:        systemId,
+                nom:              c.nom,
+                type:             c.classe  || null,
+                ordre_orbital:    c.orbite  ?? i,
+                taille:           c.diametre != null ? String(c.diametre) : null,
+                atmosphere:       c.atmosphere   || null,
+                gouvernement:     c.gouvernement || null,
+                population:       pop,
+                securite:         c.securite != null ? Number(c.securite) : null,
+                ressources:       null,
+                description:      c.description  || null,
+                notes_mj:         null,
+                orbit_period_days:null,
+                position_initiale:null,
+                created_at:       null,
+                updated_at:       null,
+              };
+            });
+        } catch (_) {
+          // malformed JSON — return empty
+        }
+      }
+    }
+
     return success(res, planets);
   }
   // Admin or MJ can get all

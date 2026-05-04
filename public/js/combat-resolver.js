@@ -28,46 +28,7 @@
  */
 
 import { fetchWithTable } from '/js/shared/table-selector.js';
-
-// ── Utilitaires dés ───────────────────────────────────────────────────────────
-
-function rollD6(n) {
-  return Array.from({ length: Math.max(0, n) }, () => Math.floor(Math.random() * 6) + 1);
-}
-
-function isSuccess(val, diff) {
-  if (diff === 'TD') return val === 6;
-  if (diff === 'TF') return val >= 2;
-  return val >= 4; // Normal
-}
-
-/**
- * Calcule les modificateurs nets après annulation E2F ↔ SC/PMF.
- * E2F réduit SC en premier, puis PMF.
- * Retourne { e2f, sc, pmf } chacun dans [0, 2].
- */
-function computeNetMods(e2fLevel, scLevel, pmfLevel) {
-  let sc = scLevel, pmf = pmfLevel, remainE2F = e2fLevel;
-  const scRed  = Math.min(sc,  remainE2F); sc  -= scRed;  remainE2F -= scRed;
-  const pmfRed = Math.min(pmf, remainE2F); pmf -= pmfRed;  remainE2F -= pmfRed;
-  return {
-    e2f: Math.min(2, remainE2F),
-    sc:  Math.min(2, sc),
-    pmf: Math.min(2, pmf),
-  };
-}
-
-/** Chaîne lisible des mods nets (ex : "SC", "e2f", "E2F+pmf") */
-function modsLabel(net) {
-  const parts = [];
-  if (net.e2f === 2) parts.push('E2F');
-  else if (net.e2f === 1) parts.push('e2f');
-  if (net.sc  === 2) parts.push('SC');
-  else if (net.sc  === 1) parts.push('sc');
-  if (net.pmf === 2) parts.push('PMF');
-  else if (net.pmf === 1) parts.push('pmf');
-  return parts.join('+');
-}
+import { rollD6, isSuccess, computeNetMods, modsLabel } from '/js/shared/dice-roller.js';
 
 // ── Actions disponibles (tableaux 8.1–8.5 de analyse-combat-spatial.md) ──────
 //    role · duree · competence · effet · violent · accidentRisk

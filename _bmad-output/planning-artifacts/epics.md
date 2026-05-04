@@ -1,6 +1,6 @@
 ---
 stepsCompleted: ['step-01-validate-prerequisites', 'step-02-design-epics', 'step-03-create-stories', 'step-04-final-validation']
-inputDocuments: ['_bmad-output/planning-artifacts/prd.md', '_bmad-output/planning-artifacts/architecture.md']
+inputDocuments: ['_bmad-output/planning-artifacts/prd.md', '_bmad-output/planning-artifacts/prd2.md', '_bmad-output/planning-artifacts/architecture.md']
 ---
 
 # Metal Adventures - Epic Breakdown
@@ -113,6 +113,16 @@ This document provides the complete epic and story breakdown for Metal Adventure
 - NFR16 : Migration DB via scripts idempotents versionnés (pragma user_version).
 - NFR17 : Assets statiques avec Cache-Control explicite et invalidation par query string versionnée.
 
+**PRD #2 — Nouveaux NFRs**
+
+- NFR-PJ1 : Isolation joueur — GET /api/characters/:id vérifie req.user.id === character.user_id OU rôle MJ
+- NFR-PJ2 : Calcul serveur — cases santé (CAR+SF) et Énergie X max (PER+INT) calculés backend
+- NFR-MF1 : Atomicité — transfert MF en transaction SQLite begin/commit
+- NFR-MF2 : Contrainte SQL CHECK (pj_pool + mj_pool = 50) et (>= 0) sur les deux colonnes
+- NFR-EL1 : Généricité — source_type/target_type en TEXT ; validation types dans le service, pas enum DB
+- NFR-FIG1 : Templates système immutables — 403 sur DELETE et PATCH si is_system_template = 1
+- NFR-NPC1 : Service santé partagé — named_npcs utilisent exactement le même healthService que characters
+
 ### Additional Requirements
 
 _Exigences techniques issues de l'Architecture Decision Document :_
@@ -132,6 +142,15 @@ _Exigences techniques issues de l'Architecture Decision Document :_
 - AR13 : Undo reveal client-side : toast 5s + PATCH inverse avant prochain polling joueur
 - AR14 : Preview joueur via GET /api/sync?as_player=true (MJ voit comme joueur)
 - AR15 : Helmet middleware pour headers de sécurité (X-Frame-Options, CSP basique)
+
+**PRD #2 — Exigences techniques additionnelles**
+
+- AR-P2.1 : 4 nouvelles tables avec migrations défensives : entity_links, named_npcs, figurant_templates, mf_pool
+- AR-P2.2 : Extension défensive characters via ensureCharactersExtensions() — 16 nouvelles colonnes via ALTER TABLE IF NOT EXISTS
+- AR-P2.3 : 5 nouveaux services dans src/services/ : entity-links, health-service, characters-pj, named-npcs, figurant-templates, mf-pool
+- AR-P2.4 : Widget partagé public/js/shared/mf-pool-widget.js consommé par Dashboard MJ + Itinéraire (pages PRD #1)
+- AR-P2.5 : Seed défensif 15 templates figurants — WHERE nom = ? avant INSERT (pas de COUNT global)
+- AR-P2.6 : Patterns hérités obligatoires : fetchWithTable(), esc() sur innerHTML, helpers response.js, protect-by-default
 
 ### UX Design Requirements
 
@@ -180,8 +199,57 @@ _Pas de document UX Design disponible. Les exigences UX seront dérivées des pa
 | FR30 | 5 | Génération liste de périls |
 | FR31 | 5 | Partage données itinéraire via API |
 | FR37 | 6 | Resync automatique après perte réseau |
+| FR7.1 | 7 | Créer lien typé entre deux entités |
+| FR7.2 | 7 | Supprimer un lien |
+| FR7.3 | 7 | Vue "entités liées" d'une entité |
+| FR7.4 | 7 | Liens vers entités cachées masqués joueur |
+| FR7.5 | 7 | Vue entités liées depuis fiche système Compendium |
+| FR7.6 | 7 | Lien porte type de relation + note |
+| FR7.7 | 7 | API entity_links scoped par table |
+| FR8.1 | 8 | Créer fiche PJ pour un joueur |
+| FR8.2 | 8 | MJ modifie toutes les données PJ |
+| FR8.3 | 8 | Joueur consulte sa propre fiche |
+| FR8.4 | 8 | MJ voit toutes les fiches de sa table |
+| FR8.5 | 8 | Cases santé = CAR+SF (serveur) |
+| FR8.6 | 8 | 3 niveaux de santé configurable |
+| FR8.7 | 8 | Cases cochée/noircie (2 états) |
+| FR8.8 | 8 | MJ modifie cases de santé en session |
+| FR8.9 | 8 | Joueur coche ses cases (scène uniquement) |
+| FR8.10 | 8 | MJ ajuste PP |
+| FR8.11 | 8 | Joueur dépense PP |
+| FR8.12 | 8 | MJ ajuste Gloire |
+| FR8.13 | 8 | Énergie X max = PER+INT (si mutant) |
+| FR8.14 | 8 | MJ ajuste Énergie X |
+| FR8.15 | 8 | Joueur mutant dépense Énergie X |
+| FR8.16 | 8 | Motivation + OD affichés en évidence |
+| FR8.17 | 8 | OD avec couleur contrastée / icône |
+| FR9.1 | 9 | Créer PNJ nommé (stats complètes) |
+| FR9.2 | 9 | Modifier PNJ nommé |
+| FR9.3 | 9 | Supprimer PNJ nommé (confirmation) |
+| FR9.4 | 9 | Lier PNJ à entités (entity_links inline) |
+| FR9.5 | 9 | Toggle visibilité PNJ |
+| FR9.6 | 9 | Joueurs voient PNJ révélés (fiche simplifiée) |
+| FR9.7 | 9 | MJ filtre/cherche PNJ |
+| FR9.8 | 9 | Santé PNJ identique à PJ |
+| FR9.9 | 9 | PNJ liés visibles dans vue entités système |
+| FR10.1 | 10 | Consulter liste templates figurants |
+| FR10.2 | 10 | Voir stats-bloc complet figurant |
+| FR10.3 | 10 | Ajouter template personnalisé |
+| FR10.4 | 10 | Modifier/supprimer template personnalisé |
+| FR10.5 | 10 | Templates système non-supprimables, duplicables |
+| FR10.6 | 10 | Filtrage par faction/catégorie |
+| FR10.7 | 10 | Figurants non liés entity_links (global) |
+| FR11.1 | 11 | Consulter état MF Pool (PJ/MJ) |
+| FR11.2 | 11 | Transférer N dés PJ→MJ |
+| FR11.3 | 11 | Transférer N dés MJ→PJ |
+| FR11.4 | 11 | Contrainte pj+mj=50 — refus si violation |
+| FR11.5 | 11 | Reset "nouvelle aventure" (50/0) |
+| FR11.6 | 11 | Pool persisté par table |
+| FR11.7 | 11 | Widget accessible sans navigation |
+| FR11.8 | 11 | Delta 1 + raccourci ×5 |
+| FR11.9 | 11 | Feedback visuel tension PJ/MJ |
 
-**38/39 FRs couverts (FR20 retiré — fog of war supprimé par décision produit), 0 gaps.**
+**PRD #1 : 38/39 FRs couverts (FR20 retiré). PRD #2 : 43/43 FRs couverts. Total : 81/82 FRs, 0 gaps.**
 
 ## Epic List
 
@@ -224,6 +292,38 @@ La connexion se rétablit automatiquement après une coupure wifi. Les performan
 **NFRs focus :** NFR1-5, NFR11, NFR14, NFR17
 **Notes d'implémentation :** Resync automatique, polling adaptatif (document.hidden), cache-control, tests E2E cross-epic, cleanup legacy final.
 **Décommissionnement :** Tous les fichiers .html legacy supprimés, Docker-only.
+
+### Epic 7 : Graphe de campagne — Entity Links
+Le MJ peut relier n'importe quelle entité à une autre (système, faction, vaisseau, PNJ, PJ, événement). La vue "entités liées" apparaît sur les fiches système du Compendium. Fondation extensible du graphe de campagne.
+**FRs couverts :** FR7.1, FR7.2, FR7.3, FR7.4, FR7.5, FR7.6, FR7.7
+**NFRs :** NFR-EL1
+**Prérequis :** Epic 2 (visibility service) livré. **Fournit :** infrastructure graphe pour Epic 9.
+**Ordre de livraison :** Premier — prérequis sequentiel de Epic 9.
+
+### Epic 8 : Fiches PJ interactives
+Un joueur connecté peut consulter sa propre fiche PJ (santé dynamique, PP, Gloire, Énergie X, OD). Le MJ peut créer et modifier toutes les fiches de sa table. Le healthService.js est extrait comme module réutilisable.
+**FRs couverts :** FR8.1–FR8.17
+**NFRs :** NFR-PJ1, NFR-PJ2, NFR-NPC1
+**Prérequis :** Epic 1 (table characters). **Fournit :** healthService.js pour Epic 9.
+**Parallélisable avec :** Epic 10.
+
+### Epic 9 : PNJ Nommés
+Le MJ peut créer des PNJ à stats complètes (Premiers/Seconds rôles), les lier au graphe, et régler leur visibilité. Les joueurs voient les PNJ révélés dans le Compendium (fiche simplifiée).
+**FRs couverts :** FR9.1–FR9.9
+**NFRs :** NFR-NPC1
+**Dépend de :** Epic 7 (entity_links), bénéficie du healthService d'Epic 8.
+
+### Epic 10 : Catalogue Figurants
+Bibliothèque de stats-blocs réutilisables pour les PNJ anonymes. 15 templates système pré-peuplés, ajout de templates personnalisés. Données globales non liées au graphe.
+**FRs couverts :** FR10.1–FR10.7
+**NFRs :** NFR-FIG1
+**Parallélisable avec :** Epic 8. Aucune dépendance croisée.
+
+### Epic 11 : Metal Faktor Pool Tracker
+Widget compact gérant le pool de 50 dés MF en temps réel. Persisté par table, accessible depuis Dashboard MJ et Itinéraire (pages PRD #1 — retrofit).
+**FRs couverts :** FR11.1–FR11.9
+**NFRs :** NFR-MF1, NFR-MF2
+**Livrer en dernier :** retouche deux pages livrées en PRD #1 — risque de régression géré par snapshots E2E pré-retrofit.
 
 ---
 
@@ -1146,3 +1246,764 @@ So that the app can be reliably deployed on my NAS.
 ---
 
 **Résumé global : 6 epics, 30 stories (dont 1 différée), 38/39 FRs couverts (FR20 retiré).**
+
+---
+
+## Epic 7 : Graphe de campagne — Entity Links
+
+Le MJ peut relier n'importe quelle entité à une autre (système, faction, vaisseau, PNJ, PJ, événement). La vue "entités liées" apparaît sur les fiches système du Compendium. Fondation extensible du graphe de campagne.
+
+### Story 7.1 : Migration entity_links + service CRUD
+
+As a développeur et MJ,
+I want the entity_links table with defensive migration and a full CRUD service with type validation,
+So that the MJ can create, query, and delete typed links between any two entities via the API.
+
+**Acceptance Criteria:**
+
+**Given** le serveur démarre
+**When** ensureEntityLinks() est exécutée dans database.js
+**Then** la table entity_links est créée avec : id, table_id INTEGER REFERENCES game_tables(id) ON DELETE CASCADE, source_type TEXT NOT NULL, source_id INTEGER NOT NULL, target_type TEXT NOT NULL, target_id INTEGER NOT NULL, relation_type TEXT, notes TEXT, created_at TEXT DEFAULT (datetime('now'))
+**And** deux index sont créés : idx_el_source (table_id, source_type, source_id) et idx_el_target (table_id, target_type, target_id)
+**And** la migration est idempotente (re-run multiple fois = même résultat)
+
+**Given** un MJ authentifié avec une table sélectionnée
+**When** POST /api/entity-links avec { source_type, source_id, target_type, target_id, relation_type, notes }
+**Then** le lien est créé et retourné avec son id et created_at (HTTP 201)
+
+**Given** une requête POST avec source_type invalide (ex: "monster")
+**When** le service valide les types
+**Then** l'API retourne 400 avec error.code "INVALID_ENTITY_TYPE"
+**And** la validation couvre : null, chaîne vide, valeur non dans ['system','faction','ship','named_npc','character','event']
+
+**Given** un MJ
+**When** DELETE /api/entity-links/:id
+**Then** le lien est supprimé, retourne 204
+**And** un lien appartenant à une autre table retourne 403
+
+**Given** un utilisateur authentifié avec table
+**When** GET /api/entity-links?source_type=system&source_id=42
+**Then** retourne tous les liens dont source_type=system ET source_id=42 ET table_id = req.table.id
+**And** les liens d'autres tables ne sont jamais retournés (isolation table_id)
+
+**And** src/services/entity-links.js est créé avec : createLink, getLinks, deleteLink
+**And** toutes les routes utilisent le helper response.js
+**And** GET nécessite auth+table, POST/DELETE nécessite rôle MJ
+
+**Couvre :** FR7.1, FR7.2, FR7.7, NFR-EL1
+
+---
+
+### Story 7.2 : Vue "entités liées" dans la fiche système Compendium
+
+As a MJ ou joueur,
+I want to see a "linked entities" panel on each system sheet in the Compendium,
+So that I can navigate the campaign graph directly from a system's detail page.
+
+**Acceptance Criteria:**
+
+**Given** une fiche système est affichée dans le Compendium
+**When** la page se charge
+**Then** une section "Entités liées" est visible sous les données système
+
+**Given** le système a des entités liées
+**When** la section est affichée
+**Then** chaque lien affiche : type de l'entité cible (icône ou badge), nom de l'entité cible, type de relation si renseigné, note si renseignée
+**And** chaque entrée est cliquable et navigue vers la fiche de l'entité cible
+
+**Given** le MJ est authentifié
+**When** la section entités liées est affichée
+**Then** un bouton "Ajouter un lien" est visible et ouvre un formulaire inline : source_type=system, source_id=<id courant>, champs target_type/target_id/relation_type/notes
+**And** un bouton "Supprimer" est visible sur chaque lien existant
+
+**Given** aucun lien n'existe pour ce système
+**When** la section est ouverte
+**Then** un message "Aucune entité liée" s'affiche
+
+**And** le module public/js/shared/entity-links.js est créé comme composant réutilisable
+**And** toutes les valeurs affichées via innerHTML utilisent esc() obligatoirement
+**And** les appels API utilisent fetchWithTable()
+
+**Couvre :** FR7.3, FR7.5, FR7.6
+
+---
+
+### Story 7.3 : Protect-by-default — liens vers entités cachées
+
+As a joueur,
+I want to never see links to entities I'm not supposed to know about,
+So that the MJ's hidden campaign information remains protected.
+
+**Acceptance Criteria:**
+
+**Given** un système a un lien vers un PNJ nommé avec visible=0
+**When** un joueur charge la fiche système
+**Then** ce lien N'apparaît PAS dans sa vue
+
+**Given** un système a un lien vers un autre système avec visible=0
+**When** un joueur charge la fiche
+**Then** ce lien N'apparaît PAS même si le joueur connaît l'ID
+
+**Given** un MJ charge la même fiche
+**When** la section entités liées est affichée
+**Then** TOUS les liens sont visibles y compris ceux vers des entités cachées
+**And** les liens vers entités cachées sont visuellement marqués "(caché)" ou avec icône cadenas
+
+**And** le filtrage se fait côté serveur dans src/services/entity-links.js — le client ne filtre jamais
+**And** le service reçoit le rôle de req.table et filtre selon la visibilité de l'entité cible
+**And** un test d'intégration vérifie que GET /api/entity-links ne retourne jamais de lien vers une entité visible=0 pour un joueur
+
+**Couvre :** FR7.4
+
+---
+
+### Story 7.4 : Tests sécurité — validation types + leakage cross-table
+
+As a développeur,
+I want dedicated security tests for the entity_links validation matrix and cross-table isolation,
+So that the graph foundation cannot be exploited to leak data between tables.
+
+**Acceptance Criteria:**
+
+**Given** la suite tests/integration/entity-links-security.test.js
+**When** exécutée avec node --test
+**Then** la matrice suivante passe pour source_type ET target_type :
+- Valeur valide ('system') → 201 ✅
+- null → 400, error.code INVALID_ENTITY_TYPE ✅
+- Chaîne vide ('') → 400 ✅
+- Valeur inconnue ('monster') → 400 ✅
+- Tentative injection SQL → 400 ✅
+
+**Given** deux tables de jeu A et B avec des entités dans chacune
+**When** un MJ de la table A appelle GET /api/entity-links?source_type=system&source_id=<id_système_table_B>
+**Then** le résultat est vide — aucun lien de la table B ne fuit
+
+**Given** un MJ de la table A tente POST /api/entity-links avec target_id pointant vers une entité de la table B
+**When** le service vérifie la cohérence
+**Then** l'API retourne 400 ou 403 (pas de lien inter-tables possible)
+
+**And** les tests couvrent aussi : DELETE d'un lien d'une autre table = 403, GET sans table = 401
+**And** les tests utilisent une DB SQLite in-memory
+
+**Couvre :** NFR-EL1 (sécurité cross-table), AR7
+
+---
+
+**Résumé Epic 7 : 4 stories — FR7.1–FR7.7 et NFR-EL1 couverts.**
+
+---
+
+## Epic 8 : Fiches PJ interactives
+
+Un joueur connecté peut consulter sa propre fiche PJ (santé dynamique, PP, Gloire, Énergie X, OD). Le MJ peut créer et modifier toutes les fiches de sa table. Le service de santé est extrait comme module réutilisable pour Epic 9.
+
+### Story 8.1 : Migration characters + healthService.js
+
+As a développeur,
+I want the characters table extended with PJ fields and a reusable health calculation service exported as a module,
+So that all character sheets (PJ and named NPCs in Epic 9) share the same validated server-side health logic.
+
+**Acceptance Criteria:**
+
+**Given** le serveur démarre
+**When** ensureCharactersExtensions() est exécutée dans database.js
+**Then** les colonnes suivantes sont ajoutées à characters si absentes : type TEXT DEFAULT 'pj', user_id INTEGER, archetype TEXT, is_mutant INTEGER DEFAULT 0, stats_json TEXT, competences_json TEXT, sante_json TEXT, sante_niveaux INTEGER DEFAULT 3, pp INTEGER DEFAULT 3, gloire INTEGER DEFAULT 0, energie_x_max INTEGER DEFAULT 0, energie_x_cur INTEGER DEFAULT 0, motivation TEXT, overdrive_trigger TEXT, qualites_json TEXT, defauts_json TEXT
+**And** la migration est idempotente
+
+**Given** un appel à healthService.computeHealthTemplate({ car, sf, niveaux })
+**When** le service calcule
+**Then** retourne { niveaux: [ { cases: [ { etat: 'vide' }, ... ] } ] } avec (car+sf) cases par niveau
+**And** un personnage avec car=4, sf=3 a 3 niveaux de 7 cases chacun
+
+**Given** un appel à healthService.computeEnergyXMax({ per, int })
+**When** calculé
+**Then** retourne per+int
+
+**And** src/services/health-service.js exporte : computeHealthTemplate, computeEnergyXMax, getHealthState, setHealthCase
+**And** des tests unitaires couvrent computeHealthTemplate (valeurs normales, min, max) et computeEnergyXMax
+
+**Couvre :** NFR-PJ2, NFR-NPC1 (module exportable), AR-P2.2
+
+---
+
+### Story 8.2 : CRUD fiches PJ + isolation joueur API
+
+As a MJ,
+I want to create and manage character sheets associated to each player,
+So that each player has their own sheet tied to their account with full isolation.
+
+**Acceptance Criteria:**
+
+**Given** un MJ authentifié avec table sélectionnée
+**When** POST /api/characters avec { nom, user_id, archetype, stats_json, is_mutant, ... }
+**Then** la fiche est créée avec table_id = req.table.id, type = 'pj'
+**And** sante_json est initialisé via healthService.computeHealthTemplate
+**And** si is_mutant=1, energie_x_max est calculé via healthService.computeEnergyXMax
+
+**Given** un MJ
+**When** GET /api/characters?type=pj
+**Then** toutes les fiches PJ de sa table sont retournées
+
+**Given** un joueur authentifié
+**When** GET /api/characters/:id avec l'id d'un autre joueur de sa table
+**Then** retourne 403 Forbidden
+
+**Given** un joueur authentifié
+**When** GET /api/characters/:id avec son propre id
+**Then** retourne sa fiche complète
+
+**Given** un MJ
+**When** GET /api/characters/:id (quel que soit l'user_id)
+**Then** retourne la fiche complète
+
+**And** la matrice d'autorisation est testée pour GET, PATCH, DELETE (owner ✅, non-owner joueur ❌, MJ ✅)
+
+**Couvre :** FR8.1, FR8.2, FR8.3, FR8.4, NFR-PJ1
+
+---
+
+### Story 8.3 : Santé dynamique — cases cochées et noircies
+
+As a MJ ou joueur,
+I want to check and mark health cases on character sheets during a game session,
+So that the character's health state is accurately tracked in real time.
+
+**Acceptance Criteria:**
+
+**Given** une fiche PJ est affichée
+**When** la santé est rendue
+**Then** elle affiche 3 niveaux (ou sante_niveaux), chaque niveau ayant CAR+SF cases
+**And** une case "cochée" (dommage scène) s'affiche différemment d'une case "noircie" (dommage permanent)
+**And** les cases sont remplies de droite à gauche visuellement
+
+**Given** un MJ est en vue fiche PJ
+**When** il clique sur une case
+**Then** il peut passer entre les états : vide / cochée / noircie
+**And** PATCH /api/characters/:id/health envoie { niveau_index, case_index, etat } et met à jour sante_json
+
+**Given** un joueur est en vue sa propre fiche
+**When** il clique sur une case
+**Then** il peut basculer entre vide et cochée uniquement
+**And** si le joueur envoie etat='noircie', l'API retourne 403
+
+**And** les calculs de template restent côté serveur (le client ne recalcule pas CAR+SF)
+**And** toutes les valeurs affichées via innerHTML utilisent esc()
+
+**Couvre :** FR8.5, FR8.6, FR8.7, FR8.8, FR8.9, NFR-PJ2
+
+---
+
+### Story 8.4 : Ressources de session — PP, Gloire, Énergie X
+
+As a MJ ou joueur,
+I want to track and update PP, Gloire, and Énergie X on character sheets during a session,
+So that session resources are always up to date.
+
+**Acceptance Criteria:**
+
+**Given** une fiche PJ affichée
+**When** les ressources sont rendues
+**Then** PP courant, Gloire et (si is_mutant) Énergie X courante/max sont visibles
+
+**Given** un MJ
+**When** PATCH /api/characters/:id avec { pp, gloire, ou energie_x_cur }
+**Then** les valeurs sont mises à jour (pp et energie_x_cur minimum 0, energie_x_cur maximum energie_x_max)
+
+**Given** un joueur
+**When** PATCH /api/characters/:id/resources avec { delta_pp: -1 }
+**Then** le PP est décrémenté, minimum 0
+**And** si delta_pp > 0 est envoyé par un joueur, l'API retourne 403
+
+**Given** un joueur mutant
+**When** PATCH /api/characters/:id/resources avec { delta_energie_x: -N }
+**Then** l'Énergie X courante diminue, minimum 0
+
+**Given** un personnage non-mutant (is_mutant = 0)
+**When** la fiche est affichée
+**Then** le bloc Énergie X n'est pas affiché
+
+**Couvre :** FR8.10, FR8.11, FR8.12, FR8.13, FR8.14, FR8.15
+
+---
+
+### Story 8.5 : Page personnage.html — vue joueur + motivation OD
+
+As a joueur,
+I want a dedicated character sheet page where I can see all my session info with my Overdrive trigger prominently displayed,
+So that I never miss my OD trigger during a game session.
+
+**Acceptance Criteria:**
+
+**Given** je suis un joueur authentifié
+**When** j'ouvre public/personnage.html
+**Then** ma fiche PJ est chargée automatiquement
+**And** la santé est affichée visuellement (niveaux + cases), les PP, la Gloire et l'Énergie X (si mutant) sont visibles
+
+**Given** ma fiche a une motivation et un déclencheur OD renseignés
+**When** la page se charge
+**Then** la motivation est affichée
+**And** le déclencheur OD est mis en évidence avec une couleur contrastée (ex: orange/ambre) et une icône distincte
+**And** l'OD est visible sans scroll sur mobile
+
+**Given** le MJ ouvre la section fiches PJ (admin.html ou vue dédiée)
+**When** la liste se charge
+**Then** toutes les fiches de sa table sont listées, chacune éditable via formulaire complet
+
+**And** la page utilise public/js/personnage/pj-app.js
+**And** toutes les valeurs affichées via innerHTML utilisent esc()
+
+**Couvre :** FR8.16, FR8.17, FR8.1 (vue MJ)
+
+---
+
+### Story 8.6 : Tests matrice autorisation complète PJ
+
+As a développeur,
+I want a complete authorization matrix test suite for the characters API covering all HTTP methods,
+So that the player isolation guarantee (NFR-PJ1) is verified exhaustively.
+
+**Acceptance Criteria:**
+
+**Given** la suite tests/integration/characters-auth.test.js
+**When** exécutée avec node --test
+**Then** les cas suivants passent :
+
+| Appel | Rôle | Résultat |
+|---|---|---|
+| GET /api/characters/:own_id | joueur owner | 200 |
+| GET /api/characters/:other_id | joueur non-owner | 403 |
+| GET /api/characters/:any_id | MJ | 200 |
+| PATCH /api/characters/:own_id | joueur owner | 200 (champs autorisés) |
+| PATCH /api/characters/:other_id | joueur non-owner | 403 |
+| PATCH /api/characters/:any_id | MJ | 200 |
+| DELETE /api/characters/:own_id | joueur | 403 (suppression = MJ only) |
+| DELETE /api/characters/:any_id | MJ | 200 |
+| PATCH delta_pp > 0 | joueur | 403 |
+| PATCH etat='noircie' | joueur | 403 |
+
+**And** les tests utilisent une DB SQLite in-memory
+**And** les tokens JWT de test sont générés avec la même clé que le serveur
+
+**Couvre :** NFR-PJ1 (toutes méthodes HTTP), AR7
+
+---
+
+**Résumé Epic 8 : 6 stories — FR8.1–FR8.17, NFR-PJ1, NFR-PJ2, NFR-NPC1 couverts. healthService.js exposé comme module réutilisable pour Epic 9.**
+
+---
+
+## Epic 9 : PNJ Nommés
+
+Le MJ peut créer des PNJ à stats complètes (Premiers/Seconds rôles), les lier au graphe, et régler leur visibilité. Les joueurs voient les PNJ révélés dans le Compendium (fiche simplifiée). La santé est gérée via le même service que les PJ.
+
+### Story 9.1 : Table named_npcs + CRUD MJ
+
+As a MJ,
+I want to create, edit, and delete named NPCs with full MA stats,
+So that I can prepare antagonists and allies with complete character data before a session.
+
+**Acceptance Criteria:**
+
+**Given** le serveur démarre
+**When** ensureNamedNpcs() est exécutée dans database.js
+**Then** la table named_npcs est créée avec : id, table_id INTEGER NOT NULL REFERENCES game_tables(id) ON DELETE CASCADE, nom TEXT NOT NULL, role_type TEXT NOT NULL CHECK(role_type IN ('premier_role','second_role')), archetype TEXT, stats_json TEXT, competences_json TEXT, is_mutant INTEGER NOT NULL DEFAULT 0, energie_x INTEGER NOT NULL DEFAULT 0, motivation TEXT, overdrive_trigger TEXT, aptitude TEXT, qualites_json TEXT, defauts_json TEXT, pp INTEGER NOT NULL DEFAULT 3, sante_json TEXT, notes TEXT, visible INTEGER NOT NULL DEFAULT 0, created_at TEXT, updated_at TEXT
+**And** index idx_named_npcs_table sur (table_id) créé
+**And** la migration est idempotente
+
+**Given** un MJ authentifié
+**When** POST /api/named-npcs avec { nom, role_type, archetype, stats_json, ... }
+**Then** le PNJ est créé avec visible=0 par défaut
+**And** sante_json est initialisé via healthService.computeHealthTemplate (import explicite depuis src/services/health-service.js)
+**And** si is_mutant=1, energie_x_max calculé via healthService.computeEnergyXMax
+
+**Given** un MJ
+**When** PATCH /api/named-npcs/:id
+**Then** peut modifier toutes les données
+
+**Given** un MJ
+**When** DELETE /api/named-npcs/:id
+**Then** le PNJ est supprimé après confirmation côté client
+
+**And** un joueur ne peut ni créer, ni modifier, ni supprimer (403 sur POST/PATCH/DELETE)
+**And** src/services/named-npcs.js importe healthService depuis src/services/health-service.js (pas de duplication)
+
+**Couvre :** FR9.1, FR9.2, FR9.3, NFR-NPC1
+
+---
+
+### Story 9.2 : Liaison entity_links depuis le formulaire PNJ
+
+As a MJ,
+I want to create entity links directly from the NPC creation/edit form,
+So that I can connect a named NPC to systems, factions, or ships without leaving the NPC page.
+
+**Acceptance Criteria:**
+
+**Given** le formulaire de création/édition d'un PNJ nommé est ouvert
+**When** le MJ arrive à la section "Entités liées"
+**Then** la liste des liens existants pour ce PNJ est affichée (GET /api/entity-links?source_type=named_npc&source_id=:id)
+
+**Given** le MJ clique "Ajouter un lien"
+**When** il sélectionne type d'entité, ID cible, type de relation, note optionnelle
+**Then** POST /api/entity-links est envoyé avec source_type='named_npc', source_id=<id_pnj>
+**And** le lien apparaît dans la liste sans reload de page
+
+**Given** le MJ clique "Supprimer" sur un lien
+**When** confirmé
+**Then** DELETE /api/entity-links/:id est appelé et le lien disparaît
+
+**And** le formulaire réutilise public/js/shared/entity-links.js (pas de duplication de code)
+
+**Couvre :** FR9.4
+
+---
+
+### Story 9.3 : Visibilité PNJ + vue joueur Compendium
+
+As a MJ,
+I want to control which named NPCs are visible to players,
+So that I reveal antagonists only at the right narrative moment.
+
+**Acceptance Criteria:**
+
+**Given** un PNJ nommé avec visible=0
+**When** un joueur appelle GET /api/named-npcs
+**Then** ce PNJ n'apparaît PAS dans la liste
+
+**Given** un MJ toggle visible=1 via PATCH /api/named-npcs/:id { visible: 1 }
+**When** le joueur appelle ensuite GET /api/named-npcs
+**Then** le PNJ apparaît avec : nom, role_type, archetype uniquement (pas les stats)
+
+**Given** un joueur appelle GET /api/named-npcs/:id pour un PNJ visible
+**When** la réponse est retournée
+**Then** les champs stats_json, competences_json, sante_json, pp, energie_x sont ABSENTS du payload
+**And** les champs nom, role_type, archetype, motivation, overdrive_trigger sont présents si renseignés
+
+**Given** un MJ appelle GET /api/named-npcs/:id
+**When** la réponse est retournée
+**Then** TOUS les champs sont présents (payload complet)
+
+**And** named-npcs.js implémente getForRole(id, role) construisant le payload selon le rôle
+**And** les PNJ révélés apparaissent dans l'onglet "PNJ" du Compendium côté joueur
+
+**Couvre :** FR9.5, FR9.6
+
+---
+
+### Story 9.4 : Recherche et filtrage PNJ (vue MJ)
+
+As a MJ,
+I want to filter and search named NPCs by faction, role type, or name,
+So that I can quickly find the right NPC during a game session.
+
+**Acceptance Criteria:**
+
+**Given** le MJ appelle GET /api/named-npcs?faction=EG
+**When** le filtre est appliqué
+**Then** seuls les PNJ dont le champ faction correspond sont retournés
+
+**Given** GET /api/named-npcs?role_type=premier_role
+**Then** seuls les PNJ de ce type sont retournés
+
+**Given** GET /api/named-npcs?q=Blood
+**When** la recherche est effectuée
+**Then** les PNJ dont le nom contient "Blood" (LIKE '%Blood%', case-insensitive) sont retournés
+
+**And** les filtres sont combinables (faction + role_type + q)
+**And** la liste est limitée à 50 entrées maximum
+**And** l'interface MJ affiche la liste filtrée avec debounce 300ms sur le champ de recherche
+
+**Couvre :** FR9.7
+
+---
+
+### Story 9.5 : Santé PNJ + vue entités liées sur fiche système
+
+As a MJ,
+I want named NPCs to have the same health tracking as PJ sheets, and to appear in system linked entities panels,
+So that the campaign graph is fully connected and health management is consistent.
+
+**Acceptance Criteria:**
+
+**Given** un PNJ nommé avec stats_json car=3, sf=2
+**When** le MJ ouvre la fiche du PNJ
+**Then** la santé affiche 3 niveaux de 5 cases chacun
+**And** le MJ peut modifier les cases via PATCH /api/named-npcs/:id/health { niveau_index, case_index, etat }
+
+**And** PATCH /api/named-npcs/:id/health utilise healthService.setHealthCase (pas de logique santé dupliquée)
+
+**Given** un système a un lien entity_links vers un PNJ nommé visible=1
+**When** un joueur charge la fiche système dans le Compendium
+**Then** ce PNJ apparaît dans "Entités liées" avec un lien vers sa fiche simplifiée
+
+**Given** un système a un lien vers un PNJ nommé visible=0
+**When** un joueur charge la fiche système
+**Then** ce PNJ N'apparaît PAS dans les entités liées (protect-by-default de Story 7.3)
+
+**Couvre :** FR9.8, FR9.9, NFR-NPC1
+
+---
+
+**Résumé Epic 9 : 5 stories — FR9.1–FR9.9, NFR-NPC1 couverts.**
+
+---
+
+## Epic 10 : Catalogue Figurants
+
+Bibliothèque de stats-blocs réutilisables pour les PNJ anonymes. 15 templates système pré-peuplés, ajout de templates personnalisés. Données globales non liées au graphe d'entités.
+
+### Story 10.1 : Table figurant_templates + seed + consultation
+
+As a MJ,
+I want to browse a pre-populated catalog of figurant stat-blocks,
+So that I can quickly look up anonymous NPC stats during a combat session.
+
+**Acceptance Criteria:**
+
+**Given** le serveur démarre
+**When** ensureFigurantTemplates() est exécutée dans database.js
+**Then** la table figurant_templates est créée avec : id, nom TEXT NOT NULL, faction TEXT, categorie TEXT, structure INTEGER NOT NULL DEFAULT 3, blindage INTEGER NOT NULL DEFAULT 0, degats TEXT, mf_disponible INTEGER NOT NULL DEFAULT 0, competences_json TEXT, notes TEXT, is_system_template INTEGER NOT NULL DEFAULT 0, created_at TEXT
+**And** la migration est idempotente
+
+**Given** la phase de seed
+**When** les 15 templates système sont insérés
+**Then** chaque template est inséré seulement si un template de même nom n'existe pas (WHERE nom = ? avant INSERT)
+**And** les 15 templates ont is_system_template=1 : Marin havanais, Pirate Black Mamba, Pirate Hijos de Havana, Soldat impérial, Marine impérial (armure), Citoyen Sol (noble), Chevalier de Sol, Cadre OCG, Agent OCG, Garde du corps OCG, Citoyen LPL, Agent LPL (secret), Esclave des Barrens, Pillard barren, Mercenaire (neutre)
+
+**Given** un utilisateur authentifié
+**When** GET /api/figurants
+**Then** retourne tous les templates système + personnalisés
+**And** la route fonctionne sans header X-Table-Id (données globales — middleware req.table non requis)
+
+**Given** GET /api/figurants?faction=EG&categorie=militaire
+**Then** seuls les templates correspondants sont retournés
+
+**Couvre :** FR10.1, FR10.2, FR10.6, FR10.7, AR-P2.5
+
+---
+
+### Story 10.2 : CRUD templates personnalisés + protection immutables
+
+As a MJ,
+I want to add, edit, and remove custom figurant templates while system templates remain protected,
+So that I can create campaign-specific stat-blocks without risking the default catalog.
+
+**Acceptance Criteria:**
+
+**Given** un MJ authentifié
+**When** POST /api/figurants avec { nom, faction, categorie, structure, blindage, degats, ... }
+**Then** le template est créé avec is_system_template=0
+
+**Given** un MJ
+**When** PATCH /api/figurants/:id sur un template is_system_template=0
+**Then** la mise à jour est acceptée
+
+**Given** un MJ tente PATCH /api/figurants/:id sur un template is_system_template=1
+**When** la requête est reçue
+**Then** l'API retourne 403 avec error.code "SYSTEM_TEMPLATE_IMMUTABLE"
+
+**Given** un MJ tente DELETE /api/figurants/:id sur un template is_system_template=1
+**When** la requête est reçue
+**Then** l'API retourne 403
+
+**Given** un MJ clique "Dupliquer" sur un template système
+**When** l'action est confirmée
+**Then** POST /api/figurants est envoyé avec les données copiées et is_system_template=0
+
+**And** un joueur ne peut ni créer, modifier, ni supprimer de figurants (403 sur POST/PATCH/DELETE)
+**And** un test unitaire vérifie PATCH et DELETE sur is_system_template=1 retournent tous les deux 403
+
+**Couvre :** FR10.3, FR10.4, FR10.5, NFR-FIG1 (PATCH + DELETE protégés)
+
+---
+
+### Story 10.3 : Interface MJ — stats-bloc consultatif
+
+As a MJ,
+I want a searchable figurant browser with readable stat-blocks,
+So that I can find the right NPC stats in under 10 seconds during a combat.
+
+**Acceptance Criteria:**
+
+**Given** le MJ ouvre la section Catalogue Figurants
+**When** la liste se charge
+**Then** tous les templates sont affichés avec : nom, faction, catégorie, structure, blindage, dégâts, MF disponible
+
+**Given** le MJ tape dans le champ de recherche (debounce 300ms)
+**When** le texte change
+**Then** la liste est filtrée par nom (LIKE) et/ou faction
+
+**Given** le MJ ouvre un template en détail
+**When** le stats-bloc complet est affiché
+**Then** structure, blindage, dégâts, MF disponible, compétences résumées, notes sont visibles
+**And** le layout est lisible sur mobile (pas de scroll horizontal)
+
+**And** l'interface est dans public/js/admin/figurants-app.js
+**And** toutes les valeurs via innerHTML utilisent esc()
+
+**Couvre :** FR10.1, FR10.2 (interface), FR10.6
+
+---
+
+**Résumé Epic 10 : 3 stories — FR10.1–FR10.7, NFR-FIG1 couverts.**
+
+---
+
+## Epic 11 : Metal Faktor Pool Tracker
+
+Widget compact gérant le pool de 50 dés MF en temps réel. Persisté par table, accessible depuis Dashboard MJ et Itinéraire (retrofit pages PRD #1). Priorité : snapshots de régression avant tout retrofit.
+
+### Story 11.1 : Snapshots E2E pre-retrofit
+
+As a développeur,
+I want baseline Playwright snapshots of the Dashboard MJ and Itinéraire pages before any widget integration,
+So that any layout regression introduced by the MF widget is immediately detectable.
+
+**Acceptance Criteria:**
+
+**Given** les pages Dashboard MJ et Itinéraire sont opérationnelles (PRD #1 livré)
+**When** le test tests/e2e/pre-retrofit-snapshots.test.js est exécuté
+**Then** des screenshots stables sont capturés pour les deux pages (viewport desktop 1280×720 et mobile 375×812)
+**And** les snapshots sont sauvegardés dans tests/snapshots/pre-mf-retrofit/
+
+**Given** les snapshots de base existent
+**When** les stories 11.3 et 11.4 seront exécutées
+**Then** les tests de régression utiliseront ces snapshots comme référence
+
+**And** le script de génération des snapshots est commité (pas les images si volumineuses)
+**And** un commentaire dans le test documente quelle zone de chaque page sera affectée par le retrofit
+
+**Couvre :** AR7 (E2E), protection régression Epic 11
+
+---
+
+### Story 11.2 : Table mf_pool + service atomique + API
+
+As a développeur et MJ,
+I want a persisted MF pool per table with atomic transfers enforced at DB level,
+So that the 50-die total constraint is never violated.
+
+**Acceptance Criteria:**
+
+**Given** le serveur démarre
+**When** ensureMFPool() est exécutée dans database.js
+**Then** la table mf_pool est créée avec : id INTEGER PRIMARY KEY, table_id INTEGER NOT NULL UNIQUE REFERENCES game_tables(id) ON DELETE CASCADE, pj_pool INTEGER NOT NULL DEFAULT 50, mj_pool INTEGER NOT NULL DEFAULT 0, updated_at TEXT, CHECK (pj_pool >= 0), CHECK (mj_pool >= 0), CHECK (pj_pool + mj_pool = 50)
+**And** la migration est idempotente
+
+**Given** une table de jeu n'a pas encore de ligne mf_pool
+**When** GET /api/mf-pool est appelé
+**Then** une ligne est créée automatiquement (INSERT OR IGNORE) avec pj=50, mj=0, puis retournée
+
+**Given** un MJ
+**When** POST /api/mf-pool/transfer avec { delta: 3, direction: "pj_to_mj" }
+**Then** la transaction SQLite (begin/commit) met à jour pj_pool -3 et mj_pool +3 atomiquement
+**And** si le résultat violerait pj_pool < 0, l'API retourne 400 error.code "MF_INSUFFICIENT"
+**And** la validation applicative précède l'ouverture de la transaction (double validation)
+
+**Given** un MJ
+**When** POST /api/mf-pool/reset (avec confirmation côté client)
+**Then** pj_pool = 50, mj_pool = 0 dans une transaction atomique
+
+**And** src/services/mf-pool.js : getPool, transfer (atomique), reset (atomique)
+**And** GET nécessite auth+table, POST/transfer et POST/reset nécessitent rôle MJ
+
+**Couvre :** FR11.1, FR11.2, FR11.3, FR11.4, FR11.5, FR11.6, NFR-MF1, NFR-MF2
+
+---
+
+### Story 11.3 : Widget mf-pool-widget.js + intégration Dashboard MJ
+
+As a MJ,
+I want an MF Pool widget available directly on the Dashboard without extra navigation,
+So that I can manage the pool in real time during combat.
+
+**Acceptance Criteria:**
+
+**Given** le MJ a le Dashboard MJ ouvert
+**When** la page se charge
+**Then** le widget MF Pool est visible sans scroll
+**And** le widget affiche "PJ : 45" et "MJ : 5" avec une barre visuelle reflétant l'équilibre PJ/MJ
+**And** plus le MJ a de dés (mj_pool élevé), plus la couleur de la barre change (tension montante)
+
+**Given** le MJ clique "−1 PJ / +1 MJ" (ou la direction inverse)
+**When** le transfert est envoyé
+**Then** le widget se met à jour immédiatement (optimistic UI)
+**And** si l'API retourne 400, l'affichage revient à l'état précédent avec message d'erreur
+
+**Given** le MJ active le bouton ×5
+**When** il clique un bouton de transfert
+**Then** le delta est multiplié par 5
+
+**Given** le MJ clique "Reset aventure" et confirme
+**When** la confirmation est validée
+**Then** POST /api/mf-pool/reset est envoyé et le widget affiche PJ:50 / MJ:0
+
+**And** public/js/shared/mf-pool-widget.js est un module autonome paramétrable (container_id)
+**And** le module est importé dans le JS du Dashboard MJ
+**And** les tests de régression post-retrofit Dashboard (vs snapshots Story 11.1) passent
+
+**Couvre :** FR11.1–FR11.9, FR11.7 (Dashboard)
+
+---
+
+### Story 11.4 : Intégration widget dans la page Itinéraire (retrofit)
+
+As a MJ,
+I want the MF Pool widget also available on the Itinéraire page,
+So that I can manage combat dice without switching tabs during a session.
+
+**Acceptance Criteria:**
+
+**Given** la page Itinéraire est ouverte
+**When** la page se charge
+**Then** le widget MF Pool est visible dans une zone cohérente du layout existant (sidebar ou section distincte)
+**And** le widget utilise le même module mf-pool-widget.js que le Dashboard (zéro duplication de code)
+
+**Given** le MJ interagit avec le widget sur l'Itinéraire
+**When** un transfert est effectué
+**Then** il fonctionne identiquement au Dashboard
+
+**And** les tests de régression post-retrofit Itinéraire (vs snapshots Story 11.1) passent
+**And** aucune fonctionnalité existante de la page Itinéraire n'est altérée
+
+**Couvre :** FR11.7 (retrofit Itinéraire)
+
+---
+
+### Story 11.5 : Tests atomicité + contrainte DB mf_pool
+
+As a développeur,
+I want dedicated tests validating the MF Pool's atomic transfer and CHECK constraint,
+So that the 50-die invariant is verifiably maintained including under error conditions.
+
+**Acceptance Criteria:**
+
+**Given** la suite tests/integration/mf-pool.test.js
+**When** exécutée avec node --test
+**Then** les cas suivants passent :
+- Transfer nominal PJ→MJ : somme = 50 ✅
+- Transfer nominal MJ→PJ : somme = 50 ✅
+- Transfer qui amènerait pj_pool < 0 : 400, DB inchangée ✅
+- Transfer delta=0 : accepté, DB inchangée ✅
+- Reset : pj=50, mj=0 ✅
+- INSERT plusieurs lignes pour même table_id : contrainte UNIQUE = erreur DB ✅
+- Insertion directe SQL de pj=30, mj=25 : CHECK constraint SQLite rejette ✅
+
+**Given** un test de robustesse
+**When** le service simule un crash entre débit et crédit (mock partiel)
+**Then** la transaction est rollback et les deux valeurs restent cohérentes (somme = valeur avant)
+
+**And** les tests utilisent une DB SQLite in-memory distincte de la DB de prod
+**And** le test CHECK direct insère via db.prepare().run() sans passer par l'API (test de la contrainte DB elle-même)
+
+**Couvre :** NFR-MF1 (atomicité), NFR-MF2 (contrainte CHECK), AR7
+
+---
+
+**Résumé Epic 11 : 5 stories — FR11.1–FR11.9, NFR-MF1, NFR-MF2 couverts. Retrofit Dashboard MJ + Itinéraire avec protection snapshot pre-retrofit.**
+
+---
+
+**Résumé global PRD #2 : 5 epics (7-11), 23 stories, 43/43 FRs couverts, 7 NFRs couverts.**
+
+**Résumé global complet (PRD #1 + PRD #2) : 11 epics, ~53 stories, 81/82 FRs couverts (FR20 retiré par décision produit).**

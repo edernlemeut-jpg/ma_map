@@ -1,6 +1,8 @@
 ﻿import { initHeader } from '/js/shared/header.js';
 import { getActiveTableId, fetchWithTable, isMJ, setActiveTable, renderTableSelector } from '/js/shared/table-selector.js';
 import { createPoller } from '/js/shared/poller.js';
+import { renderEntityLinksSection } from '/js/shared/entity-links.js';
+import { DiceRollerModal } from '/js/shared/dice-roller.js';
 
 // --- State ---
 let state = {
@@ -8,6 +10,9 @@ let state = {
   factions: [],
   ship_models: [],
   ships: [],
+  named_npcs: [],
+  secondary_systems: [],
+  characters: [],
   planets: [],
   perils: [],
   peril_assignments: { systems: {}, quadrants: {} },
@@ -29,6 +34,13 @@ let state = {
 let poller = null;
 const pendingToggles = new Set();
 let searchTimeout = null;
+
+// — Singleton dés (crew vaisseau) —
+let _crewDiceRoller = null;
+function getCrewDiceRoller() {
+  if (!_crewDiceRoller) _crewDiceRoller = new DiceRollerModal();
+  return _crewDiceRoller;
+}
 
 // --- DOM refs ---
 const $ = (id) => document.getElementById(id);
@@ -52,7 +64,7 @@ async function init() {
 
     // Handle hash-based tab selection (e.g. #flotte)
     const hash = window.location.hash.replace('#', '');
-  const validTabs = ['systems', 'factions', 'perils', 'quadrants', 'ship_models', 'ships'];
+  const validTabs = ['systems', 'factions', 'perils', 'quadrants', 'ship_models', 'ships', 'named_npcs', 'secondary_systems', 'pj'];
     if (hash && validTabs.includes(hash) && (hash !== 'ships' || state.tableId)) {
       state.activeTab = hash;
     }
@@ -93,9 +105,14 @@ async function loadAllData() {
     perilsRes = fetchWithTable('/api/perils/tables', { credentials: 'include' });
     assignRes = fetchWithTable('/api/perils/assignments', { credentials: 'include' });
   }
-  // planets loaded separately (no visibility filter needed for listing)
-  const planetsRes = await fetch('/api/planets', { credentials: 'include' });
-  const planetsJson = planetsRes.ok ? await planetsRes.json() : { data: [] };
+  // planets: MJ/admin only (bare GET /api/planets without system_id is restricted)
+  let planetsJson = { data: [] };
+  if (state.isAdmin || state.isMJ) {
+    try {
+      const planetsRes = await fetchWithTable('/api/planets');
+      if (planetsRes.ok) planetsJson = await planetsRes.json();
+    } catch {}
+  }
 
   const results = await Promise.all(promises);
   const [sysJson, facJson, smJson, shipJson] = await Promise.all(results.map(r => r.json()));
@@ -106,6 +123,17 @@ async function loadAllData() {
   state.ships = shipJson?.data ?? [];
   state.planets = planetsJson.data ?? [];
 
+  if (state.tableId) {
+    try {
+      const npcRes = await fetcher('/api/named-npcs');
+      if (npcRes.ok) { const nj = await npcRes.json(); state.named_npcs = nj.data ?? []; }
+    } catch {}
+    try {
+      const charRes = await fetchWithTable('/api/characters');
+      if (charRes.ok) { const cj = await charRes.json(); state.characters = cj.data ?? []; }
+    } catch {}
+  }
+
   if (perilsRes && assignRes) {
     try {
       const [pr, ar] = await Promise.all([perilsRes, assignRes]);
@@ -113,6 +141,14 @@ async function loadAllData() {
       if (ar.ok) { const aj = await ar.json(); state.peril_assignments = aj.data || { systems: {}, quadrants: {} }; }
     } catch {}
   }
+
+  // Load secondary systems catalogue (accessible to all authenticated users)
+  try {
+    const ssRes = state.tableId
+      ? await fetchWithTable('/api/secondary-systems')
+      : await fetch('/api/secondary-systems', { credentials: 'include' });
+    if (ssRes.ok) { const ssj = await ssRes.json(); state.secondary_systems = ssj.data ?? []; }
+  } catch {}
 
   if (activeShipIdRes) {
     try {
@@ -123,7 +159,7 @@ async function loadAllData() {
 
   // Detect MJ from API response (only compendium entities have 'visible')
   if (!state.isAdmin) {
-    const allEntities = [...state.systems, ...state.factions, ...state.ship_models];
+    const allEntities = [...state.systems, ...state.factions, ...state.ship_models, ...state.secondary_systems];
     state.isMJ = allEntities.length > 0 && 'visible' in allEntities[0];
   } else {
     state.isMJ = state.tableId ? true : false;
@@ -164,6 +200,17 @@ function renderApp() {
     }
   }
 
+  // Hide PNJ tab if no table
+  const npcsBtn = $('tab-btn-named_npcs');
+  if (npcsBtn) {
+    if (!state.tableId) {
+      npcsBtn.classList.add('hidden');
+      if (state.activeTab === 'named_npcs') state.activeTab = 'systems';
+    } else {
+      npcsBtn.classList.remove('hidden');
+    }
+  }
+
   // Hide Périls and Quadrants tabs for non-MJ players
   const perilsBtn = document.querySelector('[data-tab="perils"]');
   const quadrantsBtn = document.querySelector('[data-tab="quadrants"]');
@@ -174,6 +221,21 @@ function renderApp() {
   } else {
     if (perilsBtn) perilsBtn.classList.remove('hidden');
     if (quadrantsBtn) quadrantsBtn.classList.remove('hidden');
+  }
+
+  // Systèmes secondaires tab: visible to all (it's a reference catalogue)
+  const secBtn = $('tab-btn-secondary_systems');
+  if (secBtn) secBtn.classList.remove('hidden');
+
+  // PJ tab: visible only when table is active
+  const pjBtn = $('tab-btn-pj');
+  if (pjBtn) {
+    if (!state.tableId) {
+      pjBtn.classList.add('hidden');
+      if (state.activeTab === 'pj') state.activeTab = 'systems';
+    } else {
+      pjBtn.classList.remove('hidden');
+    }
   }
 
   if (totalCount === 0 && !state.isMJ && !state.isAdmin) {
@@ -261,11 +323,596 @@ function renderActiveTab() {
   panel.classList.remove('hidden');
 
   const data = state[state.activeTab];
-  const renderers = { systems: renderSystems, factions: renderFactions, perils: renderPerils, quadrants: renderQuadrants, ship_models: renderShipModels, ships: renderFleet };
+  const renderers = { systems: renderSystems, factions: renderFactions, perils: renderPerils, quadrants: renderQuadrants, ship_models: renderShipModels, ships: renderFleet, named_npcs: renderNamedNpcs, secondary_systems: renderSecondarySystemsTab, pj: renderPjTab };
   if (renderers[state.activeTab]) renderers[state.activeTab](panel, data);
 }
 
-// --- Empty states per tab ---
+function renderPjTab(panel) {
+  const isMJUser = state.isMJ || state.isAdmin;
+  const pjs = (state.characters || []).filter(c => c.type === 'pj');
+
+  let html = `
+    <div class="mb-5 flex items-center justify-between flex-wrap gap-2">
+      <h3 class="text-base font-semibold text-gray-200">🧑‍🚀 Personnages Joueurs</h3>
+      <a href="/personnage.html?new=pj" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors">＋ Nouveau PJ</a>
+    </div>`;
+
+  if (!pjs.length) {
+    html += `<div class="text-center py-12 px-4">
+      <p class="text-2xl mb-3">🧑‍🚀</p>
+      <p class="text-gray-400 italic max-w-md mx-auto">Aucun personnage joueur pour cette table…</p>
+    </div>`;
+    panel.innerHTML = html;
+    return;
+  }
+
+  // ── MJ awards panel ──
+  if (isMJUser) {
+    html += `
+    <div id="pj-awards-panel" class="bg-gray-800/80 border border-yellow-700/40 rounded-xl p-4 mb-5">
+      <p class="text-sm font-semibold text-yellow-300 mb-3">🎖 Récompenses — Table de jeu</p>
+      <div class="space-y-2">
+        ${pjs.map(c => `
+        <div class="flex flex-wrap items-center gap-2 py-1.5 border-b border-gray-700/50 last:border-0">
+          <span class="text-sm text-gray-300 w-32 truncate flex-shrink-0">${esc(c.data?.nom_personnage || c.name)}</span>
+          <span class="text-xs text-yellow-400 w-16">${c.data?.px_actuel ?? 0} PX</span>
+          <input type="number" data-px-for="${esc(String(c.id))}" min="1" value="500"
+            class="w-16 bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-xs text-center">
+          <button data-char-id="${esc(String(c.id))}" data-award="px" data-delta="-1"
+            class="award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-red-800/40 rounded text-xs border border-gray-600 hover:border-red-600 transition-colors">−</button>
+          <button data-char-id="${esc(String(c.id))}" data-award="px" data-delta="1"
+            class="award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-green-800/40 rounded text-xs border border-gray-600 hover:border-green-600 transition-colors">+ PX</button>
+          <span class="text-xs text-gray-500 ml-1">Gloire <strong class="text-gray-200">${c.data?.gloire ?? 0}</strong></span>
+          <div class="flex gap-1">
+            <button data-char-id="${esc(String(c.id))}" data-award="gloire" data-delta="-1"
+              class="award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-red-800/40 rounded text-xs border border-gray-600 hover:border-red-600 transition-colors">−</button>
+            <button data-char-id="${esc(String(c.id))}" data-award="gloire" data-delta="1"
+              class="award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-green-800/40 rounded text-xs border border-gray-600 hover:border-green-600 transition-colors">+</button>
+          </div>
+          <span class="text-xs text-gray-500 ml-1">Panache <strong class="text-gray-200">${c.data?.panache ?? 3}</strong></span>
+          <div class="flex gap-1">
+            <button data-char-id="${esc(String(c.id))}" data-award="panache" data-delta="-1"
+              class="award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-red-800/40 rounded text-xs border border-gray-600 hover:border-red-600 transition-colors">−</button>
+            <button data-char-id="${esc(String(c.id))}" data-award="panache" data-delta="1"
+              class="award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-green-800/40 rounded text-xs border border-gray-600 hover:border-green-600 transition-colors">+</button>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // ── Character cards ──
+  html += '<div class="space-y-2">';
+  pjs.forEach(c => {
+    const d = c.data || {};
+    const name = d.nom_personnage || c.name;
+    const arch = d.action_archetype || '';
+    const orig = d._origine_nation || '';
+    const sub  = [arch, orig].filter(Boolean).join(' · ') || 'PJ';
+    const creatorTag = isMJUser && c.creator_name
+      ? `<span class="text-xs text-yellow-500/80 block mt-0.5">👤 ${esc(c.creator_name)}</span>`
+      : '';
+    const avatarHtml = d.avatar_url
+      ? `<img src="${esc(d.avatar_url)}" class="w-10 h-10 rounded-full object-cover shrink-0" alt="">`
+      : `<div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-lg shrink-0">👤</div>`;
+    const statsHtml = [
+      d.px_actuel != null ? `<span class="text-xs text-blue-300">${d.px_actuel} PX</span>` : '',
+      d.gloire     != null ? `<span class="text-xs text-yellow-300">✦ ${d.gloire} Gloire</span>` : '',
+      d.panache    != null ? `<span class="text-xs text-cyan-300">⚓ ${d.panache} Panache</span>` : '',
+    ].filter(Boolean).join(' ');
+    html += `<div class="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3">
+      ${avatarHtml}
+      <div class="flex-1 min-w-0">
+        <p class="font-medium truncate">${esc(name)}</p>
+        <p class="text-xs text-gray-400">${esc(sub)}</p>
+        ${creatorTag}
+        ${statsHtml ? `<div class="flex gap-2 mt-0.5">${statsHtml}</div>` : ''}
+      </div>
+      <div class="flex gap-1 shrink-0">
+        <button data-view-char="${esc(String(c.id))}" class="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors" title="Voir la fiche">👁 Voir</button>
+        <a href="/personnage.html?edit=${esc(String(c.id))}" class="px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded text-xs transition-colors" title="Modifier">✏️ Modifier</a>
+        ${isMJUser ? `<button data-delete-char="${esc(String(c.id))}" data-char-name="${esc(name)}" class="px-2 py-1 bg-red-900/60 hover:bg-red-700 rounded text-xs transition-colors" title="Supprimer">🗑</button>` : ''}
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  panel.innerHTML = html;
+
+  // Wire award buttons
+  if (isMJUser) {
+    panel.querySelectorAll('.award-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const { charId, award, delta } = btn.dataset;
+        let body;
+        if (award === 'gloire')       body = { gloire_delta:  parseInt(delta, 10) };
+        else if (award === 'panache') body = { panache_delta: parseInt(delta, 10) };
+        else if (award === 'px') {
+          const input = panel.querySelector(`[data-px-for="${charId}"]`);
+          const amount = parseInt(input?.value || '500', 10);
+          body = { px_delta: parseInt(delta, 10) * amount };
+        }
+        if (!body) return;
+        const r = await fetchWithTable(`/api/characters/${charId}/awards`, {
+          method: 'PATCH', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (r.ok) {
+          try {
+            const cr = await fetchWithTable('/api/characters');
+            if (cr.ok) { const cj = await cr.json(); state.characters = cj.data ?? []; }
+          } catch {}
+          renderPjTab(panel);
+        } else {
+          const err = await r.json().catch(() => ({}));
+          alert(`Erreur ${r.status} : ${err?.error?.message || 'Impossible de modifier le personnage'}`);
+        }
+      });
+    });
+  }
+
+  // Wire Voir / Supprimer buttons
+  panel.querySelectorAll('[data-view-char]').forEach(btn => {
+    btn.addEventListener('click', () => openCharSheetModal(btn.dataset.viewChar));
+  });
+  if (isMJUser) {
+    panel.querySelectorAll('[data-delete-char]').forEach(btn => {
+      btn.addEventListener('click', () => deleteCharInline(btn.dataset.deleteChar, btn.dataset.charName, panel, () => renderPjTab(panel)));
+    });
+  }
+}
+
+function renderNamedNpcs(panel, npcs) {
+  const isMJUser = state.isMJ || state.isAdmin;
+  const pnjs = (state.characters || []).filter(c => c.type === 'pnj');
+  const hasNamedNpcs = Array.isArray(npcs) && npcs.length > 0;
+
+  let headerHtml = `
+    <div class="mb-5 flex items-center justify-between flex-wrap gap-2">
+      <h3 class="text-base font-semibold text-gray-200">🎭 Personnages Non-Joueurs</h3>
+      ${isMJUser ? `<a href="/personnage.html?new=pnj" class="px-3 py-1.5 bg-purple-700 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors">＋ Nouveau PNJ</a>` : ''}
+    </div>`;
+
+  if (!pnjs.length && !hasNamedNpcs) {
+    panel.innerHTML = headerHtml + `
+      <div class="text-center py-12 px-4">
+        <p class="text-2xl mb-3">🎭</p>
+        <p class="text-gray-400 italic max-w-md mx-auto">Aucun PNJ disponible dans cet univers…</p>
+      </div>`;
+    return;
+  }
+
+  // Full PNJ fiches from characters API
+  let pnjCards = '';
+  if (pnjs.length) {
+    pnjCards = '<div class="space-y-2 mb-6">' + pnjs.map(c => {
+      const d = c.data || {};
+      const name = d.nom_personnage || c.name;
+      const arch = d.action_archetype || '';
+      const orig = d._origine_nation || '';
+      const sub  = [arch, orig].filter(Boolean).join(' · ') || 'PNJ';
+      const avatarHtml = d.avatar_url
+        ? `<img src="${esc(d.avatar_url)}" class="w-10 h-10 rounded-full object-cover shrink-0" alt="">`
+        : `<div class="w-10 h-10 rounded-full bg-purple-900 flex items-center justify-center text-lg shrink-0">🎭</div>`;
+      return `<div class="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3">
+        ${avatarHtml}
+        <div class="flex-1 min-w-0">
+          <p class="font-medium truncate">${esc(name)}</p>
+          <p class="text-xs text-gray-400">${esc(sub)}</p>
+        </div>
+        <div class="flex gap-1 shrink-0">
+          <button data-view-char="${esc(String(c.id))}" class="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors">👁 Voir</button>
+          ${isMJUser ? `<a href="/personnage.html?edit=${esc(String(c.id))}" class="px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded text-xs transition-colors">✏️ Modifier</a>` : ''}
+          ${isMJUser ? `<button data-delete-char="${esc(String(c.id))}" data-char-name="${esc(name)}" class="px-2 py-1 bg-red-900/60 hover:bg-red-700 rounded text-xs transition-colors">🗑</button>` : ''}
+        </div>
+      </div>`;
+    }).join('') + '</div>';
+  }
+
+  if (!hasNamedNpcs) {
+    panel.innerHTML = headerHtml + pnjCards;
+    _wireCharButtons(panel, isMJUser, () => renderNamedNpcs(panel, npcs));
+    return;
+  }
+
+  // Legacy named_npcs grid
+  const cards = npcs.map(npc => {
+    const roleLabel = { premier_role: 'Rôle principal', second_role: 'Second rôle', figurant: 'Figurant' }[npc.role_type] ?? npc.role_type ?? '';
+    const factionBadge = npc.faction ? `<span class="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded ml-2">${esc(npc.faction)}</span>` : '';
+    const motiv = npc.motivation ? `<p class="text-xs text-gray-400 mt-1 line-clamp-2"><span class="text-gray-500">Motivation :</span> ${esc(npc.motivation)}</p>` : '';
+    const overdrive = npc.overdrive_trigger ? `<p class="text-xs text-gray-500 mt-0.5"><span class="text-gray-600">Overdrive :</span> ${esc(npc.overdrive_trigger)}</p>` : '';
+    const manageBtn = isMJUser
+      ? `<a href="/campagne.html#named-npcs" class="text-xs text-blue-400 hover:text-blue-300 mt-2 inline-block">Gérer →</a>`
+      : '';
+    return `
+      <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-semibold text-gray-100">${esc(npc.nom)}</span>
+          <span class="text-xs text-gray-500">${esc(roleLabel)}</span>
+          ${factionBadge}
+        </div>
+        ${npc.archetype ? `<p class="text-xs text-gray-400 italic mt-0.5">${esc(npc.archetype)}</p>` : ''}
+        ${motiv}
+        ${overdrive}
+        ${manageBtn}
+      </div>`;
+  }).join('');
+  panel.innerHTML = headerHtml + pnjCards + `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${cards}</div>`;
+  _wireCharButtons(panel, isMJUser, () => renderNamedNpcs(panel, npcs));
+  return;
+}
+
+// --- Character sheet modal + delete helpers ---
+function _wireCharButtons(panel, isMJUser, refreshFn) {
+  panel.querySelectorAll('[data-view-char]').forEach(btn => {
+    btn.addEventListener('click', () => openCharSheetModal(btn.dataset.viewChar));
+  });
+  if (isMJUser) {
+    panel.querySelectorAll('[data-delete-char]').forEach(btn => {
+      btn.addEventListener('click', () => deleteCharInline(btn.dataset.deleteChar, btn.dataset.charName, refreshFn));
+    });
+  }
+}
+
+function openCharSheetModal(charId) {
+  const overlay = document.createElement('div');
+  overlay.className = 'fixed inset-0 bg-black/80 flex flex-col z-50';
+  overlay.innerHTML = `
+    <div class="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-700 shrink-0">
+      <span class="text-sm text-gray-400">Fiche de personnage</span>
+      <button id="char-modal-close" class="text-gray-400 hover:text-white text-2xl leading-none px-2">&times;</button>
+    </div>
+    <iframe src="/personnage.html?view=${encodeURIComponent(charId)}"
+      class="flex-1 w-full border-0" allow="same-origin"></iframe>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#char-modal-close').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') overlay.remove(); });
+}
+
+async function deleteCharInline(charId, charName, refreshFn) {
+  if (!confirm(`Supprimer "${charName}" ? Cette action est irréversible.`)) return;
+  try {
+    const r = await fetchWithTable(`/api/characters/${charId}`, {
+      method: 'DELETE', credentials: 'include',
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error?.message || `Erreur ${r.status}`);
+    // Reload characters list
+    try {
+      const cr = await fetchWithTable('/api/characters');
+      if (cr.ok) { const cj = await cr.json(); state.characters = cj.data ?? []; }
+    } catch {}
+    refreshFn();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+// --- Systèmes secondaires (catalogue de référence) ---
+function renderSecondarySystemsTab(panel, systems) {
+  const canEdit = state.isAdmin;
+  const isMJ = state.isMJ;
+
+  // Build faction name map from state.factions
+  const factionMap = {};
+  (state.factions || []).forEach(f => { factionMap[f.id] = f; });
+  // Faction color map for badges
+  const FACTION_COLORS = {
+    2: 'bg-blue-900/50 text-blue-300 border-blue-700',    // Ligue
+    3: 'bg-purple-900/50 text-purple-300 border-purple-700', // Empire Galactique
+    4: 'bg-yellow-900/50 text-yellow-300 border-yellow-700', // OCC
+    5: 'bg-red-900/50 text-red-300 border-red-700',        // Empire de Sol
+    6: 'bg-orange-900/50 text-orange-300 border-orange-700', // Pirates
+    1: 'bg-gray-900/50 text-gray-300 border-gray-600',     // Barrens
+  };
+
+  const DISPO_COLOR = { A: 'text-green-400', B: 'text-yellow-400', C: 'text-red-400' };
+  const CATEG_ICON = {
+    'Armement': '⚔️', 'Propulsion': '🚀', 'Coque': '🛡️', 'Senseurs': '📡',
+    'Commandement': '🎯', 'Médical': '⚕️', 'Électronique': '💻', 'Navigation': '🧭',
+    'Tactique': '🎖️', 'Discrétion': '👁️', 'Sécurité': '🔒', 'Exploration': '🔭',
+    'Transport': '📦', 'Soute': '🏭', 'Confort': '🛋️', 'Pilotage': '🕹️',
+    'Sciences': '🔬', 'Communication': '📻',
+  };
+
+  // Joueurs only see visible systems (when isMJ is false, visible field absent → show all)
+  const visibleSystems = systems ? (
+    isMJ ? systems : systems.filter(s => s.visible !== false && s.visible !== 0)
+  ) : [];
+
+  // Group by categorie for filter options
+  const cats = [...new Set(visibleSystems.map(s => s.categorie).filter(Boolean))].sort();
+  // Collect faction IDs present in catalogue (using full systems list for MJ)
+  const presentFactionIds = [...new Set((isMJ ? (systems || []) : visibleSystems).map(s => s.faction_id).filter(Boolean))].sort();
+
+  let html = '';
+
+  if (canEdit) {
+    html += `<div class="mb-4 flex justify-between items-center">
+      <h3 class="text-base font-semibold text-gray-200">Catalogue des systèmes secondaires</h3>
+      <button id="btn-add-sec-sys" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors min-h-[40px]">+ Nouveau système</button>
+    </div>`;
+  }
+
+  if (!systems || systems.length === 0) {
+    html += `<div class="text-center py-12 px-4">
+      <p class="text-2xl mb-3">⚙️</p>
+      <p class="text-gray-400 italic">Aucun système secondaire dans le catalogue.</p>
+    </div>`;
+    panel.innerHTML = html;
+    if (canEdit) panel.querySelector('#btn-add-sec-sys')?.addEventListener('click', () => openSecondarySystemModal(null));
+    return;
+  }
+
+  // Filter UI
+  html += `<div class="mb-4 flex flex-wrap gap-2 items-center">
+    <input id="ss-search" type="text" placeholder="Rechercher…" class="bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500 w-48">
+    <select id="ss-filter-cat" class="bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+      <option value="">Toutes les catégories</option>
+      ${cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}
+    </select>
+    <select id="ss-filter-dispo" class="bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+      <option value="">Toutes dispo.</option>
+      <option value="A">A — Courant</option>
+      <option value="B">B — Rare</option>
+      <option value="C">C — Très rare</option>
+    </select>
+    <select id="ss-filter-faction" class="bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+      <option value="">Toutes factions</option>
+      <option value="none">— Sans faction</option>
+      ${presentFactionIds.map(fid => {
+        const f = factionMap[fid];
+        return f ? `<option value="${fid}">${esc(f.name)}</option>` : '';
+      }).join('')}
+    </select>
+    ${isMJ ? `<select id="ss-filter-vis" class="bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+      <option value="">Toutes visibilités</option>
+      <option value="visible">Visibles</option>
+      <option value="hidden">Cachés</option>
+    </select>` : ''}
+  </div>`;
+
+  html += `<div id="ss-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>`;
+
+  panel.innerHTML = html;
+
+  const grid = panel.querySelector('#ss-grid');
+  const searchInput = panel.querySelector('#ss-search');
+  const catFilter = panel.querySelector('#ss-filter-cat');
+  const dispoFilter = panel.querySelector('#ss-filter-dispo');
+  const factionFilter = panel.querySelector('#ss-filter-faction');
+  const visFilter = panel.querySelector('#ss-filter-vis');
+
+  function renderCards() {
+    const q = searchInput.value.trim().toLowerCase();
+    const catVal = catFilter.value;
+    const dispoVal = dispoFilter.value;
+    const facVal = factionFilter.value;
+    const visVal = visFilter?.value || '';
+
+    // Start from visibleSystems (already filtered by joueur visibility)
+    let pool = isMJ ? (systems || []) : visibleSystems;
+
+    const filtered = pool.filter(s => {
+      if (catVal && s.categorie !== catVal) return false;
+      if (dispoVal && s.disponibilite !== dispoVal) return false;
+      if (facVal === 'none' && s.faction_id != null) return false;
+      if (facVal && facVal !== 'none' && String(s.faction_id) !== facVal) return false;
+      if (visVal === 'visible' && !s.visible) return false;
+      if (visVal === 'hidden' && s.visible) return false;
+      if (q && !s.nom.toLowerCase().includes(q) && !(s.description || '').toLowerCase().includes(q) && !(s.categorie || '').toLowerCase().includes(q)) return false;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      grid.innerHTML = `<div class="col-span-full text-center py-8 text-gray-500 italic">Aucun système ne correspond à ces filtres.</div>`;
+      return;
+    }
+
+    grid.innerHTML = filtered.map(s => {
+      const icon = CATEG_ICON[s.categorie] || '⚙️';
+      const dispoColor = DISPO_COLOR[s.disponibilite] || 'text-gray-400';
+      const prix = s.prix_100t != null ? `${Number(s.prix_100t).toLocaleString('fr-FR')} ¢/100 t` : (s.prix_10t != null ? `${Number(s.prix_10t).toLocaleString('fr-FR')} ¢/10 t` : null);
+      const install = s.installation != null ? `${s.installation} sem.` : null;
+      const faction = s.faction_id != null ? factionMap[s.faction_id] : null;
+      const facBadge = faction
+        ? `<span class="text-xs px-2 py-0.5 rounded-full border ${FACTION_COLORS[faction.id] || 'bg-gray-700/50 text-gray-400 border-gray-600'}">${esc(faction.short || faction.name)}</span>`
+        : '';
+      const isHidden = isMJ && s.visible === false || s.visible === 0;
+      return `
+        <div class="ss-card bg-gray-800 border ${isHidden ? 'border-gray-700/40 opacity-60' : 'border-gray-700'} rounded-xl p-4 hover:border-gray-500 transition-colors cursor-pointer" data-id="${esc(String(s.id))}">
+          <div class="flex items-start gap-3">
+            <span class="text-2xl select-none flex-shrink-0 mt-0.5">${icon}</span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-start justify-between gap-2">
+                <h4 class="font-semibold text-gray-100 text-sm leading-tight">${esc(s.nom)}</h4>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  ${s.disponibilite ? `<span class="text-xs font-bold ${dispoColor}">${esc(s.disponibilite)}</span>` : ''}
+                  ${isMJ ? renderVisibilityToggle('secondary_systems', s) : ''}
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-1.5 mt-1">
+                ${s.categorie ? `<span class="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">${esc(s.categorie)}</span>` : ''}
+                ${s.localisation ? `<span class="text-xs bg-gray-700/50 text-gray-400 px-2 py-0.5 rounded-full">${esc(s.localisation)}</span>` : ''}
+                ${facBadge}
+              </div>
+              <div class="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
+                ${prix ? `<div class="text-gray-400">💰 ${prix}</div>` : ''}
+                ${install ? `<div class="text-gray-400">🔧 ${install}</div>` : ''}
+              </div>
+              ${s.description ? `<p class="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed">${esc(s.description)}</p>` : ''}
+            </div>
+          </div>
+          ${canEdit ? `<div class="mt-3 pt-2 border-t border-gray-700/50 flex justify-end gap-2">
+            <button class="ss-edit-btn text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded hover:bg-blue-900/30 transition-colors" data-id="${esc(String(s.id))}">✏️ Modifier</button>
+            <button class="ss-del-btn text-xs text-gray-500 hover:text-red-400 px-2 py-1 rounded hover:bg-red-900/30 transition-colors" data-id="${esc(String(s.id))}" data-nom="${esc(s.nom)}">🗑️</button>
+          </div>` : ''}
+        </div>`;
+    }).join('');
+
+    // Wire edit/delete
+    if (canEdit) {
+      grid.querySelectorAll('.ss-edit-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const sys = state.secondary_systems.find(s => String(s.id) === btn.dataset.id);
+          if (sys) openSecondarySystemModal(sys);
+        });
+      });
+      grid.querySelectorAll('.ss-del-btn').forEach(btn => {
+        btn.addEventListener('click', async e => {
+          e.stopPropagation();
+          if (!confirm(`Supprimer « ${btn.dataset.nom} » ?`)) return;
+          const r = await fetch(`/api/secondary-systems/${btn.dataset.id}`, { method: 'DELETE', credentials: 'include' });
+          if (r.ok) {
+            state.secondary_systems = state.secondary_systems.filter(s => String(s.id) !== btn.dataset.id);
+            renderCards();
+          }
+        });
+      });
+    }
+  }
+
+  renderCards();
+  searchInput.addEventListener('input', renderCards);
+  catFilter.addEventListener('change', renderCards);
+  dispoFilter.addEventListener('change', renderCards);
+  factionFilter.addEventListener('change', renderCards);
+  visFilter?.addEventListener('change', renderCards);
+
+  if (canEdit) panel.querySelector('#btn-add-sec-sys')?.addEventListener('click', () => openSecondarySystemModal(null));
+}
+
+function openSecondarySystemModal(sys) {
+  const isEdit = !!sys;
+  const overlay = document.createElement('div');
+  overlay.className = 'fixed inset-0 bg-black/70 flex items-start justify-center z-50 p-4 pt-12 overflow-y-auto';
+
+  const CATS = ['Armement', 'Coque', 'Commandement', 'Discrétion', 'Électronique', 'Exploration', 'Médical', 'Navigation', 'Pilotage', 'Propulsion', 'Sécurité', 'Senseurs', 'Soute', 'Tactique', 'Transport', 'Confort', 'Autre'];
+  const DISPOS = ['A', 'B', 'C'];
+
+  const fld = (id, label, type, val = '') =>
+    `<div><label class="block text-xs text-gray-400 mb-1">${esc(label)}</label>
+      <input type="${type}" id="${id}" value="${esc(String(val ?? ''))}"
+        class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"></div>`;
+  const sel = (id, label, options, val = '') =>
+    `<div><label class="block text-xs text-gray-400 mb-1">${esc(label)}</label>
+      <select id="${id}" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 cursor-pointer">
+        <option value="">—</option>
+        ${options.map(o => `<option value="${esc(o)}" ${val === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+      </select></div>`;
+  const ta = (id, label, val = '') =>
+    `<div><label class="block text-xs text-gray-400 mb-1">${esc(label)}</label>
+      <textarea id="${id}" rows="3" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 resize-y">${esc(String(val ?? ''))}</textarea></div>`;
+
+  overlay.innerHTML = `
+    <div class="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-lg shadow-2xl mb-8" style="max-height:92vh;display:flex;flex-direction:column;">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700 flex-shrink-0">
+        <h2 class="text-lg font-bold">${isEdit ? `✏️ ${esc(sys.nom)}` : '+ Nouveau système secondaire'}</h2>
+        <button id="ss-modal-close" class="text-gray-400 hover:text-gray-200 text-xl min-w-[36px] min-h-[36px] flex items-center justify-center">✕</button>
+      </div>
+      <p id="ss-modal-err" class="hidden text-sm text-red-400 bg-red-900/20 border border-red-800 rounded p-2 mx-6 mt-3 flex-shrink-0"></p>
+      <div class="overflow-y-auto flex-1 p-6 space-y-4">
+        ${fld('ss-nom', 'Nom *', 'text', sys?.nom)}
+        <div class="grid grid-cols-2 gap-3">
+          ${sel('ss-cat', 'Catégorie', CATS, sys?.categorie)}
+          ${sel('ss-dispo', 'Disponibilité', DISPOS, sys?.disponibilite)}
+        </div>
+        ${fld('ss-local', 'Localisation', 'text', sys?.localisation)}
+        ${fld('ss-install', 'Installation (semaines)', 'number', sys?.installation ?? '')}
+        <div class="grid grid-cols-2 gap-3">
+          ${fld('ss-p10', 'Prix 10 t (¢)', 'number', sys?.prix_10t ?? '')}
+          ${fld('ss-p100', 'Prix 100 t (¢)', 'number', sys?.prix_100t ?? '')}
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          ${fld('ss-p1k', 'Prix 1 000 t (¢)', 'number', sys?.prix_1000t ?? '')}
+          ${fld('ss-p10k', 'Prix 10 000 t (¢)', 'number', sys?.prix_10000t ?? '')}
+        </div>
+        ${ta('ss-desc', 'Description', sys?.description)}
+        ${fld('ss-src', 'Source (livre)', 'text', sys?.source_livre)}
+        <div><label class="block text-xs text-gray-400 mb-1">Faction</label>
+          <select id="ss-faction" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 cursor-pointer">
+            <option value="">— Aucune faction —</option>
+            ${(state.factions || []).map(f => `<option value="${f.id}" ${sys?.faction_id == f.id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}
+          </select></div>
+      </div>
+      <div class="flex gap-3 px-6 py-4 border-t border-gray-700 flex-shrink-0">
+        <button id="ss-modal-save" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition-colors">${isEdit ? 'Enregistrer' : 'Créer'}</button>
+        <button id="ss-modal-cancel" class="px-4 bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 rounded-lg text-sm transition-colors">Annuler</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.querySelector('#ss-modal-close').addEventListener('click', close);
+  overlay.querySelector('#ss-modal-cancel').addEventListener('click', close);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+  overlay.querySelector('#ss-modal-save').addEventListener('click', async () => {
+    const errEl = overlay.querySelector('#ss-modal-err');
+    errEl.classList.add('hidden');
+
+    const payload = {
+      nom:          overlay.querySelector('#ss-nom').value.trim(),
+      categorie:    overlay.querySelector('#ss-cat').value || null,
+      disponibilite: overlay.querySelector('#ss-dispo').value || null,
+      localisation: overlay.querySelector('#ss-local').value.trim() || null,
+      installation: overlay.querySelector('#ss-install').value !== '' ? Number(overlay.querySelector('#ss-install').value) : null,
+      prix_10t:     overlay.querySelector('#ss-p10').value !== '' ? Number(overlay.querySelector('#ss-p10').value) : null,
+      prix_100t:    overlay.querySelector('#ss-p100').value !== '' ? Number(overlay.querySelector('#ss-p100').value) : null,
+      prix_1000t:   overlay.querySelector('#ss-p1k').value !== '' ? Number(overlay.querySelector('#ss-p1k').value) : null,
+      prix_10000t:  overlay.querySelector('#ss-p10k').value !== '' ? Number(overlay.querySelector('#ss-p10k').value) : null,
+      description:  overlay.querySelector('#ss-desc').value.trim() || null,
+      source_livre: overlay.querySelector('#ss-src').value.trim() || null,
+      faction_id:   overlay.querySelector('#ss-faction').value ? Number(overlay.querySelector('#ss-faction').value) : null,
+    };
+
+    if (!payload.nom) {
+      errEl.textContent = 'Le nom est requis.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    const saveBtn = overlay.querySelector('#ss-modal-save');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Enregistrement…';
+
+    try {
+      const url = isEdit ? `/api/secondary-systems/${sys.id}` : '/api/secondary-systems';
+      const method = isEdit ? 'PATCH' : 'POST';
+      const r = await fetch(url, {
+        method,
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await r.json();
+      if (!r.ok) {
+        errEl.textContent = json.error || `Erreur ${r.status}`;
+        errEl.classList.remove('hidden');
+        saveBtn.disabled = false;
+        saveBtn.textContent = isEdit ? 'Enregistrer' : 'Créer';
+        return;
+      }
+      const saved = json.data;
+      if (isEdit) {
+        const idx = state.secondary_systems.findIndex(s => String(s.id) === String(sys.id));
+        if (idx >= 0) state.secondary_systems[idx] = saved;
+        else state.secondary_systems.push(saved);
+      } else {
+        state.secondary_systems.push(saved);
+        state.secondary_systems.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+      }
+      close();
+      renderActiveTab();
+    } catch {
+      errEl.textContent = 'Erreur réseau. Veuillez réessayer.';
+      errEl.classList.remove('hidden');
+      saveBtn.disabled = false;
+      saveBtn.textContent = isEdit ? 'Enregistrer' : 'Créer';
+    }
+  });
+}
 const EMPTY_MESSAGES = {
   systems: { icon: '🌌', text: 'Aucun système stellaire cartographié. Vos capteurs longue portée n\'ont encore rien détecté…' },
   factions: { icon: '📡', text: 'Aucune faction répertoriée. Les canaux diplomatiques sont silencieux…' },
@@ -356,7 +1003,8 @@ function openDetailSheet(entityType, entity) {
         ${corps.length ? buildCollapsible('ds-corps', `🪐 Corps célestes (${corps.length})`,
           `<div class="space-y-2">${corps.map(b => bodyRowHtml(b)).join('')}</div>`, false) : ''}
         ${(corps.length || hasSoleil) ? buildCollapsible('ds-matrix', '📐 Matrice des distances', buildDistanceMatrix(soleil, corps), false) : ''}
-      </div>`;
+      </div>
+      <div id="entity-links-container" class="mt-4 pt-4 border-t border-gray-700/50"></div>`;
 
   } else if (entityType === 'factions') {
     const f = entity;
@@ -417,6 +1065,22 @@ function openDetailSheet(entityType, entity) {
       if (arrow) arrow.textContent = target.classList.contains('hidden') ? '▶' : '▼';
     });
   });
+
+  // Wire entity-links section (systems only)
+  if (entityType === 'systems' && state.tableId) {
+    const elContainer = overlay.querySelector('#entity-links-container');
+    if (elContainer) {
+      renderEntityLinksSection(elContainer, 'system', entity.id, canEdit, (targetType, targetId) => {
+        overlay.remove();
+        const navMap = {
+          system:      () => { const e = state.systems.find(x => x.id === targetId);    if (e) openDetailSheet('systems', e); },
+          faction:     () => { const e = state.factions.find(x => x.id === targetId);   if (e) openDetailSheet('factions', e); },
+          ship_models: () => { const e = state.ship_models.find(x => Number(x.id) === targetId); if (e) openDetailSheet('ship_models', e); },
+        };
+        navMap[targetType]?.();
+      });
+    }
+  }
 }
 
 // --- Stellar systems helpers ---
@@ -816,18 +1480,27 @@ function bindTableSort(panel, sortState, renderFn) {
 }
 
 function renderSystems(panel, systems) {
-  if (systems.length === 0) { renderEmptyState(panel, 'systems'); return; }
   const canEdit = state.isMJ || state.isAdmin;
   const ss = state.systemsSort;
 
   panel.innerHTML = `
-    ${canEdit ? `<div class="mb-4 flex justify-end gap-2">
+    ${canEdit ? `<div class="mb-4 flex justify-end gap-2 flex-wrap">
       <input type="file" id="import-systems-file" accept=".json" class="hidden">
+      <span id="import-systems-err" class="hidden text-red-400 text-sm self-center"></span>
+      <button id="btn-delete-all-systems" class="bg-gray-700 hover:bg-red-900/60 border border-gray-600 hover:border-red-700/60 text-red-400 px-4 py-2 rounded-lg text-sm transition-colors min-h-[40px]">🗑️ Tout supprimer</button>
       <button id="btn-export-systems" class="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm transition-colors min-h-[40px]">⬇ Exporter JSON</button>
       <button id="btn-import-systems" class="bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-4 py-2 rounded-lg text-sm transition-colors min-h-[40px]">⬆ Importer JSON</button>
       <button id="btn-new-system" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors min-h-[40px]">+ Nouveau système</button>
     </div>` : ''}
-    <div class="overflow-x-auto">
+    <div id="systems-body"></div>`;
+
+  const body = panel.querySelector('#systems-body');
+  const render = () => {
+    if (systems.length === 0) {
+      body.innerHTML = `<p class="text-gray-500 text-sm text-center py-8">Aucun système stellaire.</p>`;
+      return;
+    }
+    body.innerHTML = `<div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead>
           <tr class="border-b border-gray-700 text-xs">
@@ -838,16 +1511,14 @@ function renderSystems(panel, systems) {
             ${sortHeaderHtml('gouvernement', 'Type de gouvernement', ss)}
             ${sortHeaderHtml('route', 'Type de Route', ss)}
             ${canEdit ? `<th class="pb-2 pr-3 text-left text-gray-400 text-xs">Visibilité</th>` : ''}
-            ${canEdit ? `<th class="pb-2 text-left text-gray-400 text-xs">Modifier</th>` : ''}
+            ${canEdit ? `<th class="pb-2 pr-3 text-left text-gray-400 text-xs">Modifier</th>` : ''}
+            ${canEdit ? `<th class="pb-2 text-left text-gray-400 text-xs">Supprimer</th>` : ''}
           </tr>
         </thead>
         <tbody id="systems-tbody"></tbody>
       </table>
     </div>`;
-
-  const tbody = panel.querySelector('#systems-tbody');
-  const render = () => {
-    tbody.innerHTML = '';
+    const tbody = body.querySelector('#systems-tbody');
     sortedData(systems, ss.col, ss.dir).forEach(s => {
       const hidden = state.isMJ && !s.visible;
       const row = document.createElement('tr');
@@ -860,27 +1531,55 @@ function renderSystems(panel, systems) {
         <td class="py-2 pr-3 text-gray-400 text-xs">${esc(s.gouvernement || '—')}</td>
         <td class="py-2 pr-3 text-gray-400 text-xs">${esc(s.route || '—')}</td>
         ${canEdit ? `<td class="py-2 pr-3">${renderVisibilityToggle('systems', s)}</td>` : ''}
-        ${canEdit ? `<td class="py-2">${renderEditButton('systems', s)}</td>` : ''}`;
+        ${canEdit ? `<td class="py-2 pr-3">${renderEditButton('systems', s)}</td>` : ''}
+        ${canEdit ? `<td class="py-2"><button class="del-sys-btn min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-900/30 transition-colors" data-sys-id="${esc(String(s.id))}" data-sys-nom="${esc(s.nom)}" title="Supprimer">🗑️</button></td>` : ''}`;
       // Click row to open detail (NOT on action buttons)
       row.addEventListener('click', e => {
-        if (e.target.closest('.vis-toggle,.edit-btn')) return;
+        if (e.target.closest('.vis-toggle,.edit-btn,.del-sys-btn')) return;
         openDetailSheet('systems', s);
+      });
+      // Delete button
+      row.querySelector('.del-sys-btn')?.addEventListener('click', async e => {
+        e.stopPropagation();
+        if (!confirm(`Supprimer le système « ${s.nom} » ? Cette action est irréversible.`)) return;
+        try {
+          const r = await fetchWithTable(`/api/systems/${s.id}`, { method: 'DELETE' });
+          const json = await r.json();
+          if (!r.ok) throw new Error(json.error?.message || `Erreur ${r.status}`);
+          state.systems = state.systems.filter(x => x.id !== s.id);
+          renderActiveTab();
+        } catch (ex) { alert(ex.message); }
       });
       tbody.appendChild(row);
     });
-    bindTableSort(panel, ss, render);
+    bindTableSort(body, ss, render);
   };
   render();
   if (canEdit) {
     panel.querySelector('#btn-new-system')?.addEventListener('click', () => openSystemModal(null));
+    panel.querySelector('#btn-delete-all-systems')?.addEventListener('click', async () => {
+      const count = state.systems.length;
+      if (!count) return;
+      if (!confirm(`Supprimer les ${count} système(s) affiché(s) ? Cette action est irréversible.`)) return;
+      const ids = state.systems.map(s => s.id);
+      let errors = 0;
+      for (const id of ids) {
+        try {
+          const r = await fetchWithTable(`/api/systems/${id}`, { method: 'DELETE' });
+          if (!r.ok) errors++;
+          else state.systems = state.systems.filter(s => s.id !== id);
+        } catch { errors++; }
+      }
+      renderActiveTab();
+      if (errors) alert(`${errors} suppression(s) ont échoué.`);
+    });
     panel.querySelector('#btn-export-systems')?.addEventListener('click', () => {
       const exportData = state.systems.map(({ id, visible, ...rest }) => rest);
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `systemes-${new Date().toISOString().slice(0,10)}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      try { a.click(); } finally { URL.revokeObjectURL(a.href); }
     });
     panel.querySelector('#btn-import-systems')?.addEventListener('click', () => {
       panel.querySelector('#import-systems-file').click();
@@ -902,7 +1601,8 @@ function renderSystems(panel, systems) {
         state.systems.push(...json.data);
         renderActiveTab();
       } catch (ex) {
-        alert(`Erreur d'import : ${ex.message}`);
+        const errEl = panel.querySelector('#import-systems-err');
+        if (errEl) { errEl.textContent = `Erreur d'import : ${ex.message}`; errEl.classList.remove('hidden'); }
       } finally {
         e.target.value = '';
       }
@@ -993,6 +1693,8 @@ function renderShipModels(panel, models) {
   models.forEach(m => {
     let armement = [];
     try { armement = JSON.parse(m.armement_json || '[]'); } catch {}
+    let systemesSecondaires = [];
+    try { systemesSecondaires = JSON.parse(m.systemes_secondaires_json || '[]'); } catch {}
 
     const statRow = (label, val) => val != null && val !== '' && val !== 0
       ? `<tr><td class="text-right text-gray-400 pr-3 py-0.5 text-xs">${label} :</td><td class="text-gray-100 text-xs font-medium">${esc(String(val))}</td></tr>`
@@ -1052,6 +1754,15 @@ function renderShipModels(panel, models) {
           <div class="border-t border-gray-700 pt-2 mb-3">
             <p class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-1">Armement :</p>
             ${armement.map(a => `<p class="text-xs text-gray-200 ml-2">» ${esc(a.position || '')} : ${esc(a.nom || '')}${a.tourelle ? ' (tourelle)' : ''} ${a.degats ? `(${a.degats}/${a.mode_tir || ''}/${a.portee || ''}/${a.canonnier || ''})` : ''}</p>`).join('')}
+          </div>` : ''}
+          ${systemesSecondaires.length ? `
+          <div class="border-t border-gray-700 pt-2 mb-3">
+            <p class="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-1">Systèmes secondaires :</p>
+            ${systemesSecondaires.map(s => {
+              const nom = typeof s === 'string' ? s : (s.nom || '');
+              const desc = typeof s === 'object' && s.description ? ` — ${s.description}` : '';
+              return `<p class="text-xs text-gray-200 ml-2">» ${esc(nom)}${esc(desc)}</p>`;
+            }).join('')}
           </div>` : ''}
           <table class="w-full border-collapse text-sm border-t border-gray-700">
             <tbody>
@@ -1784,6 +2495,7 @@ function renderFleet(panel, ships) {
               </div>` : ''}
             </div>
             <div class="flex gap-1 flex-shrink-0">
+              <button class="fleet-fiche-btn min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-gray-400 hover:text-amber-300 hover:bg-amber-900/30 transition-colors" data-ship-id="${esc(String(s.id))}" title="Voir la fiche">📋</button>
               ${canEdit ? `
               <button class="fleet-edit-btn min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-gray-500 hover:text-blue-400 hover:bg-blue-900/30 transition-colors" data-ship-id="${esc(String(s.id))}" title="Modifier">✏️</button>
               <button class="fleet-vis-btn min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${s.visible !== false ? 'text-green-400 hover:bg-green-900/30' : 'text-gray-600 hover:bg-gray-700/50'}" data-ship-id="${esc(String(s.id))}" data-vis="${s.visible !== false}" title="${s.visible !== false ? 'Visible' : 'Masqué'}">
@@ -1825,6 +2537,13 @@ function renderFleet(panel, ships) {
       btn.addEventListener('click', () => deleteFleetShip(btn.dataset.shipId, btn.dataset.shipName));
     });
   }
+  // Fiche button available for all roles
+  panel.querySelectorAll('.fleet-fiche-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ship = state.ships.find(s => String(s.id) === btn.dataset.shipId);
+      if (ship) openShipFiche(ship);
+    });
+  });
 }
 
 async function toggleFleetShipVis(shipId, currentlyVisible) {
@@ -1853,6 +2572,745 @@ async function deleteFleetShip(shipId, shipName) {
   } catch {}
 }
 
+function openShipFiche(ship) {
+  const mdl = ship.model || {};
+  const canEdit = state.isMJ || state.isAdmin;
+
+  // ---- Helpers ----
+  const statVal = (key) => ship.statsOverride?.[key] ?? mdl[key] ?? null;
+  const coqueTotal = Number(statVal('coque') || 0);
+  const blindage = Number(statVal('blindage') || 0);
+
+  const hullLevels = [
+    { code: 'I', label: 'Intact',               color: 'text-green-400'  },
+    { code: 'L', label: 'Légèrement endommagé',  color: 'text-yellow-400' },
+    { code: 'G', label: 'Gravement endommagé',   color: 'text-orange-400' },
+    { code: 'D', label: 'Détruit',               color: 'text-red-400'    },
+  ];
+
+  let armement = [];
+  try { armement = JSON.parse(mdl.armement_json || '[]'); } catch {}
+  let systemesModele = [];
+  try { systemesModele = JSON.parse(mdl.systemes_secondaires_json || '[]'); } catch {}
+  let equipageDetail = [...(ship.equipage_detail || [])];
+  let armementEtat   = [...(ship.armement_etat   || [])];
+  let systemesEtat   = [...(ship.systemes_secondaires_etat || [])];
+
+  // Hull state: { I:[bool,...], L:[...], G:[...], D:[...], alerte:"verte|jaune|rouge|" }
+  let hullState = {};
+  try { hullState = (typeof ship.hull_state === 'object' && ship.hull_state) ? ship.hull_state : JSON.parse(ship.hull_state_json || '{}'); } catch {}
+  hullLevels.forEach(lvl => {
+    const prev = Array.isArray(hullState[lvl.code]) ? hullState[lvl.code] : [];
+    hullState[lvl.code] = Array(coqueTotal).fill(false).map((_, i) => prev[i] ?? false);
+  });
+  if (typeof hullState.alerte === 'undefined') hullState.alerte = '';
+
+  // Crew parsing
+  const crewCodes  = ['P', 'V', 'C', 'Me', 'Mo', 'Fu'];
+  const crewLabels = { P: 'Pilote(s)', V: 'Vigie(s)', C: 'Canonnier(s)', Me: 'Mécanicien(s)', Mo: 'Mousse(s)', Fu: 'Fusilier(s)' };
+  // Relevant domain for each crew post (Metal Adventures domaines)
+  const POSTE_COMP = { P: 'Techniques', V: 'Espionnage', C: 'Techniques', Me: 'Sciences', Mo: 'Survie', Fu: 'Techniques' };
+  const parsedCrew = {};
+  const equipageStr = String(statVal('equipage') || '');
+  const crewRegex = /(\d+)\s*(Fu|Me|Mo|P|V|C)\b/gi;
+  let cm;
+  while ((cm = crewRegex.exec(equipageStr)) !== null) {
+    const raw = cm[2];
+    const code = raw === 'fu' || raw === 'FU' ? 'Fu' : raw === 'me' || raw === 'ME' ? 'Me' : raw === 'mo' || raw === 'MO' ? 'Mo' : raw.toUpperCase();
+    parsedCrew[code] = Number(cm[1]);
+  }
+
+  // Characters cache for crew assignment
+  let cachedCharacters = null;
+
+  // Overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'fixed inset-0 bg-black/80 z-50 flex flex-col overflow-hidden';
+  const img = ship.image || mdl.image || null;
+
+  overlay.innerHTML = `
+    <div class="flex flex-col h-full max-w-3xl w-full mx-auto bg-gray-900">
+      <!-- Header -->
+      <div class="flex items-center gap-3 px-4 py-3 bg-gray-800 border-b border-gray-700 flex-shrink-0">
+        ${img ? `<img src="${esc(img)}" class="w-10 h-10 rounded object-contain bg-gray-900" alt="">` : `<span class="text-2xl">🚀</span>`}
+        <div class="flex-1 min-w-0">
+          <h2 class="font-bold text-lg text-white leading-tight truncate">${esc(ship.name)}</h2>
+          ${mdl.nom ? `<p class="text-xs text-blue-400">${esc(mdl.nom)}${mdl.classe ? ` · ${esc(mdl.classe)}` : ''}</p>` : ''}
+        </div>
+        <button id="sf-close" class="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-white text-xl rounded-lg hover:bg-gray-700">✕</button>
+      </div>
+      <!-- Tabs -->
+      <div class="flex border-b border-gray-700 bg-gray-800 overflow-x-auto flex-shrink-0">
+        ${['Caractéristiques','État de coque','Armement','Équipage','Systèmes'].map((t, i) =>
+          `<button class="sf-tab px-4 py-2.5 text-sm whitespace-nowrap transition-colors ${i === 0 ? 'text-white border-b-2 border-blue-500 bg-gray-700' : 'text-gray-400 hover:text-white hover:bg-gray-700'}" data-tab="${i}">${esc(t)}</button>`
+        ).join('')}
+      </div>
+      <!-- Content -->
+      <div id="sf-content" class="flex-1 overflow-y-auto p-4"></div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  // Tab switching
+  const renderTab = (idx) => {
+    overlay.querySelectorAll('.sf-tab').forEach((btn, i) => {
+      btn.className = `sf-tab px-4 py-2.5 text-sm whitespace-nowrap transition-colors ${i === idx ? 'text-white border-b-2 border-blue-500 bg-gray-700' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`;
+    });
+    const ct = overlay.querySelector('#sf-content');
+    if (idx === 0) renderFicheCaracs(ct);
+    else if (idx === 1) renderFicheEtatCoque(ct);
+    else if (idx === 2) renderFicheArmement(ct);
+    else if (idx === 3) renderFicheEquipage(ct);
+    else if (idx === 4) renderFicheSystemes(ct);
+  };
+  overlay.querySelectorAll('.sf-tab').forEach((btn, i) => btn.addEventListener('click', () => renderTab(i)));
+
+  const close = () => overlay.remove();
+  overlay.querySelector('#sf-close').addEventListener('click', close);
+  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+  // ---- Save helpers ----
+  async function savePatch(patch) {
+    try {
+      const r = await fetchWithTable(`/api/ships/${ship.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (!r.ok) return false;
+      const json = await r.json();
+      const si = state.ships.findIndex(s => String(s.id) === String(ship.id));
+      if (si !== -1) Object.assign(state.ships[si], json.data || {});
+      return true;
+    } catch { return false; }
+  }
+  async function saveHullState() {
+    return savePatch({ hull_state_json: JSON.stringify(hullState) });
+  }
+
+  // ---- Catalogue system helpers ----
+  function parseModifiers(sys) {
+    try { return JSON.parse(sys.stat_modifiers_json || '[]'); } catch { return []; }
+  }
+
+  const MOD_STAT_LABELS = {
+    blindage: 'Blindage', vitesse_tactique: 'Vit. tactique',
+    vitesse_croisiere: 'Vit. croisière', autonomie: 'Autonomie', cargo_capacity: 'Soute',
+  };
+
+  function formatModLabel(mod) {
+    const name = MOD_STAT_LABELS[mod.stat] || mod.stat;
+    if (mod.op === 'add')     return `${name} +${mod.value}`;
+    if (mod.op === 'add_kt')  return `${name} +${mod.value} K/t`;
+    if (mod.op === 'multiply') return `${name} ×${mod.value}`;
+    if (mod.op === 'pct_add') return `${name} +${mod.value}%`;
+    return name;
+  }
+
+  function computeNewStatValue(mod, currentVal, cargoCapacity) {
+    if (mod.stat === 'cargo_capacity') {
+      const base = Number(cargoCapacity) || 0;
+      if (mod.op === 'pct_add') return Math.round(base * (1 + mod.value / 100));
+      if (mod.op === 'add')     return base + mod.value;
+      return base;
+    }
+    if (mod.op === 'add_kt') {
+      const num = parseFloat(String(currentVal || '0').replace(/[^0-9.]/g, '')) || 0;
+      return (num + mod.value) + ' K/t';
+    }
+    if (mod.op === 'add')      return (Number(currentVal) || 0) + mod.value;
+    if (mod.op === 'multiply') return (Number(currentVal) || 0) * mod.value;
+    return currentVal;
+  }
+
+  async function installCatalogueSystem(sys, ct) {
+    const mods = parseModifiers(sys);
+    const statPatch = {};
+    const snapshot = {};
+
+    for (const mod of mods) {
+      if (mod.stat === 'cargo_capacity') {
+        const base = ship.cargo_capacity;
+        snapshot.cargo_capacity = base;
+        statPatch.cargo_capacity = computeNewStatValue(mod, base, base);
+      } else {
+        const base = statVal(mod.stat);
+        snapshot[mod.stat] = base;
+        statPatch[mod.stat] = computeNewStatValue(mod, base, ship.cargo_capacity);
+      }
+    }
+
+    const newEntry = { catalogue_id: sys.id, nom: sys.nom, etat: 'ok', stat_modifiers: mods, stat_snapshot: snapshot };
+    systemesEtat.push(newEntry);
+
+    // Optimistic local state update
+    if (ship.statsOverride) {
+      for (const [k, v] of Object.entries(statPatch)) {
+        if (k !== 'cargo_capacity') ship.statsOverride[k] = v;
+      }
+    }
+    if (statPatch.cargo_capacity != null) ship.cargo_capacity = statPatch.cargo_capacity;
+
+    const ok = await savePatch({ systemes_secondaires_etat_json: JSON.stringify(systemesEtat), ...statPatch });
+    if (!ok) {
+      systemesEtat.pop();
+      if (ship.statsOverride) { for (const [k, v] of Object.entries(snapshot)) { if (k !== 'cargo_capacity') ship.statsOverride[k] = v; } }
+      if (snapshot.cargo_capacity != null) ship.cargo_capacity = snapshot.cargo_capacity;
+    } else {
+      renderFicheSystemes(ct);
+    }
+  }
+
+  async function removeCatalogueSystem(cid, ct) {
+    const entry = systemesEtat.find(e => e.catalogue_id === cid);
+    if (!entry) return;
+    const snapshot = entry.stat_snapshot || {};
+
+    systemesEtat = systemesEtat.filter(e => e.catalogue_id !== cid);
+
+    // Optimistic local state restore
+    if (ship.statsOverride) {
+      for (const [k, v] of Object.entries(snapshot)) { if (k !== 'cargo_capacity') ship.statsOverride[k] = v; }
+    }
+    if (snapshot.cargo_capacity != null) ship.cargo_capacity = snapshot.cargo_capacity;
+
+    const ok = await savePatch({ systemes_secondaires_etat_json: JSON.stringify(systemesEtat), ...snapshot });
+    if (!ok) {
+      systemesEtat.push(entry);
+      // Revert optimistic
+      if (ship.statsOverride) {
+        for (const [k, v] of Object.entries(entry.stat_modifiers || [])) { if (k !== 'cargo_capacity') ship.statsOverride[mod.stat] = computeNewStatValue(mod, snapshot[mod.stat], ship.cargo_capacity); }
+      }
+    } else {
+      renderFicheSystemes(ct);
+    }
+  }
+
+  // ---- Tab 0: Caractéristiques ----
+  function renderFicheCaracs(ct) {
+    const catalogueInstalled = systemesEtat.filter(e => e.catalogue_id);
+    const activeMods = catalogueInstalled.flatMap(e =>
+      (e.stat_modifiers || []).map(m => ({ ...m, source: e.nom }))
+    );
+
+    const row = (label, val) => val != null && val !== '' && val !== 0
+      ? `<tr><td class="text-right text-gray-400 pr-3 py-1 text-xs w-1/2">${esc(label)} :</td><td class="text-gray-100 text-xs font-medium">${esc(String(val))}</td></tr>`
+      : '';
+    ct.innerHTML = `
+      <table class="w-full border-collapse mb-4">
+        <tbody>
+          ${row('Classe', statVal('classe'))}
+          ${row('Origine', statVal('origine'))}
+          ${row('Tonnage', statVal('tonnage') ? statVal('tonnage') + ' t' : null)}
+          ${row('Longueur', statVal('longueur') ? statVal('longueur') + ' m' : null)}
+          ${row('Manœuvrabilité', statVal('manoeuvrabilite'))}
+          ${row('Vitesse tactique', statVal('vitesse_tactique') ? statVal('vitesse_tactique') + ' K/t' : null)}
+          ${row('Vitesse de croisière', statVal('vitesse_croisiere') ? statVal('vitesse_croisiere') + ' US/h (' + (statVal('vitesse_croisiere') * 24) + ' US/j)' : null)}
+          ${row('Vitesse hyperspatiale', statVal('vitesse_hyperspatiale') ? statVal('vitesse_hyperspatiale') + ' PC/j' : null)}
+          ${row('Autonomie', statVal('autonomie') ? statVal('autonomie') + ' PC' : null)}
+          ${row('Blindage', statVal('blindage'))}
+          ${row('Coque', coqueTotal || null)}
+          ${row('Senseurs', statVal('senseurs_k') ? statVal('senseurs_k') + (statVal('senseurs_us') ? ' (' + statVal('senseurs_us') + ')' : '') : null)}
+          ${row('Équipage', statVal('equipage'))}
+          ${row('Passagers', statVal('passagers'))}
+          ${row('Soute', statVal('soute') ? statVal('soute') + ' t' : null)}
+          ${row('Prix', statVal('prix') ? statVal('prix') + ' ¢' : null)}
+        </tbody>
+      </table>
+      ${mdl.description || ship.statsOverride?.description ? `<p class="text-xs text-gray-400 border-t border-gray-700 pt-3 mt-1">${esc(mdl.description || ship.statsOverride?.description || '')}</p>` : ''}
+      ${ship.notes ? `<p class="text-xs text-yellow-600/80 border-t border-gray-700 pt-3 mt-2 italic">📝 ${esc(ship.notes)}</p>` : ''}
+      ${activeMods.length ? `<div class="mt-3 bg-blue-900/20 border border-blue-800/40 rounded-lg p-3">
+        <p class="text-xs font-semibold text-blue-400 mb-1.5">🔧 Modificateurs actifs</p>
+        ${activeMods.map(m => `<p class="text-xs text-blue-300">• ${esc(formatModLabel(m))} <span class="text-gray-500">(${esc(m.source)})</span></p>`).join('')}
+      </div>` : ''}`;
+  }
+
+  // ---- Tab 1: État de coque ----
+  function renderFicheEtatCoque(ct) {
+    const checkedTotal = hullLevels.reduce((acc, lvl) => acc + (hullState[lvl.code] || []).filter(Boolean).length, 0);
+
+    let html = `<div class="mb-3 flex flex-wrap gap-x-4 gap-y-1 items-center">`;
+    html += `<p class="text-sm text-gray-400">Coque : <span class="font-bold text-white">${coqueTotal}</span> cases par niveau · Cases cochées : <span class="font-bold text-white">${checkedTotal}</span></p>`;
+    if (blindage > 0) html += `<p class="text-xs text-blue-300">🛡 Blindage ${blindage} : réduit la gravité des dégâts de ${blindage} niveau${blindage > 1 ? 'x' : ''}</p>`;
+    html += `</div><div class="space-y-3">`;
+
+    for (const lvl of hullLevels) {
+      const stateArr = Array.isArray(hullState[lvl.code]) ? hullState[lvl.code] : [];
+      const nbChecked = stateArr.filter(Boolean).length;
+      html += `<div class="bg-gray-800/60 rounded-lg p-3 border border-gray-700">`;
+      html += `<p class="text-xs font-semibold ${lvl.color} uppercase tracking-wide mb-2">${lvl.code} — ${lvl.label} (${nbChecked}/${coqueTotal})</p>`;
+      html += `<div style="display:flex;flex-wrap:wrap;gap:4px;">`;
+      for (let bi = 0; bi < coqueTotal; bi++) {
+        const checked = stateArr[bi] ?? false;
+        const bg = checked ? 'background:#dc2626;border-color:#f87171;' : 'background:#374151;border-color:#4b5563;';
+        html += `<div class="sf-hull-box" data-level="${esc(lvl.code)}" data-index="${bi}" title="${esc(lvl.label)} case ${bi + 1}"`;
+        html += ` style="width:24px;height:24px;border-radius:4px;border:2px solid;cursor:pointer;flex-shrink:0;position:relative;${bg}">`;
+        if (checked) html += `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;color:#fff;line-height:1">✕</span>`;
+        html += `</div>`;
+      }
+      html += `</div></div>`;
+    }
+    html += `</div>`;
+    ct.innerHTML = html;
+
+    ct.querySelectorAll('.sf-hull-box').forEach(box => {
+      box.addEventListener('click', async () => {
+        if (!canEdit) return;
+        const level = box.dataset.level;
+        const bi = Number(box.dataset.index);
+        if (!Array.isArray(hullState[level])) hullState[level] = Array(coqueTotal).fill(false);
+        // Count currently checked boxes (filled from left)
+        const arr = hullState[level];
+        const filledCount = arr.filter(Boolean).length;
+        // If clicking the last checked box → uncheck it; otherwise fill up to bi
+        const newCount = (filledCount === bi + 1) ? bi : bi + 1;
+        hullState[level] = Array(coqueTotal).fill(false).map((_, i) => i < newCount);
+        await saveHullState();
+        renderFicheEtatCoque(ct);
+      });
+    });
+  }
+
+  // ---- Tab 2: Armement ----
+  function renderFicheArmement(ct) {
+    if (!armement.length) {
+      ct.innerHTML = `<p class="text-gray-500 italic text-sm">Aucun armement défini pour ce modèle.</p>`;
+      return;
+    }
+    const etatOptions = ['ok', 'endommage', 'detruit'];
+    const etatLabels  = { ok: '✅ Opérationnel', endommage: '⚠️ Endommagé', detruit: '💥 Détruit' };
+
+    ct.innerHTML = armement.map((a, i) => {
+      const etat = armementEtat.find(e => e.index === i)?.etat || 'ok';
+      return `
+        <div class="bg-gray-800 rounded-lg p-3 mb-3 border border-gray-700">
+          <div class="flex items-start justify-between gap-2 flex-wrap">
+            <div>
+              <p class="text-sm font-semibold text-white">${esc(a.nom || '—')}</p>
+              <p class="text-xs text-gray-400 mt-0.5">
+                ${a.position ? `<span class="bg-gray-700 px-1.5 py-0.5 rounded mr-1">${esc(a.position)}</span>` : ''}
+                ${a.tourelle ? '<span class="bg-blue-900/60 text-blue-300 px-1.5 py-0.5 rounded mr-1">tourelle</span>' : ''}
+                ${a.degats ? `<span class="text-gray-300">${esc(a.degats)}/${esc(a.mode_tir||'')}</span>` : ''}
+                ${a.portee ? ` · ${esc(a.portee)} UA` : ''}
+                ${a.canonnier ? ` · ${esc(a.canonnier)}` : ''}
+              </p>
+            </div>
+            ${canEdit ? `
+            <select class="sf-arm-etat bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 min-h-[36px]" data-index="${i}">
+              ${etatOptions.map(o => `<option value="${o}" ${etat === o ? 'selected' : ''}>${etatLabels[o]}</option>`).join('')}
+            </select>` : `<span class="text-xs ${etat === 'ok' ? 'text-green-400' : etat === 'endommage' ? 'text-yellow-400' : 'text-red-400'}">${etatLabels[etat]}</span>`}
+          </div>
+        </div>`;
+    }).join('');
+
+    if (canEdit) {
+      ct.querySelectorAll('.sf-arm-etat').forEach(sel => {
+        sel.addEventListener('change', async () => {
+          const idx = Number(sel.dataset.index);
+          const xi = armementEtat.findIndex(e => e.index === idx);
+          if (xi !== -1) armementEtat[xi].etat = sel.value;
+          else armementEtat.push({ index: idx, etat: sel.value });
+          await savePatch({ armement_etat_json: JSON.stringify(armementEtat) });
+        });
+      });
+    }
+  }
+
+  // ---- Tab 3: Équipage ----
+  function renderFicheEquipage(ct) {
+    const currentAlerte = hullState.alerte || '';
+    const alertes = [
+      { value: 'verte',  label: 'Alerte Verte', desc: '1/4 équipage',    activeClass: 'border-green-500  bg-green-900/30  text-green-300'  },
+      { value: 'jaune',  label: 'Alerte Jaune', desc: '1/2 équipage',    activeClass: 'border-yellow-500 bg-yellow-900/30 text-yellow-300' },
+      { value: 'rouge',  label: 'Alerte Rouge', desc: 'Équipage complet', activeClass: 'border-red-500    bg-red-900/30    text-red-300'    },
+    ];
+
+    const crewData = crewCodes.map(code => ({
+      code,
+      label: crewLabels[code],
+      nb: parsedCrew[code] || 0,
+      assignments: equipageDetail.filter(e => e.poste === code),
+      competence: POSTE_COMP[code],
+    }));
+
+    ct.innerHTML = `
+      <div class="mb-4">
+        <p class="text-xs text-gray-400 mb-2 font-semibold uppercase tracking-wide">État d'alerte</p>
+        <div class="flex gap-2 flex-wrap">
+          ${alertes.map(a => `
+            <button class="sf-alerte-btn flex-1 min-w-[90px] rounded-lg border-2 p-2 text-center transition-colors
+              ${currentAlerte === a.value ? a.activeClass : 'border-gray-600 text-gray-500 hover:border-gray-400 hover:text-gray-300'}"
+              data-alerte="${a.value}">
+              <p class="text-xs font-semibold">${a.label}</p>
+              <p class="text-xs opacity-70">${a.desc}</p>
+            </button>`).join('')}
+        </div>
+        ${currentAlerte ? `<button class="sf-alerte-reset mt-2 text-xs text-gray-500 hover:text-gray-300 underline">• Désactiver l'alerte</button>` : ''}
+      </div>
+      <p class="text-xs text-gray-400 mb-3">Effectif : <span class="text-white font-bold">${esc(statVal('equipage') || '—')}</span></p>
+      <div id="sf-crew-list" class="space-y-3">
+        ${crewData.map(cd => renderCrewSlot(cd)).join('')}
+      </div>
+      <div id="sf-char-loading" class="hidden text-xs text-gray-500 italic mt-2">Chargement des personnages…</div>`;
+
+    // Alert buttons
+    ct.querySelectorAll('.sf-alerte-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        hullState.alerte = btn.dataset.alerte;
+        await saveHullState();
+        renderFicheEquipage(ct);
+      });
+    });
+    ct.querySelector('.sf-alerte-reset')?.addEventListener('click', async () => {
+      hullState.alerte = '';
+      await saveHullState();
+      renderFicheEquipage(ct);
+    });
+
+    if (canEdit) wireCrewForms(ct, crewData);
+
+    // Membres d'équipage — info overlay + lancer de dés
+    ct.querySelectorAll('.sf-crew-roll').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pool = parseInt(btn.dataset.crewPool);
+        if (!pool) return;
+        getCrewDiceRoller().open({
+          title:   btn.dataset.crewName,
+          context: btn.dataset.crewComp,
+          pool,
+        });
+      });
+    });
+    ct.querySelectorAll('.sf-crew-info').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const name = btn.dataset.crewName;
+        const comp = btn.dataset.crewComp;
+        const pool = parseInt(btn.dataset.crewPool) || 0;
+        document.getElementById('dr-crew-info-overlay')?.remove();
+        const overlay = document.createElement('div');
+        overlay.id        = 'dr-crew-info-overlay';
+        overlay.className = 'fixed inset-0 bg-black/70 z-50 flex items-start justify-center p-4 pt-20 overflow-y-auto';
+        overlay.innerHTML = `
+          <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md border border-gray-600 p-5">
+            <div class="flex items-start justify-between mb-3">
+              <div>
+                <h3 class="font-semibold text-gray-100 text-base">${esc(name)}</h3>
+                <p class="text-xs text-indigo-300 mt-0.5">${esc(comp)}</p>
+              </div>
+              <button id="dr-crew-close" class="text-gray-400 hover:text-white text-xl leading-none ml-3 flex-shrink-0">&times;</button>
+            </div>
+            <p class="text-sm text-gray-400 mb-4">Score : <span class="font-mono text-white text-lg">${pool || '—'}</span>d</p>
+            ${pool > 0
+              ? `<button id="dr-crew-roll-btn"
+                  class="w-full py-2.5 rounded font-medium text-sm bg-red-800 hover:bg-red-700 text-white transition-colors flex items-center justify-center gap-2">
+                  🎲 Lancer les dés
+                  <span class="text-red-200 text-xs">(${pool}d)</span>
+                </button>`
+              : '<p class="text-xs text-gray-500 italic">Aucun score défini.</p>'}
+          </div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#dr-crew-close').addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+        overlay.querySelector('#dr-crew-roll-btn')?.addEventListener('click', () => {
+          overlay.remove();
+          getCrewDiceRoller().open({ title: name, context: comp, pool });
+        });
+      });
+    });
+  }
+
+  function renderCrewSlot(cd) {
+    const assignHtml = cd.assignments.length
+      ? cd.assignments.map((a, ai) => {
+          const charScore = a.personnage_id && cachedCharacters
+            ? (() => {
+                const c = cachedCharacters.find(ch => String(ch.id) === String(a.personnage_id));
+                if (!c) return null;
+                return c.competences?.[cd.competence] ?? null;
+              })()
+            : null;
+          const rollPool = a.score_fixe ?? charScore;
+          const memberName = esc(a.nom || (a.personnage_id ? `Personnage #${a.personnage_id}` : 'Poste'));
+          return `
+            <div class="flex items-center gap-2 mb-1 bg-gray-700/50 rounded px-2 py-1">
+              <button class="sf-crew-info text-xs text-gray-200 flex-1 truncate text-left hover:text-white transition-colors"
+                data-crew-name="${esc(a.nom || cd.label)}" data-crew-comp="${esc(cd.competence)}"
+                data-crew-pool="${rollPool ?? ''}">${memberName}</button>
+              ${a.score_fixe != null ? `<span class="text-xs text-amber-300 bg-amber-900/30 px-1.5 rounded font-mono" title="Score fixe">${a.score_fixe}</span>` : ''}
+              ${charScore != null ? `<span class="text-xs text-blue-300 bg-blue-900/30 px-1.5 rounded font-mono" title="${esc(cd.competence)}">${charScore}</span>` : ''}
+              ${rollPool != null ? `<button class="sf-crew-roll text-red-400 hover:text-red-200 text-base leading-none transition-colors"
+                title="Lancer les dés" data-crew-name="${esc(a.nom || cd.label)}"
+                data-crew-comp="${esc(cd.competence)}" data-crew-pool="${rollPool}">🎲</button>` : ''}
+              ${canEdit ? `<button class="sf-crew-remove text-red-500 hover:text-red-300 px-1 py-0.5 text-xs min-w-[28px] min-h-[28px]" data-code="${esc(cd.code)}" data-ai="${ai}">✕</button>` : ''}
+            </div>`;
+        }).join('')
+      : `<p class="text-xs text-gray-600 italic mb-2">Aucun membre affecté</p>`;
+
+    const addForm = canEdit ? `
+      <div class="sf-crew-add-form flex gap-1 mt-2 flex-wrap items-center" data-code="${esc(cd.code)}">
+        <select class="sf-crew-type bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 min-h-[32px]" data-code="${esc(cd.code)}">
+          <option value="score">Score fixe</option>
+          <option value="perso">Personnage</option>
+        </select>
+        <div class="sf-input-score flex gap-1 flex-1 min-w-[140px]">
+          <input type="text" placeholder="Nom" class="sf-crew-nom bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 w-24 min-h-[32px]" data-code="${esc(cd.code)}">
+          <input type="number" placeholder="Score" class="sf-crew-score bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 w-16 min-h-[32px]" min="1" max="20" data-code="${esc(cd.code)}">
+        </div>
+        <div class="sf-input-perso hidden flex-1 min-w-[140px]">
+          <select class="sf-crew-perso w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 min-h-[32px]" data-code="${esc(cd.code)}">
+            <option value="">— Choisir —</option>
+          </select>
+        </div>
+        <button class="sf-crew-add bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded text-xs transition-colors min-h-[32px]" data-code="${esc(cd.code)}">+</button>
+      </div>` : '';
+
+    return `
+      <div class="bg-gray-800 rounded-lg p-3 border border-gray-700" data-crew-code="${esc(cd.code)}">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <span class="text-sm font-semibold text-white">${esc(cd.label)}</span>
+            <span class="ml-2 text-xs text-gray-500">(${esc(cd.competence)})</span>
+          </div>
+          <span class="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">
+            ${cd.nb > 0 ? `${cd.assignments.length}/${cd.nb}` : cd.assignments.length > 0 ? cd.assignments.length : '—'}
+          </span>
+        </div>
+        ${assignHtml}
+        ${addForm}
+      </div>`;
+  }
+
+  function wireCrewForms(ct, crewData) {
+    // Type switch (score ↔ personnage)
+    ct.querySelectorAll('.sf-crew-type').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const code = sel.dataset.code;
+        const form = ct.querySelector(`.sf-crew-add-form[data-code="${code}"]`);
+        if (!form) return;
+        const scoreDiv = form.querySelector('.sf-input-score');
+        const persoDiv = form.querySelector('.sf-input-perso');
+        if (sel.value === 'perso') {
+          scoreDiv.classList.add('hidden');
+          persoDiv.classList.remove('hidden');
+          loadCharactersForSelect(form.querySelector('.sf-crew-perso'), ct);
+        } else {
+          scoreDiv.classList.remove('hidden');
+          persoDiv.classList.add('hidden');
+        }
+      });
+    });
+
+    // Add member
+    ct.querySelectorAll('.sf-crew-add').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const code = btn.dataset.code;
+        const form = ct.querySelector(`.sf-crew-add-form[data-code="${code}"]`);
+        if (!form) return;
+        const typeVal = form.querySelector('.sf-crew-type').value;
+        let entry;
+        if (typeVal === 'perso') {
+          const persoSel = form.querySelector('.sf-crew-perso');
+          const charId = persoSel.value;
+          if (!charId) return;
+          const char = cachedCharacters?.find(c => String(c.id) === charId);
+          entry = { poste: code, personnage_id: charId, nom: char?.name || `Personnage ${charId}` };
+        } else {
+          const nomVal   = form.querySelector('.sf-crew-nom').value.trim();
+          const scoreVal = form.querySelector('.sf-crew-score').value.trim();
+          if (!nomVal && !scoreVal) return;
+          entry = { poste: code, nom: nomVal || `Poste ${code}`, score_fixe: scoreVal !== '' ? Number(scoreVal) : null };
+        }
+        equipageDetail.push(entry);
+        form.querySelector('.sf-crew-nom') && (form.querySelector('.sf-crew-nom').value = '');
+        form.querySelector('.sf-crew-score') && (form.querySelector('.sf-crew-score').value = '');
+        await savePatch({ equipage_detail_json: JSON.stringify(equipageDetail) });
+        renderFicheEquipage(ct);
+      });
+    });
+
+    // Remove member
+    ct.querySelectorAll('.sf-crew-remove').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const code = btn.dataset.code;
+        const ai   = Number(btn.dataset.ai);
+        const postAssigns = equipageDetail.filter(e => e.poste === code);
+        const toRemove = postAssigns[ai];
+        if (!toRemove) return;
+        const gi = equipageDetail.indexOf(toRemove);
+        if (gi !== -1) equipageDetail.splice(gi, 1);
+        await savePatch({ equipage_detail_json: JSON.stringify(equipageDetail) });
+        renderFicheEquipage(ct);
+      });
+    });
+  }
+
+  async function loadCharactersForSelect(selectEl, ct) {
+    if (cachedCharacters) { populateCharSelect(selectEl); return; }
+    ct.querySelector('#sf-char-loading')?.classList.remove('hidden');
+    try {
+      const r = await fetchWithTable('/api/characters');
+      if (r.ok) { const j = await r.json(); cachedCharacters = j.data ?? []; }
+    } catch {}
+    ct.querySelector('#sf-char-loading')?.classList.add('hidden');
+    populateCharSelect(selectEl);
+  }
+
+  function populateCharSelect(selectEl) {
+    if (!selectEl) return;
+    const chars = cachedCharacters || [];
+    selectEl.innerHTML = `<option value="">— Choisir un personnage —</option>` +
+      chars.map(c => `<option value="${esc(String(c.id))}">${esc(c.name)}${c.archetype ? ` (${esc(c.archetype)})` : ''}</option>`).join('');
+  }
+
+  // ---- Tab 4: Systèmes secondaires ----
+  function renderFicheSystemes(ct) {
+    const etatOptions = ['ok', 'endommage', 'detruit'];
+    const etatLabels  = { ok: '✅ Opérationnel', endommage: '⚠️ Endommagé', detruit: '💥 Détruit' };
+    const catalogueInstalled = systemesEtat.filter(e => e.catalogue_id);
+
+    let html = '';
+
+    // --- Systèmes du modèle ---
+    if (systemesModele.length) {
+      html += `<h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Systèmes du modèle</h3>`;
+      html += systemesModele.map((s, i) => {
+        const nom  = typeof s === 'string' ? s : (s.nom || '');
+        const desc = typeof s === 'object' && s.description ? s.description : '';
+        const etat = systemesEtat.find(e => e.index === i && e.index != null)?.etat || 'ok';
+        return `<div class="bg-gray-800 rounded-lg p-3 mb-2 border border-gray-700">
+          <div class="flex items-start justify-between gap-2 flex-wrap">
+            <div>
+              <p class="text-sm font-semibold text-white">${esc(nom)}</p>
+              ${desc ? `<p class="text-xs text-gray-400 mt-0.5">${esc(desc)}</p>` : ''}
+            </div>
+            ${canEdit ? `
+            <select class="sf-sys-etat bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 min-h-[36px]" data-index="${i}">
+              ${etatOptions.map(o => `<option value="${o}" ${etat === o ? 'selected' : ''}>${etatLabels[o]}</option>`).join('')}
+            </select>` : `<span class="text-xs ${etat === 'ok' ? 'text-green-400' : etat === 'endommage' ? 'text-yellow-400' : 'text-red-400'}">${etatLabels[etat]}</span>`}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // --- Systèmes du catalogue installés ---
+    html += `<h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 mt-5">Systèmes catalogue installés</h3>`;
+    if (catalogueInstalled.length === 0) {
+      html += `<p class="text-gray-600 italic text-xs mb-4">Aucun système du catalogue installé.</p>`;
+    } else {
+      html += catalogueInstalled.map(entry => {
+        const etat = entry.etat || 'ok';
+        const mods = entry.stat_modifiers || [];
+        const modText = mods.map(m => formatModLabel(m)).join(' · ');
+        return `<div class="bg-gray-800/80 rounded-lg p-3 mb-2 border border-blue-900/50">
+          <div class="flex items-start justify-between gap-2 flex-wrap">
+            <div>
+              <p class="text-sm font-semibold text-white">${esc(entry.nom)}</p>
+              ${modText ? `<p class="text-xs text-blue-300 mt-0.5">⚙️ ${esc(modText)}</p>` : ''}
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              ${canEdit ? `
+              <select class="sf-cat-etat bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 min-h-[36px]" data-cid="${esc(entry.catalogue_id)}">
+                ${etatOptions.map(o => `<option value="${o}" ${etat === o ? 'selected' : ''}>${etatLabels[o]}</option>`).join('')}
+              </select>
+              <button class="sf-cat-remove text-red-500 hover:text-red-300 hover:bg-red-900/30 px-2 py-1 rounded text-xs min-h-[36px] transition-colors"
+                data-cid="${esc(entry.catalogue_id)}" title="Retirer et restaurer les stats">✕ Retirer</button>
+              ` : `<span class="text-xs ${etat === 'ok' ? 'text-green-400' : etat === 'endommage' ? 'text-yellow-400' : 'text-red-400'}">${etatLabels[etat]}</span>`}
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // --- Ajouter depuis le catalogue (MJ only) ---
+    if (canEdit) {
+      html += `<div class="mt-5 border-t border-gray-700 pt-4">
+        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ajouter depuis le catalogue</h3>
+        <input id="sf-cat-search" type="text" placeholder="Rechercher un système…"
+          class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 mb-2">
+        <div id="sf-cat-list" class="space-y-1 max-h-52 overflow-y-auto pr-1"></div>
+      </div>`;
+    }
+
+    ct.innerHTML = html;
+
+    // Wire model system state changes
+    if (canEdit) {
+      ct.querySelectorAll('.sf-sys-etat').forEach(sel => {
+        sel.addEventListener('change', async () => {
+          const idx = Number(sel.dataset.index);
+          const xi = systemesEtat.findIndex(e => e.index === idx);
+          if (xi !== -1) systemesEtat[xi].etat = sel.value;
+          else systemesEtat.push({ index: idx, etat: sel.value });
+          await savePatch({ systemes_secondaires_etat_json: JSON.stringify(systemesEtat) });
+        });
+      });
+
+      // Wire catalogue system etat changes
+      ct.querySelectorAll('.sf-cat-etat').forEach(sel => {
+        sel.addEventListener('change', async () => {
+          const xi = systemesEtat.findIndex(e => e.catalogue_id === sel.dataset.cid);
+          if (xi !== -1) systemesEtat[xi].etat = sel.value;
+          await savePatch({ systemes_secondaires_etat_json: JSON.stringify(systemesEtat) });
+        });
+      });
+
+      // Wire remove buttons
+      ct.querySelectorAll('.sf-cat-remove').forEach(btn => {
+        btn.addEventListener('click', () => removeCatalogueSystem(btn.dataset.cid, ct));
+      });
+
+      // Catalogue search + available list
+      const searchInput = ct.querySelector('#sf-cat-search');
+      const listEl      = ct.querySelector('#sf-cat-list');
+
+      function renderAvailableList() {
+        const q = searchInput.value.trim().toLowerCase();
+        const installedIds = new Set(systemesEtat.filter(e => e.catalogue_id).map(e => e.catalogue_id));
+        const available = (state.secondary_systems || []).filter(s => {
+          if (!s.id || installedIds.has(s.id)) return false;
+          if (s.visible === false || s.visible === 0) return false;
+          if (q && !s.nom.toLowerCase().includes(q) && !(s.categorie||'').toLowerCase().includes(q)) return false;
+          return true;
+        });
+
+        if (available.length === 0) {
+          listEl.innerHTML = `<p class="text-gray-600 italic text-xs">${q ? 'Aucun résultat.' : 'Aucun système disponible.'}</p>`;
+          return;
+        }
+
+        listEl.innerHTML = available.map(s => {
+          const mods = parseModifiers(s);
+          const modSpan = mods.length
+            ? `<span class="text-blue-400 text-xs"> · ${esc(mods.map(m => formatModLabel(m)).join(', '))}</span>`
+            : '';
+          return `<div class="flex items-center justify-between gap-2 bg-gray-700/40 hover:bg-gray-700/60 rounded px-2 py-1.5 transition-colors">
+            <div class="min-w-0 flex-1">
+              <span class="text-xs text-gray-200 font-medium">${esc(s.nom)}</span>
+              <span class="text-xs text-gray-500"> (${esc(s.categorie||'—')})</span>
+              ${modSpan}
+            </div>
+            <button class="sf-cat-install flex-shrink-0 bg-blue-700 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded min-h-[30px] transition-colors"
+              data-sid="${esc(s.id)}">+ Installer</button>
+          </div>`;
+        }).join('');
+
+        listEl.querySelectorAll('.sf-cat-install').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const sys = state.secondary_systems.find(s => s.id === btn.dataset.sid);
+            if (sys) installCatalogueSystem(sys, ct);
+          });
+        });
+      }
+
+      searchInput.addEventListener('input', renderAvailableList);
+      renderAvailableList();
+    }
+  }
+
+  renderTab(0);
+}
+
+
 function openFleetModal(ship) {
   const isEdit = !!ship;
   const ov = ship?.statsOverride || {};
@@ -1866,7 +3324,7 @@ function openFleetModal(ship) {
   };
 
   const overlay = document.createElement('div');
-  overlay.className = 'fixed inset-0 bg-black/70 z-50 flex items-start justify-center pt-8 px-4 overflow-y-auto';
+  overlay.className = 'fixed inset-0 bg-black/70 z-50 flex items-start justify-center pt-4 px-4 overflow-y-auto';
 
   const field = (id, label, type = 'text', val = '', suffix = '') =>
     `<div><label class="block text-xs text-gray-400 mb-1">${esc(label)}</label>
@@ -1882,81 +3340,103 @@ function openFleetModal(ship) {
 
   const hasImg = !!(ship?.image || mdl.image);
 
+  const fmTab = (idx, label, active) =>
+    `<button class="fm-tab px-4 py-2.5 text-sm whitespace-nowrap transition-colors ${active ? 'text-white border-b-2 border-blue-500 bg-gray-700/40' : 'text-gray-400 hover:text-white hover:bg-gray-700/30'}" data-tab="${idx}">${label}</button>`;
+
   overlay.innerHTML = `
-    <div class="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-2xl p-6 shadow-2xl mb-8">
-      <div class="flex items-center justify-between mb-5">
+    <div class="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-2xl shadow-2xl mb-8" style="max-height:92vh;display:flex;flex-direction:column;">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700 flex-shrink-0">
         <h2 class="text-xl font-bold">${isEdit ? `✏️ ${esc(ship.name)}` : '+ Nouveau vaisseau'}</h2>
-        <button id="fm-close" class="text-gray-400 hover:text-gray-200 text-xl px-2">✕</button>
+        <button id="fm-close" class="text-gray-400 hover:text-gray-200 text-xl min-w-[36px] min-h-[36px] flex items-center justify-center">✕</button>
       </div>
-      <p id="fm-error" class="hidden mb-3 text-sm text-red-400 bg-red-900/20 border border-red-800 rounded p-2"></p>
+      <p id="fm-error" class="hidden text-sm text-red-400 bg-red-900/20 border border-red-800 rounded p-2 mx-6 mt-3 flex-shrink-0"></p>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="md:col-span-2">${field('fm-nom', 'Nom du vaisseau *', 'text', ship?.name)}</div>
+      <!-- Tab bar -->
+      <div class="flex border-b border-gray-700 overflow-x-auto flex-shrink-0">
+        ${fmTab(0, '📋 Général', true)}
+        ${fmTab(1, '📊 Caractéristiques', false)}
+        ${fmTab(2, '📍 Position', false)}
+        ${fmTab(3, '📝 Notes', false)}
+      </div>
 
-        <div class="md:col-span-2">
-          <label class="block text-xs text-gray-400 mb-1">Modèle de base</label>
-          <select id="fm-model" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 cursor-pointer">
-            <option value="">— Aucun modèle —</option>
-            ${state.ship_models.map(m => `<option value="${esc(String(m.id))}" ${ship?.model_id === m.id ? 'selected' : ''}>${esc(m.nom)}</option>`).join('')}
-          </select>
-          <p class="text-xs text-gray-500 mt-1">La sélection d'un modèle pré-remplit tous les champs vides ci-dessous.</p>
-        </div>
+      <!-- Scrollable content -->
+      <div class="overflow-y-auto flex-1 p-6">
 
-        <div class="md:col-span-2">
-          <label class="block text-xs text-gray-400 mb-1">Image</label>
-          <div class="flex gap-2">
-            <input type="text" id="fm-image" value="${esc(ship?.image || '')}" placeholder="URL ou laisser vide"
-              class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
-            <label class="cursor-pointer bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded px-3 py-2 text-sm text-gray-300 transition-colors whitespace-nowrap">
-              📁 Choisir
-              <input type="file" id="fm-file" accept="image/*" class="hidden">
-            </label>
+        <!-- Panel 0 : Général -->
+        <div id="fm-panel-0" class="space-y-4">
+          ${field('fm-nom', 'Nom du vaisseau *', 'text', ship?.name)}
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Modèle de base</label>
+            <select id="fm-model" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 cursor-pointer">
+              <option value="">— Aucun modèle —</option>
+              ${state.ship_models.map(m => `<option value="${esc(String(m.id))}" ${ship?.model_id === m.id ? 'selected' : ''}>${esc(m.nom)}</option>`).join('')}
+            </select>
+            <p class="text-xs text-gray-500 mt-1">La sélection d'un modèle pré-remplit tous les champs vides.</p>
           </div>
-          ${hasImg
-            ? `<img id="fm-img-preview" src="${esc(ship?.image || mdl.image || '')}" class="mt-2 w-full max-h-40 object-contain rounded" alt="">`
-            : `<div id="fm-img-preview" class="hidden mt-2 w-full max-h-40 flex items-center justify-center bg-gray-900 rounded text-4xl">🚀</div>`
-          }
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Image</label>
+            <div class="flex gap-2">
+              <input type="text" id="fm-image" value="${esc(ship?.image || '')}" placeholder="URL ou laisser vide"
+                class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+              <label class="cursor-pointer bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded px-3 py-2 text-sm text-gray-300 transition-colors whitespace-nowrap">
+                📁 Choisir<input type="file" id="fm-file" accept="image/*" class="hidden">
+              </label>
+            </div>
+            ${hasImg
+              ? `<img id="fm-img-preview" src="${esc(ship?.image || mdl.image || '')}" class="mt-2 w-full max-h-40 object-contain rounded" alt="">`
+              : `<div id="fm-img-preview" class="hidden mt-2 w-full max-h-40 flex items-center justify-center bg-gray-900 rounded text-4xl">🚀</div>`}
+          </div>
         </div>
 
-        ${field('fm-classe', 'Classe', 'text', vv('classe'))}
-        ${field('fm-tonnage', 'Tonnage', 'text', vv('tonnage'), 't')}
-        ${field('fm-longueur', 'Longueur', 'text', vv('longueur'), 'm')}
-        ${field('fm-v-cro', 'Vitesse croisière', 'number', vv('vitesse_croisiere'), 'US/j')}
-        ${field('fm-v-hyp', 'Vitesse hyperspatiale', 'number', vv('vitesse_hyperspatiale'), 'PC/j')}
-        ${field('fm-v-tac', 'Vitesse tactique', 'text', vv('vitesse_tactique'), 'K/t')}
-        ${field('fm-autonomie', 'Autonomie', 'number', vv('autonomie'), 'PC')}
-        ${field('fm-manoeuvre', 'Manœuvrabilité', 'text', vv('manoeuvrabilite'))}
-        ${field('fm-blindage', 'Blindage', 'number', vv('blindage'))}
-        ${field('fm-coque', 'Coque (max)', 'number', vv('coque'))}
-        ${field('fm-hull', 'Coque actuelle', 'number', ship?.hull ?? '')}
-        ${field('fm-senseurs', 'Senseurs', 'text', vv('senseurs_k'))}
-        ${field('fm-crew', 'Équipage', 'text', ship?.crew ?? '')}
-        ${field('fm-pass', 'Passagers', 'text', vv('passagers'))}
-        ${field('fm-cargo', 'Soute', 'number', ship?.cargo_capacity ?? '', 't')}
-      </div>
-
-      <div class="mt-4 space-y-3 border-t border-gray-700 pt-4">
-        <h3 class="text-sm font-semibold text-gray-300">Description & Notes</h3>
-        ${ta('fm-desc', 'Description', ov.description)}
-        ${ta('fm-notes', 'Notes MJ (privé)', ship?.notes)}
-      </div>
-
-      <div class="mt-4 border-t border-gray-700 pt-4">
-        <h3 class="text-sm font-semibold text-gray-300 mb-3">📍 Position galactique</h3>
-        <div class="grid grid-cols-3 gap-3">
-          ${field('fm-pos-quadrant', 'Quadrant', 'text', pos.quadrant || '')}
-          ${field('fm-pos-system', 'Système', 'text', pos.system || '')}
-          ${field('fm-pos-planet', 'Planète / Astre', 'text', pos.planet || '')}
+        <!-- Panel 1 : Caractéristiques -->
+        <div id="fm-panel-1" style="display:none">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${field('fm-classe', 'Classe', 'text', vv('classe'))}
+            ${field('fm-tonnage', 'Tonnage', 'text', vv('tonnage'), 't')}
+            ${field('fm-longueur', 'Longueur', 'text', vv('longueur'), 'm')}
+            ${field('fm-coque', 'Coque (max)', 'number', vv('coque'))}
+            ${field('fm-hull', 'Coque actuelle', 'number', ship?.hull ?? '')}
+            ${field('fm-blindage', 'Blindage', 'number', vv('blindage'))}
+            ${field('fm-manoeuvre', 'Manœuvrabilité', 'text', vv('manoeuvrabilite'))}
+            ${field('fm-v-tac', 'Vitesse tactique', 'text', vv('vitesse_tactique'), 'K/t')}
+            ${field('fm-v-cro', 'Vitesse croisière', 'number', vv('vitesse_croisiere'), 'US/j')}
+            ${field('fm-v-hyp', 'Vitesse hyperspatiale', 'number', vv('vitesse_hyperspatiale'), 'PC/j')}
+            ${field('fm-autonomie', 'Autonomie', 'number', vv('autonomie'), 'PC')}
+            ${field('fm-senseurs', 'Senseurs (km)', 'text', vv('senseurs_k'))}
+            ${field('fm-senseurs-us', 'Senseurs (US)', 'text', vv('senseurs_us'))}
+            ${field('fm-equipage', 'Équipage', 'text', vv('equipage'))}
+            ${field('fm-pass', 'Passagers', 'text', vv('passagers'))}
+            ${field('fm-cargo', 'Soute', 'number', ship?.cargo_capacity ?? '', 't')}
+          </div>
         </div>
-        ${isEdit ? `<div class="flex items-center gap-3 mt-3 pt-3 border-t border-gray-700/50">
-          <button id="fm-set-active" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActiveShip ? 'bg-amber-700 text-amber-100 cursor-default' : 'bg-gray-700 hover:bg-amber-800/60 text-gray-300 hover:text-amber-200 cursor-pointer'}">
-            🎯 ${isActiveShip ? 'Vaisseau actif ✓' : 'Définir comme vaisseau actif'}
-          </button>
-          ${isActiveShip ? '<span class="text-xs text-amber-400">Ce vaisseau est le vaisseau actif de la table</span>' : '<span class="text-xs text-gray-500">Ce vaisseau sera utilisé pour les calculs d\'itinéraire</span>'}
-        </div>` : ''}
-      </div>
 
-      <div class="flex gap-3 mt-6">
+        <!-- Panel 2 : Position -->
+        <div id="fm-panel-2" style="display:none" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            ${field('fm-pos-quadrant', 'Quadrant', 'text', pos.quadrant || '')}
+            ${field('fm-pos-system', 'Système stellaire', 'text', pos.system || '')}
+            ${field('fm-pos-planet', 'Planète / Astre', 'text', pos.planet || '')}
+          </div>
+          ${isEdit ? `<div class="flex items-center gap-3 pt-3 border-t border-gray-700/50">
+            <button id="fm-set-active" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActiveShip ? 'bg-amber-700 text-amber-100 cursor-default' : 'bg-gray-700 hover:bg-amber-800/60 text-gray-300 hover:text-amber-200 cursor-pointer'}">
+              🎯 ${isActiveShip ? 'Vaisseau actif ✓' : 'Définir comme vaisseau actif'}
+            </button>
+            ${isActiveShip ? '<span class="text-xs text-amber-400">Ce vaisseau est le vaisseau actif de la table</span>' : '<span class="text-xs text-gray-500">Ce vaisseau sera utilisé pour les calculs d\'itinéraire</span>'}
+          </div>` : ''}
+        </div>
+
+        <!-- Panel 3 : Notes -->
+        <div id="fm-panel-3" style="display:none" class="space-y-4">
+          ${ta('fm-desc', 'Description', ov.description)}
+          ${ta('fm-notes', 'Notes MJ (privé)', ship?.notes)}
+        </div>
+
+      </div><!-- end scrollable -->
+
+      <!-- Footer -->
+      <div class="flex gap-3 px-6 py-4 border-t border-gray-700 flex-shrink-0">
         <button id="fm-save" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium transition-colors">Enregistrer</button>
         <button id="fm-cancel" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-200 py-2.5 rounded-lg transition-colors">Annuler</button>
       </div>
@@ -1964,6 +3444,20 @@ function openFleetModal(ship) {
 
   document.body.appendChild(overlay);
   overlay.querySelector('#fm-nom').focus();
+
+  // Tab switching
+  overlay.querySelectorAll('.fm-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.tab);
+      overlay.querySelectorAll('.fm-tab').forEach((b, i) => {
+        b.className = `fm-tab px-4 py-2.5 text-sm whitespace-nowrap transition-colors ${i === idx ? 'text-white border-b-2 border-blue-500 bg-gray-700/40' : 'text-gray-400 hover:text-white hover:bg-gray-700/30'}`;
+      });
+      for (let j = 0; j < 4; j++) {
+        const p = overlay.querySelector(`#fm-panel-${j}`);
+        if (p) p.style.display = j === idx ? '' : 'none';
+      }
+    });
+  });
 
   const close = () => overlay.remove();
   overlay.querySelector('#fm-close').addEventListener('click', close);
@@ -2014,7 +3508,8 @@ function openFleetModal(ship) {
     fill('#fm-v-hyp', model.vitesse_hyperspatiale);
     fill('#fm-autonomie', model.autonomie);
     fill('#fm-senseurs', model.senseurs_k);
-    fill('#fm-crew', model.equipage);
+    fill('#fm-equipage', model.equipage);
+    fill('#fm-senseurs-us', model.senseurs_us);
     fill('#fm-pass', model.passagers);
     fill('#fm-cargo', model.soute);
     if (!imgInput.value && model.image) {
@@ -2044,7 +3539,8 @@ function openFleetModal(ship) {
       model_id: overlay.querySelector('#fm-model').value || null,
       image: imgInput.value.trim() || null,
       hull: num('#fm-hull'),
-      crew: str('#fm-crew'),
+      equipage: str('#fm-equipage'),
+      senseurs_us: str('#fm-senseurs-us'),
       cargo_capacity: num('#fm-cargo'),
       notes: overlay.querySelector('#fm-notes')?.value.trim() || '',
       classe: str('#fm-classe'), tonnage: str('#fm-tonnage'), longueur: str('#fm-longueur'),
@@ -2835,8 +4331,10 @@ function openBodyModal(body, onSave) {
 // --- Ship model modal (admin-style) ---
 function openShipModelModal(model) {
   const isNew = !model;
+  let armementData = (() => { try { return JSON.parse(model?.armement_json || '[]'); } catch { return []; } })();
+  let systemesData = (() => { try { return JSON.parse(model?.systemes_secondaires_json || '[]'); } catch { return []; } })();
   const overlay = document.createElement('div');
-  overlay.className = 'fixed inset-0 bg-black/70 z-50 flex items-start justify-center pt-8 px-4 overflow-y-auto';
+  overlay.className = 'fixed inset-0 bg-black/70 z-50 flex items-start justify-center pt-4 px-4 overflow-y-auto';
 
   const hasImg = !!model?.image;
   const field = (id, label, type = 'text', val = '', suffix = '') =>
@@ -2851,73 +4349,312 @@ function openShipModelModal(model) {
       <textarea id="${id}" rows="3"
         class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 resize-y">${esc(String(val ?? ''))}</textarea></div>`;
 
+  const smmTab = (idx, label, active) =>
+    `<button class="smm-tab px-4 py-2.5 text-sm whitespace-nowrap transition-colors ${active ? 'text-white border-b-2 border-blue-500 bg-gray-700/40' : 'text-gray-400 hover:text-white hover:bg-gray-700/30'}" data-tab="${idx}">${label}</button>`;
+
   overlay.innerHTML = `
-    <div class="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-2xl p-6 shadow-2xl mb-8">
-      <div class="flex items-center justify-between mb-5">
+    <div class="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-2xl shadow-2xl mb-8" style="max-height:92vh;display:flex;flex-direction:column;">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700 flex-shrink-0">
         <h2 class="text-xl font-bold">${isNew ? '+ Nouveau modèle de vaisseau' : `Modifier : ${esc(model.nom)}`}</h2>
-        <button id="smm-close" class="text-gray-400 hover:text-gray-200 text-xl px-2">✕</button>
+        <button id="smm-close" class="text-gray-400 hover:text-gray-200 text-xl min-w-[36px] min-h-[36px] flex items-center justify-center">✕</button>
       </div>
-      <p id="smm-error" class="hidden mb-3 text-sm text-red-400 bg-red-900/20 border border-red-800 rounded p-2"></p>
+      <p id="smm-error" class="hidden text-sm text-red-400 bg-red-900/20 border border-red-800 rounded p-2 mx-6 mt-3 flex-shrink-0"></p>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="md:col-span-2">${field('smm-nom', 'Nom *', 'text', model?.nom)}</div>
+      <!-- Tab bar -->
+      <div class="flex border-b border-gray-700 overflow-x-auto flex-shrink-0">
+        ${smmTab(0, '🪪 Identité', true)}
+        ${smmTab(1, '📊 Caractéristiques', false)}
+        ${smmTab(2, '⚔️ Armement', false)}
+        ${smmTab(3, '⚙️ Systèmes', false)}
+        ${smmTab(4, '📝 Descriptions', false)}
+      </div>
 
-        <div class="md:col-span-2">
-          <label class="block text-xs text-gray-400 mb-1">Image</label>
-          <div class="flex gap-2">
-            <input type="text" id="smm-image" value="${esc(model?.image || '')}" placeholder="URL ou laisser vide pour uploader"
-              class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
-            <label class="cursor-pointer bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded px-3 py-2 text-sm text-gray-300 transition-colors whitespace-nowrap">
-              📁 Choisir
-              <input type="file" id="smm-file" accept="image/*" class="hidden">
-            </label>
+      <!-- Scrollable content -->
+      <div class="overflow-y-auto flex-1 p-6">
+
+        <!-- Panel 0 : Identité -->
+        <div id="smm-panel-0" class="space-y-4">
+          ${field('smm-nom', 'Nom *', 'text', model?.nom)}
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${field('smm-classe', 'Classe', 'text', model?.classe)}
+            <div>
+              <label class="block text-xs text-gray-400 mb-1">Origine / Faction</label>
+              <select id="smm-origine" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+                <option value="">— Aucune —</option>
+                ${state.factions.map(f => `<option value="${esc(f.name)}" ${(model?.origine || '') === f.name ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}
+              </select>
+              <div id="smm-origine-badge" class="mt-1 text-sm text-gray-300 min-h-[24px]">${model?.origine ? factionBadge(model.origine) : ''}</div>
+            </div>
+            ${field('smm-prix', 'Prix', 'number', model?.prix, '¢')}
           </div>
-          ${hasImg
-            ? `<img id="smm-img-preview" src="${esc(model.image)}" class="mt-2 w-full max-h-40 object-contain rounded" alt="">`
-            : `<div id="smm-img-preview" class="hidden mt-2 w-full max-h-40 flex items-center justify-center bg-gray-900 rounded text-4xl">🚀</div>`
-          }
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Image</label>
+            <div class="flex gap-2">
+              <input type="text" id="smm-image" value="${esc(model?.image || '')}" placeholder="URL ou laisser vide pour uploader"
+                class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+              <label class="cursor-pointer bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded px-3 py-2 text-sm text-gray-300 transition-colors whitespace-nowrap">
+                📁 Choisir<input type="file" id="smm-file" accept="image/*" class="hidden">
+              </label>
+            </div>
+            ${hasImg
+              ? `<img id="smm-img-preview" src="${esc(model.image)}" class="mt-2 w-full max-h-40 object-contain rounded" alt="">`
+              : `<div id="smm-img-preview" class="hidden mt-2 w-full max-h-40 flex items-center justify-center bg-gray-900 rounded text-4xl">🚀</div>`}
+          </div>
         </div>
 
-        ${field('smm-classe', 'Classe', 'text', model?.classe)}
-        ${field('smm-origine', 'Origine / Faction', 'text', model?.origine)}
-        ${field('smm-tonnage', 'Tonnage', 'text', model?.tonnage, 't')}
-        ${field('smm-longueur', 'Longueur', 'text', model?.longueur, 'm')}
-        ${field('smm-prix', 'Prix', 'number', model?.prix, '¢')}
-        ${field('smm-v-cro', 'Vitesse croisière', 'number', model?.vitesse_croisiere, 'US/j')}
-        ${field('smm-v-hyp', 'Vitesse hyperspatiale', 'number', model?.vitesse_hyperspatiale, 'PC/j')}
-        ${field('smm-v-tac', 'Vitesse tactique', 'text', model?.vitesse_tactique, 'K/t')}
-        ${field('smm-autonomie', 'Autonomie', 'number', model?.autonomie, 'PC')}
-        ${field('smm-manoeuvre', 'Manœuvrabilité', 'text', model?.manoeuvrabilite)}
-        ${field('smm-blindage', 'Blindage', 'number', model?.blindage)}
-        ${field('smm-coque', 'Coque', 'number', model?.coque)}
-        ${field('smm-senseurs-k', 'Senseurs (K)', 'text', model?.senseurs_k)}
-        ${field('smm-senseurs-us', 'Senseurs (US)', 'text', model?.senseurs_us)}
-        ${field('smm-equipage', 'Équipage', 'text', model?.equipage)}
-        ${field('smm-passagers', 'Passagers', 'text', model?.passagers)}
-        ${field('smm-soute', 'Soute', 'text', model?.soute, 't')}
-      </div>
+        <!-- Panel 1 : Caractéristiques -->
+        <div id="smm-panel-1" style="display:none">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${field('smm-tonnage', 'Tonnage', 'number', model?.tonnage, 't')}
+            ${field('smm-longueur', 'Longueur', 'number', model?.longueur, 'm')}
+            ${field('smm-coque', 'Coque', 'number', model?.coque)}
+            ${field('smm-blindage', 'Blindage', 'number', model?.blindage)}
+            ${field('smm-manoeuvre', 'Manœuvrabilité', 'text', model?.manoeuvrabilite)}
+            ${field('smm-v-tac', 'Vitesse tactique', 'text', model?.vitesse_tactique, 'K/t')}
+            ${field('smm-v-cro', 'Vitesse croisière', 'number', model?.vitesse_croisiere, 'US/j')}
+            ${field('smm-v-hyp', 'Vitesse hyperspatiale', 'number', model?.vitesse_hyperspatiale, 'PC/j')}
+            ${field('smm-autonomie', 'Autonomie', 'number', model?.autonomie, 'PC')}
+            ${field('smm-senseurs-k', 'Senseurs (km)', 'text', model?.senseurs_k)}
+            ${field('smm-senseurs-us', 'Senseurs (US)', 'text', model?.senseurs_us)}
+            ${field('smm-equipage', 'Équipage', 'text', model?.equipage)}
+            ${field('smm-passagers', 'Passagers', 'text', model?.passagers)}
+            ${field('smm-soute', 'Soute', 'text', model?.soute, 't')}
+          </div>
+        </div>
 
-      <div class="mt-4">
-        <label class="block text-xs text-gray-400 mb-1">Armement (JSON)</label>
-        <textarea id="smm-armement" rows="2"
-          class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-blue-500 resize-y">${esc(model?.armement_json || '[]')}</textarea>
-      </div>
+        <!-- Panel 2 : Armement -->
+        <div id="smm-panel-2" style="display:none">
+          <div id="smm-arm-container"></div>
+        </div>
 
-      <div class="mt-4 space-y-3 border-t border-gray-700 pt-4">
-        <h3 class="text-sm font-semibold text-gray-300">Descriptions</h3>
-        ${ta('smm-description', 'Description générale', model?.description)}
-        ${ta('smm-history', 'Historique', model?.history)}
-        ${ta('smm-mj-notes', 'Notes MJ (privé)', model?.mj_notes)}
-        ${ta('smm-special', 'Particularités', model?.special_features)}
-      </div>
+        <!-- Panel 3 : Systèmes secondaires -->
+        <div id="smm-panel-3" style="display:none">
+          <div id="smm-sys-container"></div>
+        </div>
 
-      <div class="flex gap-3 mt-6">
+        <!-- Panel 4 : Descriptions -->
+        <div id="smm-panel-4" style="display:none" class="space-y-4">
+          ${ta('smm-description', 'Description générale', model?.description)}
+          ${ta('smm-history', 'Historique', model?.history)}
+          ${ta('smm-mj-notes', 'Notes MJ (privé)', model?.mj_notes)}
+          ${ta('smm-special', 'Particularités', model?.special_features)}
+        </div>
+
+      </div><!-- end scrollable -->
+
+      <!-- Footer -->
+      <div class="flex gap-3 px-6 py-4 border-t border-gray-700 flex-shrink-0">
         <button id="smm-save" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-medium transition-colors">Enregistrer</button>
         <button id="smm-cancel" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-200 py-2.5 rounded-lg transition-colors">Annuler</button>
       </div>
     </div>`;
 
   document.body.appendChild(overlay);
+
+  // ── Armement structured editor ─────────────────────────────────────────────
+  function renderArmEditor() {
+    const el = overlay.querySelector('#smm-arm-container');
+    if (!el) return;
+    const posOptions = [['', '— Position —'], ['B', 'Babord'], ['T', 'Tribord'], ['Pr', 'Proue'], ['Po', 'Poupe'], ['V', 'Ventral']];
+    let html = '';
+    if (armementData.length) {
+      html += '<div class="space-y-2 mb-3">';
+      armementData.forEach((a, i) => {
+        const details = [a.position, a.tourelle ? 'tourelle' : null, a.degats, a.mode_tir, a.portee ? a.portee + ' UA' : null, a.canonnier].filter(Boolean).join(' · ');
+        html += `<div class="flex items-start gap-2 bg-gray-700/50 rounded-lg p-2 flex-wrap">
+          <div class="flex-1 min-w-[140px]">
+            <p class="text-xs font-semibold text-white">${esc(a.nom || '—')}</p>
+            ${details ? `<p class="text-xs text-gray-400">${esc(details)}</p>` : ''}
+          </div>
+          <button class="smm-arm-del text-red-500 hover:text-red-300 text-xs min-w-[28px] min-h-[28px] px-1" data-idx="${i}">✕</button>
+        </div>`;
+      });
+      html += '</div>';
+    } else {
+      html += '<p class="text-xs text-gray-500 italic mb-3">Aucune arme définie.</p>';
+    }
+    html += `<div class="bg-gray-700/40 rounded-lg p-3 border border-gray-600">
+      <p class="text-xs font-semibold text-gray-300 mb-2">+ Ajouter une arme</p>
+      <div class="grid grid-cols-2 gap-2">
+        <input id="smm-arm-nom" type="text" placeholder="Nom *" class="col-span-2 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 min-h-[32px]">
+        <select id="smm-arm-pos" class="bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 min-h-[32px]">
+          ${posOptions.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}
+        </select>
+        <label class="flex items-center gap-2 text-xs text-gray-300"><input type="checkbox" id="smm-arm-tourelle" class="w-4 h-4"> Tourelle</label>
+        <input id="smm-arm-degats" type="text" placeholder="Dégâts (ex: 3D6)" class="bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 min-h-[32px]">
+        <input id="smm-arm-mode" type="text" placeholder="Mode de tir (TRP, Salve…)" class="bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 min-h-[32px]">
+        <input id="smm-arm-portee" type="text" placeholder="Portée (UA)" class="bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 min-h-[32px]">
+        <input id="smm-arm-canonnier" type="text" placeholder="Canonnier requis" class="bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 min-h-[32px]">
+      </div>
+      <button id="smm-arm-add" class="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs transition-colors min-h-[32px]">+ Ajouter</button>
+    </div>`;
+    el.innerHTML = html;
+    el.querySelectorAll('.smm-arm-del').forEach(btn => {
+      btn.addEventListener('click', () => { armementData.splice(Number(btn.dataset.idx), 1); renderArmEditor(); });
+    });
+    el.querySelector('#smm-arm-add')?.addEventListener('click', () => {
+      const nom = el.querySelector('#smm-arm-nom').value.trim();
+      if (!nom) return;
+      const entry = { nom };
+      const pos = el.querySelector('#smm-arm-pos').value;
+      if (pos) entry.position = pos;
+      if (el.querySelector('#smm-arm-tourelle').checked) entry.tourelle = true;
+      const degats = el.querySelector('#smm-arm-degats').value.trim(); if (degats) entry.degats = degats;
+      const mode = el.querySelector('#smm-arm-mode').value.trim(); if (mode) entry.mode_tir = mode;
+      const portee = el.querySelector('#smm-arm-portee').value.trim(); if (portee) entry.portee = portee;
+      const canonnier = el.querySelector('#smm-arm-canonnier').value.trim(); if (canonnier) entry.canonnier = canonnier;
+      armementData.push(entry);
+      renderArmEditor();
+    });
+  }
+
+  // ── Systèmes secondaires editor ────────────────────────────────────────────
+  function renderSysEditor() {
+    const el = overlay.querySelector('#smm-sys-container');
+    if (!el) return;
+
+    const MOD_LABELS = { add: '+', add_kt: '+', multiply: '×', pct_add: '+%' };
+    function modLabel(mod) {
+      const names = { blindage:'Blindage', vitesse_tactique:'Vit. tac.', vitesse_croisiere:'Vit. crois.', autonomie:'Autonomie', cargo_capacity:'Soute' };
+      const n = names[mod.stat] || mod.stat;
+      if (mod.op === 'add')      return `${n} +${mod.value}`;
+      if (mod.op === 'add_kt')   return `${n} +${mod.value} K/t`;
+      if (mod.op === 'multiply') return `${n} ×${mod.value}`;
+      if (mod.op === 'pct_add')  return `${n} +${mod.value}%`;
+      return n;
+    }
+
+    let html = '';
+
+    // Installed list
+    if (systemesData.length) {
+      html += '<div class="space-y-2 mb-3">';
+      systemesData.forEach((s, i) => {
+        const nom  = typeof s === 'string' ? s : (s.nom || '');
+        const desc = typeof s === 'object' ? (s.description || '') : '';
+        const fromCatalogue = typeof s === 'object' && s.catalogue_id;
+        const catEntry = fromCatalogue ? (state.secondary_systems || []).find(cs => cs.id === s.catalogue_id) : null;
+        const mods = catEntry ? (() => { try { return JSON.parse(catEntry.stat_modifiers_json || '[]'); } catch { return []; } })() : [];
+        const modText = mods.map(m => modLabel(m)).join(' · ');
+        html += `<div class="flex items-start gap-2 rounded-lg p-2 ${fromCatalogue ? 'bg-blue-900/20 border border-blue-800/40' : 'bg-gray-700/50'}">
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-semibold text-white">${esc(nom)}</p>
+            ${desc ? `<p class="text-xs text-gray-400">${esc(desc)}</p>` : ''}
+            ${modText ? `<p class="text-xs text-blue-300">⚙️ ${esc(modText)}</p>` : ''}
+          </div>
+          <button class="smm-sys-del text-red-500 hover:text-red-300 text-xs min-w-[28px] min-h-[28px] px-1" data-idx="${i}">✕</button>
+        </div>`;
+      });
+      html += '</div>';
+    } else {
+      html += '<p class="text-xs text-gray-500 italic mb-3">Aucun système défini.</p>';
+    }
+
+    // Catalogue picker
+    html += `<div class="bg-gray-700/30 rounded-lg p-3 border border-gray-600 mb-3">
+      <p class="text-xs font-semibold text-gray-300 mb-2">🗂 Depuis le catalogue</p>
+      <input id="smm-cat-search" type="text" placeholder="Rechercher dans le catalogue…"
+        class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500 mb-2 min-h-[32px]">
+      <div id="smm-cat-list" class="space-y-1 max-h-44 overflow-y-auto pr-1"></div>
+    </div>`;
+
+    // Manual add form
+    html += `<div class="bg-gray-700/30 rounded-lg p-3 border border-gray-600">
+      <p class="text-xs font-semibold text-gray-300 mb-2">✏️ Ajouter manuellement</p>
+      <div class="grid grid-cols-1 gap-2">
+        <input id="smm-sys-nom" type="text" placeholder="Nom du système *"
+          class="bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 min-h-[32px]">
+        <input id="smm-sys-desc" type="text" placeholder="Description (optionnel)"
+          class="bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 min-h-[32px]">
+      </div>
+      <button id="smm-sys-add" class="mt-2 bg-gray-600 hover:bg-gray-500 text-white px-3 py-1.5 rounded text-xs transition-colors min-h-[32px]">+ Ajouter</button>
+    </div>`;
+
+    el.innerHTML = html;
+
+    // Delete
+    el.querySelectorAll('.smm-sys-del').forEach(btn => {
+      btn.addEventListener('click', () => { systemesData.splice(Number(btn.dataset.idx), 1); renderSysEditor(); });
+    });
+
+    // Manual add
+    el.querySelector('#smm-sys-add')?.addEventListener('click', () => {
+      const nom = el.querySelector('#smm-sys-nom').value.trim();
+      if (!nom) return;
+      const desc = el.querySelector('#smm-sys-desc').value.trim();
+      systemesData.push(desc ? { nom, description: desc } : nom);
+      renderSysEditor();
+    });
+
+    // Catalogue picker logic
+    const catSearch = el.querySelector('#smm-cat-search');
+    const catList   = el.querySelector('#smm-cat-list');
+
+    function renderCatList() {
+      const q = catSearch.value.trim().toLowerCase();
+      const addedCatIds = new Set(systemesData.filter(s => typeof s === 'object' && s.catalogue_id).map(s => s.catalogue_id));
+      const available = (state.secondary_systems || []).filter(s => {
+        if (!s.id || addedCatIds.has(s.id)) return false;
+        if (s.visible === false || s.visible === 0) return false;
+        if (q && !s.nom.toLowerCase().includes(q) && !(s.categorie||'').toLowerCase().includes(q)) return false;
+        return true;
+      });
+      if (available.length === 0) {
+        catList.innerHTML = `<p class="text-gray-600 italic text-xs">${q ? 'Aucun résultat.' : 'Tous les systèmes visibles sont ajoutés.'}</p>`;
+        return;
+      }
+      catList.innerHTML = available.map(s => {
+        const mods = (() => { try { return JSON.parse(s.stat_modifiers_json || '[]'); } catch { return []; } })();
+        const modSpan = mods.length ? `<span class="text-blue-400 text-xs"> · ${esc(mods.map(m => modLabel(m)).join(', '))}</span>` : '';
+        return `<div class="flex items-center justify-between gap-2 bg-gray-700/40 hover:bg-gray-700/70 rounded px-2 py-1.5 transition-colors">
+          <div class="min-w-0 flex-1">
+            <span class="text-xs text-gray-200 font-medium">${esc(s.nom)}</span>
+            <span class="text-xs text-gray-500"> (${esc(s.categorie||'—')})</span>
+            ${modSpan}
+          </div>
+          <button class="smm-cat-add flex-shrink-0 bg-blue-700 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded min-h-[26px] transition-colors"
+            data-sid="${esc(s.id)}">+ Ajouter</button>
+        </div>`;
+      }).join('');
+      catList.querySelectorAll('.smm-cat-add').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const sys = state.secondary_systems.find(sx => sx.id === btn.dataset.sid);
+          if (!sys) return;
+          systemesData.push({ catalogue_id: sys.id, nom: sys.nom, description: sys.description || '' });
+          renderSysEditor();
+        });
+      });
+    }
+
+    catSearch.addEventListener('input', renderCatList);
+    renderCatList();
+  }
+
+  renderArmEditor();
+  renderSysEditor();
+
+  // Faction badge preview update on select change
+  overlay.querySelector('#smm-origine')?.addEventListener('change', () => {
+    const val = overlay.querySelector('#smm-origine').value;
+    overlay.querySelector('#smm-origine-badge').innerHTML = val ? factionBadge(val) : '';
+  });
+
+  // Tab switching
+  overlay.querySelectorAll('.smm-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.tab);
+      overlay.querySelectorAll('.smm-tab').forEach((b, i) => {
+        b.className = `smm-tab px-4 py-2.5 text-sm whitespace-nowrap transition-colors ${i === idx ? 'text-white border-b-2 border-blue-500 bg-gray-700/40' : 'text-gray-400 hover:text-white hover:bg-gray-700/30'}`;
+      });
+      for (let j = 0; j < 5; j++) {
+        const p = overlay.querySelector(`#smm-panel-${j}`);
+        if (p) p.style.display = j === idx ? '' : 'none';
+      }
+    });
+  });
+
   const close = () => overlay.remove();
   overlay.querySelector('#smm-close').addEventListener('click', close);
   overlay.querySelector('#smm-cancel').addEventListener('click', close);
@@ -2961,13 +4698,10 @@ function openShipModelModal(model) {
     const num = id => { const v = overlay.querySelector(id).value.trim(); return v === '' ? null : Number(v); };
     const str = id => overlay.querySelector(id).value.trim();
 
-    const armementStr = str('#smm-armement') || '[]';
-    try { JSON.parse(armementStr); } catch { errEl.textContent = 'JSON armement invalide'; errEl.classList.remove('hidden'); return; }
-
     const body = {
       nom,
       classe: str('#smm-classe'), origine: str('#smm-origine'),
-      tonnage: str('#smm-tonnage'), longueur: str('#smm-longueur'),
+      tonnage: num('#smm-tonnage'), longueur: num('#smm-longueur'),
       prix: num('#smm-prix'),
       vitesse_croisiere: num('#smm-v-cro'), vitesse_hyperspatiale: num('#smm-v-hyp'),
       vitesse_tactique: str('#smm-v-tac'), autonomie: num('#smm-autonomie'),
@@ -2976,7 +4710,8 @@ function openShipModelModal(model) {
       senseurs_k: str('#smm-senseurs-k'), senseurs_us: str('#smm-senseurs-us'),
       equipage: str('#smm-equipage'), passagers: str('#smm-passagers'), soute: str('#smm-soute'),
       image: str('#smm-image'),
-      armement_json: armementStr,
+      armement_json: JSON.stringify(armementData),
+      systemes_secondaires_json: JSON.stringify(systemesData),
       description: str('#smm-description'), history: str('#smm-history'),
       mj_notes: str('#smm-mj-notes'), special_features: str('#smm-special'),
     };

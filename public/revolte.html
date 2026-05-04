@@ -69,6 +69,28 @@
       font-size: 0.875rem;
     }
     .revolte-select:focus { outline: none; border-color: #c8a464; }
+    .revolte-dice-btn {
+      background: none;
+      border: none;
+      font-size: 1.25rem;
+      line-height: 1;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.15s, transform 0.15s;
+      padding: 0 0.1rem;
+      flex-shrink: 0;
+    }
+    .revolte-dice-btn:hover { opacity: 1; transform: scale(1.15); }
+    .revolte-dice-btn:disabled { opacity: 0.3; cursor: default; transform: none; }
+    .pd-chip {
+      display: inline-flex; align-items: center; gap: 0.25rem;
+      background: #2d3748; border: 1px solid #4b5563; border-radius: 999px;
+      padding: 0.15rem 0.5rem; font-size: 0.75rem; color: #e5e7eb;
+    }
+    .pd-chip .pd-type-badge { font-size: 0.65rem; opacity: 0.6; }
+    .pd-chip button { background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 0.9rem; line-height: 1; padding: 0 0.1rem; }
+    .pd-chip button:hover { color: #f87171; }
+    .pd-chips-wrap { display: flex; flex-wrap: wrap; gap: 0.25rem; min-height: 1.75rem; margin-bottom: 0.25rem; }
     .w-20 { width: 5rem; }
     /* Session panel */
     #sessions-panel { width: 260px; flex-shrink: 0; }
@@ -255,11 +277,51 @@
             <div id="revolteDescription" class="info-box"></div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-              <fieldset class="revolte-fieldset">
-                <legend class="revolte-legend">Population de la Planète</legend>
-                <label class="block text-sm text-gray-400 mb-1">Population (milliards)</label>
-                <input type="number" id="populationInput" min="0" value="1" class="revolte-input w-20">
+              <fieldset class="revolte-fieldset" id="location-selector-fieldset">
+                <legend class="revolte-legend" id="location-selector-legend">Lieu de la Révolte</legend>
+
+                <!-- Geo selectors: quadrant → système → planète -->
+                <div id="loc-geo-group" class="space-y-2">
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-1">Quadrant</label>
+                    <select id="loc-quadrant" class="revolte-select w-full text-sm">
+                      <option value="">— Chargement… —</option>
+                    </select>
+                  </div>
+                  <div id="loc-system-row" class="hidden">
+                    <label class="block text-xs text-gray-400 mb-1">Système</label>
+                    <select id="loc-system" class="revolte-select w-full text-sm">
+                      <option value="">— Choisir un système —</option>
+                    </select>
+                  </div>
+                  <div id="loc-planet-row" class="hidden">
+                    <label class="block text-xs text-gray-400 mb-1">Planète</label>
+                    <select id="loc-planet" class="revolte-select w-full text-sm">
+                      <option value="">— Choisir une planète —</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Ship selector (mutinerie uniquement) -->
+                <div id="loc-ship-group" class="hidden">
+                  <label class="block text-xs text-gray-400 mb-1">Vaisseau impliqué</label>
+                  <select id="loc-ship" class="revolte-select w-full text-sm">
+                    <option value="">— Sélectionner un vaisseau —</option>
+                  </select>
+                </div>
+
+                <!-- Infos dérivées -->
+                <div id="location-info" class="hidden info-box mt-2 text-xs"></div>
+
+                <!-- Population (auto-remplie ou saisie manuelle) -->
+                <div id="loc-population-row" class="mt-3 pt-3 border-t border-gray-700/60">
+                  <label class="block text-xs text-gray-400 mb-1">
+                    Population (mrd) <span id="loc-pop-auto" class="italic text-gray-500"></span>
+                  </label>
+                  <input type="number" id="populationInput" min="0" step="0.1" value="1" class="revolte-input w-20">
+                </div>
               </fieldset>
+
               <fieldset id="revolution-options" class="revolte-fieldset hidden">
                 <legend class="revolte-legend">Options Révolution</legend>
                 <label class="block text-sm text-gray-400 mb-1">Portée</label>
@@ -304,11 +366,17 @@
                 <div class="grid grid-cols-2 gap-4">
                   <div>
                     <label id="propagandeSuccesLabel" class="block text-sm text-gray-400 mb-1">Propagande</label>
-                    <input type="number" id="propagandeSuccesInput" min="0" value="1" class="revolte-input w-20">
+                    <div class="flex items-center gap-2">
+                      <input type="number" id="propagandeSuccesInput" min="0" value="1" class="revolte-input w-20">
+                      <button class="revolte-dice-btn" data-input="propagandeSuccesInput" title="Lancer Propagande">🎲</button>
+                    </div>
                   </div>
                   <div>
                     <label id="eloquencePropagandeLabel" class="block text-sm text-gray-400 mb-1">Eloquence</label>
-                    <input type="number" id="eloquencePropagandeInput" min="0" value="3" class="revolte-input w-20">
+                    <div class="flex items-center gap-2">
+                      <input type="number" id="eloquencePropagandeInput" min="0" value="3" class="revolte-input w-20">
+                      <button class="revolte-dice-btn" data-input="eloquencePropagandeInput" title="Lancer Éloquence">🎲</button>
+                    </div>
                   </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
@@ -328,30 +396,74 @@
 
           <fieldset class="revolte-fieldset">
             <legend class="revolte-legend">Porte-Drapeau</legend>
-            <div class="grid grid-cols-3 gap-4 mb-3">
+            <div class="space-y-3 mb-3">
+
+              <!-- Locaux -->
               <div>
-                <label class="block text-sm text-gray-400 mb-1">Locaux</label>
-                <input type="number" id="pdLocaux" min="0" value="0" class="revolte-input w-20">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-sm text-gray-400">Locaux</span>
+                  <span id="pdCount-locaux" class="text-xs font-bold text-yellow-400"></span>
+                </div>
+                <div id="pdChips-locaux" class="pd-chips-wrap"></div>
+                <div class="flex gap-1">
+                  <select id="pdSelect-locaux" class="revolte-select flex-1 text-xs"><option value="">— PJ / PNJ —</option></select>
+                  <input type="text" id="pdFree-locaux" placeholder="Nom libre…" class="revolte-input flex-1 min-w-0 text-xs">
+                  <button class="pd-add-btn revolte-input px-2 font-bold text-yellow-300 hover:text-yellow-100" data-cat="locaux" title="Ajouter">+</button>
+                </div>
               </div>
+
+              <!-- Pirates -->
               <div>
-                <label class="block text-sm text-gray-400 mb-1">Pirates</label>
-                <input type="number" id="pdPirates" min="0" value="0" class="revolte-input w-20">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-sm text-gray-400">Pirates</span>
+                  <span id="pdCount-pirates" class="text-xs font-bold text-yellow-400"></span>
+                </div>
+                <div id="pdChips-pirates" class="pd-chips-wrap"></div>
+                <div class="flex gap-1">
+                  <select id="pdSelect-pirates" class="revolte-select flex-1 text-xs"><option value="">— PJ / PNJ —</option></select>
+                  <input type="text" id="pdFree-pirates" placeholder="Nom libre…" class="revolte-input flex-1 min-w-0 text-xs">
+                  <button class="pd-add-btn revolte-input px-2 font-bold text-yellow-300 hover:text-yellow-100" data-cat="pirates" title="Ajouter">+</button>
+                </div>
               </div>
+
+              <!-- Autres -->
               <div>
-                <label class="block text-sm text-gray-400 mb-1">Autres</label>
-                <input type="number" id="pdAutres" min="0" value="0" class="revolte-input w-20">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-sm text-gray-400">Autres</span>
+                  <span id="pdCount-autres" class="text-xs font-bold text-yellow-400"></span>
+                </div>
+                <div id="pdChips-autres" class="pd-chips-wrap"></div>
+                <div class="flex gap-1">
+                  <select id="pdSelect-autres" class="revolte-select flex-1 text-xs"><option value="">— PJ / PNJ —</option></select>
+                  <input type="text" id="pdFree-autres" placeholder="Nom libre…" class="revolte-input flex-1 min-w-0 text-xs">
+                  <button class="pd-add-btn revolte-input px-2 font-bold text-yellow-300 hover:text-yellow-100" data-cat="autres" title="Ajouter">+</button>
+                </div>
               </div>
+
             </div>
             <div id="pdResult" class="info-box"></div>
             <div class="grid grid-cols-2 gap-4 mt-4">
               <fieldset class="revolte-fieldset">
                 <legend class="revolte-legend" style="font-size:0.9rem">Officiers</legend>
-                <label class="block text-sm text-gray-400 mb-1">Nombre impliqué</label>
-                <input type="number" id="officiers" min="0" value="0" class="revolte-input w-20">
+                <div>
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-sm text-gray-400">Officiers impliqués</span>
+                    <span id="pdCount-officiers" class="text-xs font-bold text-yellow-400"></span>
+                  </div>
+                  <div id="pdChips-officiers" class="pd-chips-wrap"></div>
+                  <div class="flex gap-1">
+                    <select id="pdSelect-officiers" class="revolte-select flex-1 text-xs"><option value="">— PJ / PNJ —</option></select>
+                    <input type="text" id="pdFree-officiers" placeholder="Nom libre…" class="revolte-input flex-1 min-w-0 text-xs">
+                    <button class="pd-add-btn revolte-input px-2 font-bold text-yellow-300 hover:text-yellow-100" data-cat="officiers" title="Ajouter">+</button>
+                  </div>
+                </div>
               </fieldset>
               <fieldset class="revolte-fieldset">
                 <legend class="revolte-legend" style="font-size:0.9rem">Sécurité</legend>
-                <label class="block text-sm text-gray-400 mb-1">Sécurité planétaire</label>
+                <label class="block text-sm text-gray-400 mb-1">
+                  Sécurité planétaire
+                  <span id="loc-sec-auto" class="italic text-gray-500"></span>
+                </label>
                 <input type="number" id="securitePlanetaireInput" min="0" value="5" class="revolte-input w-20">
               </fieldset>
             </div>
@@ -376,11 +488,17 @@
                 <div class="grid grid-cols-2 gap-4">
                   <div>
                     <label id="empathieTestLabel" class="block text-sm text-gray-400 mb-1">Empathie (1)</label>
-                    <input type="number" id="empathieTestInput" min="0" value="1" class="revolte-input w-20">
+                    <div class="flex items-center gap-2">
+                      <input type="number" id="empathieTestInput" min="0" value="1" class="revolte-input w-20">
+                      <button class="revolte-dice-btn" data-input="empathieTestInput" title="Lancer Empathie">🎲</button>
+                    </div>
                   </div>
                   <div>
                     <label id="tactiqueTestLabel" class="block text-sm text-gray-400 mb-1">Tactique (1)</label>
-                    <input type="number" id="tactiqueTestInput" min="0" value="1" class="revolte-input w-20">
+                    <div class="flex items-center gap-2">
+                      <input type="number" id="tactiqueTestInput" min="0" value="1" class="revolte-input w-20">
+                      <button class="revolte-dice-btn" data-input="tactiqueTestInput" title="Lancer Tactique">🎲</button>
+                    </div>
                   </div>
                 </div>
                 <div id="emeutePreparationResult" class="info-box"></div>
@@ -391,7 +509,10 @@
                 <legend class="revolte-legend">Exécution (Émeute)</legend>
                 <div>
                   <label id="discoursTestLabel" class="block text-sm text-gray-400 mb-1">Eloquence</label>
-                  <input type="number" id="discoursTestInput" min="0" value="5" class="revolte-input w-20">
+                  <div class="flex items-center gap-2">
+                    <input type="number" id="discoursTestInput" min="0" value="5" class="revolte-input w-20">
+                    <button class="revolte-dice-btn" data-input="discoursTestInput" title="Lancer Éloquence">🎲</button>
+                  </div>
                 </div>
                 <div id="emeuteExecutionResult" class="info-box"></div>
                 <div id="coutPanache" class="info-box mt-3">Coût : Verrouillage de <strong>3 PP</strong>.</div>
@@ -437,15 +558,24 @@
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label id="autorisationTestLabel" class="block text-sm text-gray-400 mb-1">Test d'autorisation</label>
-                      <input type="number" id="autorisationTestSucces" min="0" value="0" class="revolte-input w-20">
+                      <div class="flex items-center gap-2">
+                        <input type="number" id="autorisationTestSucces" min="0" value="0" class="revolte-input w-20">
+                        <button class="revolte-dice-btn" data-input="autorisationTestSucces" title="Lancer autorisation">🎲</button>
+                      </div>
                     </div>
                     <div>
                       <label id="rassemblementTestLabel" class="block text-sm text-gray-400 mb-1">Test de rassemblement</label>
-                      <input type="number" id="rassemblementTestSucces" min="0" value="0" class="revolte-input w-20">
+                      <div class="flex items-center gap-2">
+                        <input type="number" id="rassemblementTestSucces" min="0" value="0" class="revolte-input w-20">
+                        <button class="revolte-dice-btn" data-input="rassemblementTestSucces" title="Lancer rassemblement">🎲</button>
+                      </div>
                     </div>
                     <div>
                       <label id="preparerLieuTestLabel" class="block text-sm text-gray-400 mb-1">Test de préparation du lieu</label>
-                      <input type="number" id="preparerLieuTestSucces" min="0" value="0" class="revolte-input w-20">
+                      <div class="flex items-center gap-2">
+                        <input type="number" id="preparerLieuTestSucces" min="0" value="0" class="revolte-input w-20">
+                        <button class="revolte-dice-btn" data-input="preparerLieuTestSucces" title="Lancer préparation du lieu">🎲</button>
+                      </div>
                     </div>
                     <div id="recruterTestGroup" class="hidden">
                       <label id="recruterTestLabel" class="block text-sm text-gray-400 mb-1">Test de recrutement</label>
@@ -463,7 +593,10 @@
                 <p class="text-xs text-gray-400 mb-4">La fête dure de 6 à 10 heures. L'appel à la révolution est lancé à son apogée.</p>
                 <div>
                   <label id="appelFestiveLabel" class="block text-sm text-gray-400 mb-1">Appel à la Révolution (Eloquence)</label>
-                  <input type="number" id="appelFestiveSucces" min="0" value="0" class="revolte-input w-20">
+                  <div class="flex items-center gap-2">
+                    <input type="number" id="appelFestiveSucces" min="0" value="0" class="revolte-input w-20">
+                    <button class="revolte-dice-btn" data-input="appelFestiveSucces" title="Lancer Éloquence">🎲</button>
+                  </div>
                 </div>
                 <div id="festiveExecutionResult" class="info-box mt-3"></div>
               </fieldset>
@@ -497,15 +630,24 @@
                   <div class="grid grid-cols-2 gap-4">
                     <div>
                       <label class="block text-sm text-gray-400 mb-1">Eloquence (poste - diff 3)</label>
-                      <input type="number" id="mutinerieEloquencePoste" min="0" value="0" class="revolte-input w-20">
+                      <div class="flex items-center gap-2">
+                        <input type="number" id="mutinerieEloquencePoste" min="0" value="0" class="revolte-input w-20">
+                        <button class="revolte-dice-btn" data-input="mutinerieEloquencePoste" title="Lancer Éloquence Poste">🎲</button>
+                      </div>
                     </div>
                     <div>
                       <label class="block text-sm text-gray-400 mb-1">Eloquence (cambuse - diff 2)</label>
-                      <input type="number" id="mutinerieEloquenceCambuse" min="0" value="0" class="revolte-input w-20">
+                      <div class="flex items-center gap-2">
+                        <input type="number" id="mutinerieEloquenceCambuse" min="0" value="0" class="revolte-input w-20">
+                        <button class="revolte-dice-btn" data-input="mutinerieEloquenceCambuse" title="Lancer Éloquence Cambuse">🎲</button>
+                      </div>
                     </div>
                     <div>
                       <label class="block text-sm text-gray-400 mb-1">Discrétion (diff 1)</label>
-                      <input type="number" id="mutinerieDiscretion" min="0" value="1" class="revolte-input w-20">
+                      <div class="flex items-center gap-2">
+                        <input type="number" id="mutinerieDiscretion" min="0" value="1" class="revolte-input w-20">
+                        <button class="revolte-dice-btn" data-input="mutinerieDiscretion" title="Lancer Discrétion">🎲</button>
+                      </div>
                     </div>
                     <label class="flex items-center gap-2 text-sm cursor-pointer pt-5">
                       <input type="checkbox" id="mutinerieConditions" class="revolte-input"> Conditions favorables (+1d)
@@ -517,7 +659,10 @@
                   <legend class="revolte-legend" style="font-size:0.9rem">Planification</legend>
                   <div>
                     <label class="block text-sm text-gray-400 mb-1">Tactique (diff 3)</label>
-                    <input type="number" id="mutinerieTactique" min="0" value="0" class="revolte-input w-20">
+                    <div class="flex items-center gap-2">
+                      <input type="number" id="mutinerieTactique" min="0" value="0" class="revolte-input w-20">
+                      <button class="revolte-dice-btn" data-input="mutinerieTactique" title="Lancer Tactique">🎲</button>
+                    </div>
                   </div>
                   <div id="mutineriePlanificationResult" class="info-box mt-3"></div>
                 </fieldset>
@@ -539,7 +684,10 @@
                   </div>
                   <div>
                     <label id="mutinerieAppelLabel" class="block text-sm text-gray-400 mb-1">Appel à la mutinerie (Eloquence)</label>
-                    <input type="number" id="mutinerieAppelSucces" min="0" value="0" class="revolte-input w-20">
+                    <div class="flex items-center gap-2">
+                      <input type="number" id="mutinerieAppelSucces" min="0" value="0" class="revolte-input w-20">
+                      <button class="revolte-dice-btn" data-input="mutinerieAppelSucces" title="Lancer Éloquence">🎲</button>
+                    </div>
                   </div>
                 </div>
                 <div id="mutinerieExecutionResult" class="info-box mt-3"></div>
@@ -622,7 +770,13 @@
                     <legend class="revolte-legend" style="font-size:0.9rem">Recrutement & Insurgés</legend>
                     <div class="grid grid-cols-2 gap-3">
                       <div><label class="block text-sm text-gray-400 mb-1">Sections actuelles</label><input type="number" id="currentSectionsInput" min="0" value="0" class="revolte-input w-20"></div>
-                      <div><label id="recrutementLabel" class="block text-sm text-gray-400 mb-1">Eloquence</label><input type="number" id="recrutementSucces" min="0" value="0" class="revolte-input w-20"></div>
+                      <div>
+                        <label id="recrutementLabel" class="block text-sm text-gray-400 mb-1">Eloquence</label>
+                        <div class="flex items-center gap-2">
+                          <input type="number" id="recrutementSucces" min="0" value="0" class="revolte-input w-20">
+                          <button class="revolte-dice-btn" data-input="recrutementSucces" title="Lancer Recrutement">🎲</button>
+                        </div>
+                      </div>
                     </div>
                     <div id="insurgentInfo" class="info-box mt-3"></div>
                   </fieldset>
@@ -641,9 +795,27 @@
                   <fieldset class="revolte-fieldset">
                     <legend class="revolte-legend" style="font-size:0.9rem">Sensibilisation du Peuple</legend>
                     <div class="space-y-2">
-                      <div><label id="discoursPeupleLabel" class="block text-sm text-gray-400 mb-1">Discours de rue</label><input type="number" id="discoursPeupleSucces" min="0" value="0" class="revolte-input w-20"></div>
-                      <div><label id="tractsPeupleLabel" class="block text-sm text-gray-400 mb-1">Tracts et affiches</label><input type="number" id="tractsPeupleSucces" min="0" value="0" class="revolte-input w-20"></div>
-                      <div><label id="comprehensionPeupleLabel" class="block text-sm text-gray-400 mb-1">Compréhension du peuple</label><input type="number" id="comprehensionPeupleSucces" min="0" value="0" class="revolte-input w-20"></div>
+                      <div>
+                        <label id="discoursPeupleLabel" class="block text-sm text-gray-400 mb-1">Discours de rue</label>
+                        <div class="flex items-center gap-2">
+                          <input type="number" id="discoursPeupleSucces" min="0" value="0" class="revolte-input w-20">
+                          <button class="revolte-dice-btn" data-input="discoursPeupleSucces" title="Lancer Discours">🎲</button>
+                        </div>
+                      </div>
+                      <div>
+                        <label id="tractsPeupleLabel" class="block text-sm text-gray-400 mb-1">Tracts et affiches</label>
+                        <div class="flex items-center gap-2">
+                          <input type="number" id="tractsPeupleSucces" min="0" value="0" class="revolte-input w-20">
+                          <button class="revolte-dice-btn" data-input="tractsPeupleSucces" title="Lancer Tracts">🎲</button>
+                        </div>
+                      </div>
+                      <div>
+                        <label id="comprehensionPeupleLabel" class="block text-sm text-gray-400 mb-1">Compréhension du peuple</label>
+                        <div class="flex items-center gap-2">
+                          <input type="number" id="comprehensionPeupleSucces" min="0" value="0" class="revolte-input w-20">
+                          <button class="revolte-dice-btn" data-input="comprehensionPeupleSucces" title="Lancer Sciences Solaires">🎲</button>
+                        </div>
+                      </div>
                     </div>
                     <div id="sensibilisationResult" class="info-box mt-3"></div>
                   </fieldset>
@@ -670,14 +842,24 @@
                 </fieldset>
                 <fieldset class="revolte-fieldset">
                   <legend class="revolte-legend" style="font-size:0.9rem">Appel à la Révolte</legend>
-                  <div><label id="appelRevolteLabel" class="block text-sm text-gray-400 mb-1">Eloquence (PD)</label>
-                  <input type="number" id="appelRevolteSucces" min="0" value="0" class="revolte-input w-20"></div>
+                  <div>
+                    <label id="appelRevolteLabel" class="block text-sm text-gray-400 mb-1">Eloquence (PD)</label>
+                    <div class="flex items-center gap-2">
+                      <input type="number" id="appelRevolteSucces" min="0" value="0" class="revolte-input w-20">
+                      <button class="revolte-dice-btn" data-input="appelRevolteSucces" title="Lancer Éloquence">🎲</button>
+                    </div>
+                  </div>
                   <div id="appelRevolteResult" class="info-box mt-3"></div>
                 </fieldset>
                 <fieldset class="revolte-fieldset">
                   <legend class="revolte-legend" style="font-size:0.9rem">Reddition des Autorités</legend>
-                  <div><label id="intimidationRedditionLabel" class="block text-sm text-gray-400 mb-1">Intimidation</label>
-                  <input type="number" id="intimidationRedditionSucces" min="0" value="0" class="revolte-input w-20"></div>
+                  <div>
+                    <label id="intimidationRedditionLabel" class="block text-sm text-gray-400 mb-1">Intimidation</label>
+                    <div class="flex items-center gap-2">
+                      <input type="number" id="intimidationRedditionSucces" min="0" value="0" class="revolte-input w-20">
+                      <button class="revolte-dice-btn" data-input="intimidationRedditionSucces" title="Lancer Intimidation">🎲</button>
+                    </div>
+                  </div>
                   <div id="intimidationRedditionResult" class="info-box mt-3"></div>
                 </fieldset>
               </fieldset>
@@ -696,7 +878,10 @@
                 <div class="grid grid-cols-2 gap-4">
                   <div>
                     <label id="sciencesSolairesLabel" class="block text-sm text-gray-400 mb-1">Sciences Solaires</label>
-                    <input type="number" id="sciencesSolairesSucces" min="0" value="3" class="revolte-input w-20">
+                    <div class="flex items-center gap-2">
+                      <input type="number" id="sciencesSolairesSucces" min="0" value="3" class="revolte-input w-20">
+                      <button class="revolte-dice-btn" data-input="sciencesSolairesSucces" title="Lancer Sciences Solaires">🎲</button>
+                    </div>
                   </div>
                   <div>
                     <label class="block text-sm text-gray-400 mb-1">Jours de combat</label>

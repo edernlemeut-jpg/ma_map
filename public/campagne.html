@@ -86,9 +86,38 @@
         </div>
       </section>
 
+      <!-- PNJ Nommés section (MJ only) -->
+      <section id="section-named-npcs" class="hidden bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <div id="named-npcs-app"></div>
+      </section>
+
+      <!-- Catalogue Figurants section (MJ only) -->
+      <section id="section-figurants" class="hidden bg-gray-800 rounded-xl border border-gray-700 p-6">
+        <div id="figurants-app"></div>
+      </section>
+
     </div>
   </main>
 
   <script type="module" src="/js/campagne.js?v=2.0.0"></script>
+  <script type="module">
+    import { initNamedNpcsApp } from '/js/named-npcs-app.js';
+    import { initFigurantsApp } from '/js/admin/figurants-app.js';
+    // Named NPCs section — shown only when table context is MJ
+    document.addEventListener('table-role-loaded', async (e) => {
+      if (e.detail?.role === 'mj') {
+        const section = document.getElementById('section-named-npcs');
+        if (section) {
+          section.classList.remove('hidden');
+          await initNamedNpcsApp(document.getElementById('named-npcs-app'));
+        }
+        const figSection = document.getElementById('section-figurants');
+        if (figSection) {
+          figSection.classList.remove('hidden');
+          await initFigurantsApp(document.getElementById('figurants-app'), true);
+        }
+      }
+    });
+  </script>
 </body>
 </html>

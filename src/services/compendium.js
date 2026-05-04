@@ -9,6 +9,7 @@ import { isVisible } from './visibility.js';
 const SYSTEMS_COLS = 'id, quadrant, nom, faction, is_frontiere, route, gouvernement, texte_ambiance, description, soleil_json, corps_celestes_json, patrouilles_json';
 const FACTIONS_COLS = 'id, name, short, description, icon, icon_url, color, origin_nation_id';
 const SHIP_MODELS_COLS = 'id, nom, classe, tonnage, longueur, vitesse_croisiere, vitesse_hyperspatiale, vitesse_tactique, autonomie, manoeuvrabilite, blindage, coque, senseurs, senseurs_k, senseurs_us, equipage, passagers, soute, prix, origine, image, armement_json, systemes_secondaires_json, description, history, mj_notes, special_features';
+const SECONDARY_SYSTEMS_COLS = 'id, nom, categorie, localisation, installation, disponibilite, prix_10t, prix_100t, prix_1000t, prix_10000t, description, source_livre, faction_id, stat_modifiers_json, created_at';
 
 export function getSystems(tableId, role) {
   const all = db.prepare(`SELECT ${SYSTEMS_COLS} FROM systems`).all();
@@ -38,6 +39,16 @@ export function getShipModels(tableId, role) {
   }
 
   return all.filter(m => isVisible('ship_models', m.id, tableId, 'joueur'));
+}
+
+export function getSecondarySystems(tableId, role) {
+  const all = db.prepare(`SELECT ${SECONDARY_SYSTEMS_COLS} FROM secondary_systems ORDER BY lower(nom)`).all();
+
+  if (role === 'mj') {
+    return all.map(s => ({ ...s, visible: isVisible('secondary_systems', s.id, tableId, 'joueur') }));
+  }
+
+  return all.filter(s => isVisible('secondary_systems', s.id, tableId, 'joueur'));
 }
 
 // --- Edit functions (MJ only) ---
@@ -89,6 +100,17 @@ export function createSystem(fields) {
   return db.prepare(`SELECT ${SYSTEMS_COLS} FROM systems WHERE id = ?`).get(result.lastInsertRowid);
 }
 
+export function createSystemsBulk(items) {
+  return db.transaction(() => {
+    const results = [];
+    for (const fields of items) {
+      const r = createSystem(fields);
+      if (r) results.push(r);
+    }
+    return results;
+  })();
+}
+
 export function updateSystem(id, fields) {
   if (!getSystem(id)) return null;
   return applyUpdate('systems', SYSTEMS_COLS, SYSTEM_EDITABLE, id, fields);
@@ -97,7 +119,8 @@ export function updateSystem(id, fields) {
 export function deleteSystem(id) {
   const existing = getSystem(id);
   if (!existing) return null;
-  db.prepare('DELETE FROM visibility WHERE entity_type = ? AND entity_id = ?').run('systems', id);
+  db.prepare('DELETE FROM visibility_rules WHERE entity_type = ? AND entity_id = ?').run('systems', String(id));
+  db.prepare('DELETE FROM table_visibility_overrides WHERE entity_type = ? AND entity_id = ?').run('systems', String(id));
   db.prepare('DELETE FROM systems WHERE id = ?').run(id);
   return { deleted: true, id };
 }

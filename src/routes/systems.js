@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { success, validationError, forbidden, notFound } from '../utils/response.js';
-import { getSystems, createSystem, updateSystem, deleteSystem } from '../services/compendium.js';
+import { getSystems, createSystem, createSystemsBulk, updateSystem, deleteSystem } from '../services/compendium.js';
 
 const router = Router();
+const MAX_BULK = 500;
 
 router.get('/', (req, res) => {
   if (!req.table) {
@@ -43,8 +44,11 @@ router.post('/bulk', (req, res) => {
   if (!Array.isArray(items) || items.length === 0) {
     return validationError(res, 'Un tableau de systèmes non vide est requis');
   }
+  if (items.length > MAX_BULK) {
+    return validationError(res, `L'import est limité à ${MAX_BULK} systèmes à la fois`);
+  }
   const JSON_FIELDS = ['soleil_json', 'corps_celestes_json', 'patrouilles_json'];
-  const results = [];
+  const safeItems = [];
   for (const fields of items) {
     if (!fields.nom || !String(fields.nom).trim()) continue;
     if (!fields.quadrant || !String(fields.quadrant).trim()) continue;
@@ -54,10 +58,14 @@ router.post('/bulk', (req, res) => {
     for (const f of JSON_FIELDS) {
       if (safe[f] !== undefined && typeof safe[f] !== 'string') safe[f] = JSON.stringify(safe[f]);
     }
-    const r = createSystem(safe);
-    if (r) results.push(r);
+    safeItems.push(safe);
   }
-  success(res, results);
+  try {
+    const results = createSystemsBulk(safeItems);
+    success(res, results);
+  } catch (err) {
+    return validationError(res, err.message || 'Erreur lors de l\'import');
+  }
 });
 
 router.patch('/:id', (req, res) => {

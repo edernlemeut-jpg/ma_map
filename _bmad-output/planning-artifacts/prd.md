@@ -22,7 +22,7 @@ classification:
     - 'Admin reset mot de passe (manuel)'
   deferred:
     - 'Fork MJ des données globales (architecture prévue, pas livré PRD #1)'
-    - 'Jour actuel du jeu dans header (PRD #2 - Calendrier)'
+    - 'Jour actuel du jeu dans header (PRD #3 - Calendrier)'
   principles:
     - 'Protéger expérience de jeu'
     - 'Réduire risque erreur'
@@ -179,8 +179,9 @@ Livrés après les fondations MVP, dans l'ordre :
 
 ### Growth Features (Post-PRD #1)
 
-- **PRD #2 — Calendrier galactique :** gestion temporelle, jour actuel du jeu dans le header, journal automatique d'événements
-- **PRD #3 — Personnages et bestiaire :** fiches PNJ/PJ, localisation dans le graphe (port d'attache), générateur de personnages, fiches joueurs
+- **PRD #2 — Entity Links + Personnages (LIVRÉ 2026-04-29) :** entity_links graphe, fiches PJ interactives (santé/PP/Gloire/Énergie X), PNJ nommés, Catalogue Figurants, Metal Faktor Pool tracker — Epics 7-11
+- **PRD #3 — Calendrier galactique :** gestion temporelle, jour actuel du jeu dans le header, journal automatique d'événements
+- **PRD #4 — Bestiaire avancé & Vaisseaux de campagne :** fiches vaisseaux liées au graphe, générateur de personnages, arbre généalogique PNJ
 
 ### Vision (Futur)
 

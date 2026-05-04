@@ -4,8 +4,404 @@
  */
 import { initHeader } from '/js/shared/header.js';
 import { fetchWithTable, isMJ, getActiveTableId } from '/js/shared/table-selector.js';
+import { DiceRollerModal } from '/js/shared/dice-roller.js';
 
-// ── Constants ──────────────────────────────────────────────────────────────────
+// ── Dice roller singleton ──────────────────────────────────────────────────────
+let _roller = null;
+function getRoller() { if (!_roller) _roller = new DiceRollerModal(); return _roller; }
+
+/**
+ * Returns { diff, title, comp } for a given test input id, computed from current state.
+ * diff may be a number or 'TD'/'TF'.
+ */
+function getDiffForInput(inputId) {
+  const malus    = getMalus();
+  const securite = state.securitePlanetaire;
+  const rev      = state.revolution;
+  const qgMalus  = rev.powerPlaces.filter(p => p.isQG && !p.isCaptured).length;
+  const prepMalus = malus + qgMalus;
+
+  const invDiff = { 10: 1, 100: 3, 1000: 5, 10000: 8 };
+
+  switch (inputId) {
+    case 'propagandeSuccesInput':
+      return { diff: 1 + malus, title: 'Propagande', comp: 'Propagande' };
+    case 'eloquencePropagandeInput':
+      return { diff: 3 + malus, title: 'Éloquence (Propagande)', comp: 'Éloquence' };
+    case 'empathieTestInput':
+      return { diff: 1 + malus, title: 'Empathie', comp: 'Empathie' };
+    case 'tactiqueTestInput':
+      return { diff: 1 + malus, title: 'Tactique', comp: 'Tactique' };
+    case 'discoursTestInput':
+      return { diff: securite + malus, title: 'Éloquence (Discours)', comp: 'Éloquence' };
+    case 'autorisationTestSucces':
+      return { diff: securite + malus, title: 'Autorisation', comp: state.festive.lieuFete === 'lieu_illegale' ? 'Illégalités' : 'Étiquette' };
+    case 'rassemblementTestSucces':
+      return { diff: 3 + malus, title: 'Rassemblement', comp: 'Étiquette' };
+    case 'preparerLieuTestSucces':
+      return { diff: (invDiff[state.festive.nbInvites] || 1) + malus, title: 'Préparer le Lieu', comp: 'Environnement' };
+    case 'appelFestiveSucces':
+      return { diff: (invDiff[state.festive.nbInvites] || 1) + malus, title: 'Appel Festive', comp: 'Éloquence' };
+    case 'mutinerieEloquencePoste':
+      return { diff: 3, title: 'Éloquence (Poste)', comp: 'Éloquence' };
+    case 'mutinerieEloquenceCambuse':
+      return { diff: 2, title: 'Éloquence (Cambuse)', comp: 'Éloquence' };
+    case 'mutinerieDiscretion':
+      return { diff: 1, title: 'Discrétion', comp: 'Discrétion' };
+    case 'mutinerieTactique':
+      return { diff: 3, title: 'Tactique (Planification)', comp: 'Tactique' };
+    case 'mutinerieAppelSucces':
+      return { diff: parseInt(state.mutinerie.location, 10) || 1, title: 'Appel à la Mutinerie', comp: 'Éloquence' };
+    case 'recrutementSucces':
+      return { diff: securite + prepMalus, title: 'Recrutement', comp: 'Éloquence' };
+    case 'discoursPeupleSucces':
+      return { diff: securite + prepMalus, title: 'Discours de Rue', comp: 'Éloquence' };
+    case 'tractsPeupleSucces':
+      return { diff: securite + prepMalus, title: 'Tracts et Affiches', comp: 'Propagande' };
+    case 'comprehensionPeupleSucces':
+      return { diff: 3 + prepMalus, title: 'Compréhension du Peuple', comp: 'Sciences Solaires' };
+    case 'appelRevolteSucces':
+      return { diff: securite + malus, title: 'Appel à la Révolte', comp: 'Éloquence' };
+    case 'intimidationRedditionSucces': {
+      const capturedCount = rev.powerPlaces.filter(p => p.isCaptured).length;
+      const totalPlaces   = rev.powerPlaces.length;
+      let d = securite + malus;
+      if (totalPlaces > 0) {
+        if (capturedCount === totalPlaces)         d = 0;
+        else if (capturedCount >= totalPlaces / 2) d = securite + malus + 1;
+        else if (capturedCount > 0)                d = 'TD';
+      }
+      return { diff: d, title: 'Reddition des Autorités', comp: 'Intimidation' };
+    }
+    case 'sciencesSolairesSucces':
+      return { diff: 3 + state.propagande.bonusJets, title: 'Prévisions', comp: 'Sciences Solaires' };
+    default: return null;
+  }
+}
+
+/**
+ * Opens DiceRollerModal for a test input, writes result.succes back on confirm.
+ */
+function openRollForInput(inputId) {
+  if (!currentSessionId) return;
+  const info = getDiffForInput(inputId);
+  if (!info) return;
+  const diffNum = typeof info.diff === 'number' ? info.diff : null;
+  getRoller().open({
+    title:    info.title,
+    context:  info.comp,
+    diff:     info.diff,
+    lockDiff: true,
+    onResult: (result) => {
+      const el = document.getElementById(inputId);
+      if (el) {
+        el.value = result.succes ?? 0;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    },
+  });
+}
+
+// ── World data caches ──────────────────────────────────────────────────────────
+let _worldSystems = null; // [{id, quadrant, nom, faction, ...}]
+let _worldPlanets = {};   // {systemId: [{id, nom, population, gouvernement, ...}]}
+let _worldShips   = null; // [{id, name, model_name, model_tonnage, ...}]
+let _worldCharacters = null; // [{id, name, type}]
+
+async function ensureWorldSystems() {
+  if (_worldSystems !== null) return _worldSystems;
+  _worldSystems = await apiFetch('/api/systems').catch(() => []);
+  if (!Array.isArray(_worldSystems)) _worldSystems = [];
+  return _worldSystems;
+}
+
+async function ensurePlanets(systemId) {
+  if (_worldPlanets[systemId]) return _worldPlanets[systemId];
+  const data = await apiFetch(`/api/planets?system_id=${systemId}`).catch(() => []);
+  _worldPlanets[systemId] = Array.isArray(data) ? data : [];
+  return _worldPlanets[systemId];
+}
+
+async function ensureShips() {
+  if (_worldShips !== null) return _worldShips;
+  _worldShips = await apiFetch('/api/ships').catch(() => []);
+  if (!Array.isArray(_worldShips)) _worldShips = [];
+  return _worldShips;
+}
+
+async function ensureCharacters() {
+  if (_worldCharacters !== null) return _worldCharacters;
+  _worldCharacters = await apiFetch('/api/characters').catch(() => []);
+  if (!Array.isArray(_worldCharacters)) _worldCharacters = [];
+  return _worldCharacters;
+}
+
+/** Returns what kind of location selector to show based on revolt type and revolution scope. */
+function getLocationType() {
+  if (state.revolteType === 'mutinerie') return 'ship';
+  if (state.revolteType === 'revolution') {
+    if (state.revolution.scope === 'stellaire') return 'quadrant';
+    if (state.revolution.scope === 'locale')    return 'system';
+  }
+  return 'planet';
+}
+
+/** Builds a human-readable location reference string for saving. */
+function computeLocationRef() {
+  const t  = getLocationType();
+  const lr = state.locationRef;
+  if (t === 'ship')     return lr.shipNom || '';
+  if (t === 'planet')   return [lr.planetNom, lr.systemNom, lr.quadrant].filter(Boolean).join(', ');
+  if (t === 'system')   return [lr.systemNom, lr.quadrant].filter(Boolean).join(', ');
+  if (t === 'quadrant') return lr.quadrant || '';
+  return '';
+}
+
+/** Syncs visibility of location selector groups based on current type (sync only). */
+function buildLocationUI() {
+  const t    = getLocationType();
+  const geo  = document.getElementById('loc-geo-group');
+  const ship = document.getElementById('loc-ship-group');
+  const leg  = document.getElementById('location-selector-legend');
+  const popR = document.getElementById('loc-population-row');
+  if (t === 'ship') {
+    geo?.classList.add('hidden');
+    ship?.classList.remove('hidden');
+    if (leg) leg.textContent = 'Vaisseau Impliqué';
+    popR?.classList.add('hidden');
+  } else {
+    geo?.classList.remove('hidden');
+    ship?.classList.add('hidden');
+    popR?.classList.remove('hidden');
+    const legends = { planet: 'Planète de la Révolte', system: 'Système de la Révolte', quadrant: 'Secteur / Quadrant' };
+    if (leg) leg.textContent = legends[t] || 'Lieu de la Révolte';
+  }
+  // Fire-and-forget async populate
+  refreshLocationSelects();
+}
+
+/** Async: populate cascaded selects from cached/fetched world data. */
+async function refreshLocationSelects() {
+  const t  = getLocationType();
+  const lr = state.locationRef;
+
+  if (t === 'ship') {
+    const ships = await ensureShips();
+    const sel = document.getElementById('loc-ship');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Sélectionner un vaisseau —</option>' +
+      ships.map(s => {
+        const label = escHtml(s.name || '') +
+          (s.model_name ? ` (${escHtml(s.model_name)})` : '') +
+          (s.model_tonnage ? ` · ${Number(s.model_tonnage).toLocaleString('fr-FR')}t` : '');
+        return `<option value="${escHtml(String(s.id))}" ${String(s.id) === String(lr.shipId) ? 'selected' : ''}>${label}</option>`;
+      }).join('');
+    updateLocationInfo();
+    return;
+  }
+
+  const systems   = await ensureWorldSystems();
+  const quadrants = [...new Set(systems.map(s => s.quadrant).filter(Boolean))].sort();
+  const qSel = document.getElementById('loc-quadrant');
+  if (!qSel) return;
+  qSel.innerHTML = '<option value="">— Tous les quadrants —</option>' +
+    quadrants.map(q => `<option value="${escHtml(q)}" ${q === lr.quadrant ? 'selected' : ''}>${escHtml(q)}</option>`).join('');
+
+  const sRow = document.getElementById('loc-system-row');
+  const sSel = document.getElementById('loc-system');
+  if (lr.quadrant && t !== 'quadrant') {
+    sRow?.classList.remove('hidden');
+    const filtered = systems.filter(s => s.quadrant === lr.quadrant);
+    if (sSel) {
+      sSel.innerHTML = '<option value="">— Choisir un système —</option>' +
+        filtered.map(s => `<option value="${s.id}" ${s.id === lr.systemId ? 'selected' : ''}>${escHtml(s.nom)}</option>`).join('');
+    }
+  } else {
+    sRow?.classList.toggle('hidden', !lr.quadrant || t === 'quadrant');
+    if (sSel) sSel.innerHTML = '<option value="">— Choisir un système —</option>';
+  }
+
+  const pRow = document.getElementById('loc-planet-row');
+  const pSel = document.getElementById('loc-planet');
+  if (lr.systemId && t === 'planet') {
+    const planets = await ensurePlanets(lr.systemId);
+    pRow?.classList.remove('hidden');
+    if (pSel) {
+      pSel.innerHTML = '<option value="">— Choisir une planète —</option>' +
+        planets.map(p => `<option value="${escHtml(String(p.id))}" ${String(p.id) === String(lr.planetId) ? 'selected' : ''}>${escHtml(p.nom)}</option>`).join('');
+    }
+  } else {
+    pRow?.classList.add('hidden');
+    if (pSel) pSel.innerHTML = '<option value="">— Choisir une planète —</option>';
+  }
+
+  updateLocationInfo();
+}
+
+/** Update the info box and auto-fill population/tonnage from selected location. */
+async function updateLocationInfo() {
+  const t    = getLocationType();
+  const lr   = state.locationRef;
+  const info = document.getElementById('location-info');
+  const popL = document.getElementById('loc-pop-auto');
+  const secL = document.getElementById('loc-sec-auto');
+  if (!info) return;
+
+  if (t === 'ship') {
+    const ship = (_worldShips || []).find(s => String(s.id) === String(lr.shipId));
+    if (ship) {
+      const meta = [ship.model_name, ship.model_tonnage ? `${Number(ship.model_tonnage).toLocaleString('fr-FR')}t` : ''].filter(Boolean);
+      info.innerHTML = `<strong>${escHtml(ship.name || '')}</strong>${meta.length ? ' — ' + meta.map(escHtml).join(' · ') : ''}`;
+      info.classList.remove('hidden');
+      // Auto-fill mutinerie tonnage selector
+      const tonnage = Number(ship.model_tonnage) || 0;
+      const closest = tonnage >= 50000 ? 100000 : tonnage >= 5000 ? 10000 : tonnage >= 500 ? 1000 : 100;
+      const tonSel  = document.getElementById('mutinerieTonnage');
+      if (tonSel) {
+        tonSel.value = closest;
+        state.mutinerie.tonnage = closest;
+        tonSel.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    } else {
+      info.classList.add('hidden');
+    }
+    return;
+  }
+
+  if (t === 'planet' && lr.planetId) {
+    const planets = _worldPlanets[lr.systemId] || [];
+    const planet  = planets.find(p => String(p.id) === String(lr.planetId));
+    if (planet) {
+      const pop = parseFloat(planet.population) || 0;
+      setVal('populationInput', pop);
+      state.population = pop;
+      if (popL) popL.textContent = '— auto';
+
+      // auto-fill sécurité if provided in corps_celestes_json
+      if (planet.securite != null && !isNaN(Number(planet.securite))) {
+        const sec = Number(planet.securite);
+        setVal('securitePlanetaireInput', sec);
+        state.securitePlanetaire = sec;
+        if (secL) secL.textContent = '— auto';
+      } else {
+        if (secL) secL.textContent = '';
+      }
+
+      const meta = [planet.type, planet.atmosphere, planet.gouvernement ? `Gouv: ${planet.gouvernement}` : ''].filter(Boolean);
+      info.innerHTML = `<strong>${escHtml(planet.nom)}</strong>${meta.length ? ' — ' + meta.map(escHtml).join(' · ') : ''}`;
+      info.classList.remove('hidden');
+      return;
+    }
+  } else if (t === 'system' && lr.systemId) {
+    const sys     = (_worldSystems || []).find(s => s.id === lr.systemId);
+    const planets = await ensurePlanets(lr.systemId);
+    const totalPop = planets.reduce((sum, p) => sum + (parseFloat(p.population) || 0), 0);
+    if (totalPop > 0) {
+      setVal('populationInput', totalPop);
+      state.population = totalPop;
+      if (popL) popL.textContent = `— auto (${planets.length} planètes)`;
+    }
+    if (secL) secL.textContent = '';
+    if (sys) {
+      const meta = [sys.faction, planets.length > 0 ? `${planets.length} planètes, ~${totalPop}md hab.` : ''].filter(Boolean).map(escHtml);
+      info.innerHTML = `<strong>${escHtml(sys.nom)}</strong>${meta.length ? ' — ' + meta.join(' · ') : ''}`;
+      info.classList.remove('hidden');
+      return;
+    }
+  } else if (t === 'quadrant' && lr.quadrant) {
+    const systems   = (_worldSystems || []).filter(s => s.quadrant === lr.quadrant);
+    const allPlanets = (await Promise.all(systems.map(s => ensurePlanets(s.id)))).flat();
+    const totalPop  = allPlanets.reduce((sum, p) => sum + (parseFloat(p.population) || 0), 0);
+    if (totalPop > 0) {
+      setVal('populationInput', totalPop);
+      state.population = totalPop;
+      if (popL) popL.textContent = `— auto (${systems.length} systèmes, ${allPlanets.length} planètes)`;
+    }
+    if (secL) secL.textContent = '';
+    info.innerHTML = `Quadrant <strong>${escHtml(lr.quadrant)}</strong> — ${systems.length} systèmes, ~${totalPop.toLocaleString('fr-FR')}md hab.`;
+    info.classList.remove('hidden');
+    return;
+  }
+
+  info.classList.add('hidden');
+  if (popL) popL.textContent = '';
+  if (secL) secL.textContent = '';
+}
+
+// ── Participant lists (Porte-Drapeau / Officiers) ──────────────────────────────
+
+const PD_CATS = ['locaux', 'pirates', 'autres', 'officiers'];
+
+function getPdList(cat) {
+  if (cat === 'officiers') return state.officiersList;
+  return state.pdList[cat];
+}
+
+function syncPdCount(cat) {
+  const list = getPdList(cat);
+  if (cat === 'officiers') {
+    state.officiers = list.length;
+  } else {
+    state.pd[cat] = list.length;
+  }
+  const countEl = document.getElementById(`pdCount-${cat}`);
+  if (countEl) countEl.textContent = list.length ? `(${list.length})` : '';
+}
+
+function renderPdChips(cat) {
+  const list = getPdList(cat);
+  const wrap = document.getElementById(`pdChips-${cat}`);
+  if (!wrap) return;
+  wrap.innerHTML = list.map((entry, idx) => {
+    const typeBadge = entry.type ? `<span class="pd-type-badge">${escHtml(entry.type)}</span>` : '';
+    return `<span class="pd-chip" data-cat="${cat}" data-idx="${idx}">
+      ${typeBadge}${escHtml(entry.nom)}
+      <button type="button" data-cat="${cat}" data-idx="${idx}" title="Retirer">×</button>
+    </span>`;
+  }).join('');
+}
+
+function renderAllPdLists() {
+  PD_CATS.forEach(cat => {
+    syncPdCount(cat);
+    renderPdChips(cat);
+  });
+}
+
+function addPdMember(cat, nom, type, charId) {
+  nom = (nom || '').trim();
+  if (!nom) return;
+  const list = getPdList(cat);
+  // Avoid double-adding the same named character
+  if (charId && list.some(e => e.charId === charId)) return;
+  list.push({ nom, type: type || null, charId: charId || null });
+  syncPdCount(cat);
+  renderPdChips(cat);
+  updateUI();
+  scheduleAutosave();
+}
+
+function removePdMember(cat, idx) {
+  const list = getPdList(cat);
+  list.splice(idx, 1);
+  syncPdCount(cat);
+  renderPdChips(cat);
+  updateUI();
+  scheduleAutosave();
+}
+
+async function populatePdSelects() {
+  const chars = await ensureCharacters();
+  PD_CATS.forEach(cat => {
+    const sel = document.getElementById(`pdSelect-${cat}`);
+    if (!sel) return;
+    // Keep placeholder option, rebuild rest
+    sel.innerHTML = '<option value="">— PJ / PNJ —</option>' +
+      chars.map(c => `<option value="${escHtml(c.id)}">[${escHtml(c.type.toUpperCase())}] ${escHtml(c.name)}</option>`).join('');
+  });
+}
+
+
 const POPULATION_DATA = [
   { pop: 0,      insurgents: 25000,   sections: 3   },
   { pop: 1,      insurgents: 50000,   sections: 5   },
@@ -63,6 +459,7 @@ function defaultState() {
     revolteType: 'emeute',
     population: 1.0,
     securitePlanetaire: 5,
+    locationRef: { quadrant: '', systemId: null, systemNom: '', planetId: null, planetNom: '', shipId: null, shipNom: '' },
     stellaPropagande: { porteDrapeau: false, connu: false, morte: false },
     propagande: {
       gloire7: false, filme: false, pub: false,
@@ -70,7 +467,9 @@ function defaultState() {
       bonusJets: 0, bonusDuree: 0,
     },
     pd:       { locaux: 0, pirates: 0, autres: 0 },
+    pdList:   { locaux: [], pirates: [], autres: [] },
     officiers: 0,
+    officiersList: [],
     emeute:   { grandLieu: false, empathieSucces: 1, tactiqueSucces: 1, discoursSucces: 5 },
     festive: {
       lieuFete: 'vaisseau_nature', nbInvites: 10,
@@ -154,8 +553,15 @@ function mergeState(loaded) {
     ...def,
     ...loaded,
     stellaPropagande: { ...def.stellaPropagande, ...(loaded.stellaPropagande || {}) },
+    locationRef:  { ...def.locationRef,       ...(loaded.locationRef       || {}) },
     propagande:       { ...def.propagande,       ...(loaded.propagande       || {}) },
     pd:               { ...def.pd,               ...(loaded.pd               || {}) },
+    pdList: {
+      locaux:  Array.isArray(loaded.pdList?.locaux)  ? loaded.pdList.locaux  : [],
+      pirates: Array.isArray(loaded.pdList?.pirates) ? loaded.pdList.pirates : [],
+      autres:  Array.isArray(loaded.pdList?.autres)  ? loaded.pdList.autres  : [],
+    },
+    officiersList: Array.isArray(loaded.officiersList) ? loaded.officiersList : [],
     emeute:           { ...def.emeute,            ...(loaded.emeute           || {}) },
     festive:          { ...def.festive,           ...(loaded.festive          || {}) },
     mutinerie:        { ...def.mutinerie,         ...(loaded.mutinerie        || {}) },
@@ -214,9 +620,8 @@ function applyStateToUI(session) {
   setVal('bonusJets',                 state.propagande.bonusJets);
   setVal('bonusDuree',                state.propagande.bonusDuree);
 
-  setVal('pdLocaux',                  state.pd.locaux);
-  setVal('pdPirates',                 state.pd.pirates);
-  setVal('pdAutres',                  state.pd.autres);
+  renderAllPdLists();
+  populatePdSelects(); // async, non-blocking — refreshes selects if not yet populated
 
   // Emeute
   setCheck('grandLieuCheck',          state.emeute.grandLieu);
@@ -255,6 +660,9 @@ function applyStateToUI(session) {
   setVal('intimidationRedditionSucces',state.revolution.execution.intimidationSucces);
   setVal('sciencesSolairesSucces',    state.revolution.celebration.sciencesSolairesSucces);
   setVal('joursDeCombatInput',        state.revolution.celebration.joursDeCombat);
+
+  buildLocationUI();
+  refreshLocationSelects();
 }
 
 function setVal(id, val) {
@@ -276,9 +684,11 @@ function scheduleAutosave() {
 async function saveSession() {
   if (!currentSessionId) return;
   const statusEl = document.getElementById('editor-status');
+  const locationRef = computeLocationRef();
   const body = {
     state,
     status: statusEl?.value || 'en_cours',
+    ...(locationRef ? { location_ref: locationRef } : {}),
   };
   try {
     await apiFetch(`/api/revolte/${currentSessionId}`, {
@@ -453,6 +863,7 @@ function updateUI() {
     if (descDiv) descDiv.textContent = revolutionScopeDescriptions[state.revolution.scope] || '';
   }
 
+  buildLocationUI();
   updateGlobalSettingsUI();
 
   if (state.currentStepIndex > 0) {
@@ -886,19 +1297,28 @@ function buildAssaultSection() {
 
   container.innerHTML = rev.powerPlaces.map((place, i) => {
     const assaultData = rev.execution.assaults[i] || { reachRoll: 0, enterRoll: 0 };
+    const assaultDiff = state.securitePlanetaire + getMalus();
     return `
       <div class="bg-gray-800 rounded p-3 text-sm">
         <div class="font-semibold mb-2">${escHtml(place.name)} ${place.isQG ? '<span class="text-xs text-red-400">[QG]</span>' : ''}</div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs text-gray-400 mb-1">Atteindre (Tactique)</label>
-            <input type="number" min="0" value="${assaultData.reachRoll}"
-                   class="assault-roll-input revolte-input w-20" data-index="${i}" data-action="reach">
+            <label class="block text-xs text-gray-400 mb-1">Atteindre — Tactique (diff ${assaultDiff})</label>
+            <div class="flex items-center gap-2">
+              <input type="number" min="0" value="${assaultData.reachRoll}"
+                     class="assault-roll-input revolte-input w-20" data-index="${i}" data-action="reach">
+              <button class="revolte-dice-btn assault-reach-btn" data-index="${i}" data-action="reach"
+                      title="Lancer Tactique">🎲</button>
+            </div>
           </div>
           <div>
-            <label class="block text-xs text-gray-400 mb-1">Entrer (Combat)</label>
-            <input type="number" min="0" value="${assaultData.enterRoll}"
-                   class="assault-roll-input revolte-input w-20" data-index="${i}" data-action="enter">
+            <label class="block text-xs text-gray-400 mb-1">Entrer — Combat (diff ${assaultDiff})</label>
+            <div class="flex items-center gap-2">
+              <input type="number" min="0" value="${assaultData.enterRoll}"
+                     class="assault-roll-input revolte-input w-20" data-index="${i}" data-action="enter">
+              <button class="revolte-dice-btn assault-enter-btn" data-index="${i}" data-action="enter"
+                      title="Lancer Combat">🎲</button>
+            </div>
           </div>
         </div>
         <div class="mt-1 text-xs ${place.isCaptured ? 'text-green-400' : 'text-gray-500'}">
@@ -982,13 +1402,22 @@ function updateRevolutionCelebrationUI() {
 
   const selectEl = document.getElementById('nouveauDirigeantSelect');
   if (selectEl) {
-    selectEl.innerHTML = '<option>-- Candidats PD --</option>';
-    rev.allies.filter(a => a.isPD).forEach(ally => {
+    const currentVal = selectEl.value;
+    selectEl.innerHTML = '<option value="">-- Candidats PD --</option>';
+    const candidates = [
+      ...state.pdList.locaux.map(e => ({ ...e, cat: 'Local' })),
+      ...state.pdList.pirates.map(e => ({ ...e, cat: 'Pirate' })),
+      ...state.pdList.autres.map(e => ({ ...e, cat: 'Autre' })),
+      ...state.officiersList.map(e => ({ ...e, cat: 'Officier' })),
+    ];
+    candidates.forEach(c => {
       const opt = document.createElement('option');
-      opt.value = ally.name;
-      opt.textContent = ally.name;
+      opt.value = c.nom;
+      opt.textContent = `[${c.cat}] ${c.nom}`;
       selectEl.appendChild(opt);
     });
+    // Restore previous selection if still valid
+    if (currentVal && candidates.some(c => c.nom === currentVal)) selectEl.value = currentVal;
   }
 
   setInnerHTML('sciencesSolairesLabel',
@@ -1042,10 +1471,10 @@ function bindAll() {
   });
 
   // Paramétrage
-  addListener('revolteType', 'change', e => { state.revolteType = e.target.value; navigateTo(state.currentStepIndex); scheduleAutosave(); });
+  addListener('revolteType', 'change', e => { state.revolteType = e.target.value; navigateTo(state.currentStepIndex); refreshLocationSelects(); scheduleAutosave(); });
   addListener('populationInput', 'input', e => { state.population = parseFloat(e.target.value) || 0; updateUI(); scheduleAutosave(); });
   addListener('securitePlanetaireInput', 'input', e => { state.securitePlanetaire = parseInt(e.target.value, 10) || 0; updateUI(); scheduleAutosave(); });
-  addListener('revolutionScope', 'change', e => { state.revolution.scope = e.target.value; updateUI(); scheduleAutosave(); });
+  addListener('revolutionScope', 'change', e => { state.revolution.scope = e.target.value; updateUI(); refreshLocationSelects(); scheduleAutosave(); });
 
   // Stella Bell
   addListener('stellaPorteDrapeauCheck', 'change', e => { state.stellaPropagande.porteDrapeau = e.target.checked; updateUI(); scheduleAutosave(); });
@@ -1061,10 +1490,47 @@ function bindAll() {
   addListener('bonusJets',               'input',  () => handleBonusDistribution('jets'));
   addListener('bonusDuree',              'input',  () => handleBonusDistribution('duree'));
 
-  // PD
-  addListener('pdLocaux',  'input', e => { state.pd.locaux  = parseInt(e.target.value, 10) || 0; updateUI(); scheduleAutosave(); });
-  addListener('pdPirates', 'input', e => { state.pd.pirates = parseInt(e.target.value, 10) || 0; updateUI(); scheduleAutosave(); });
-  addListener('pdAutres',  'input', e => { state.pd.autres  = parseInt(e.target.value, 10) || 0; updateUI(); scheduleAutosave(); });
+  // PD — participant lists (add via select or free-text; remove via chip button)
+  populatePdSelects(); // async, non-blocking
+
+  document.addEventListener('click', e => {
+    // Remove button inside a chip
+    const removeBtn = e.target.closest('.pd-chip button[data-cat]');
+    if (removeBtn) {
+      removePdMember(removeBtn.dataset.cat, parseInt(removeBtn.dataset.idx, 10));
+      return;
+    }
+    // Add button
+    const addBtn = e.target.closest('.pd-add-btn[data-cat]');
+    if (addBtn) {
+      const cat   = addBtn.dataset.cat;
+      const sel   = document.getElementById(`pdSelect-${cat}`);
+      const freeI = document.getElementById(`pdFree-${cat}`);
+      if (sel && sel.value) {
+        const opt = sel.options[sel.selectedIndex];
+        // opt.text = "[PJ] Daraness Raktar" — extract type and name
+        const m = opt.text.match(/^\[(\w+)\]\s*(.*)/);
+        addPdMember(cat, m ? m[2] : opt.text, m ? m[1].toLowerCase() : null, sel.value);
+        sel.value = '';
+      } else if (freeI && freeI.value.trim()) {
+        addPdMember(cat, freeI.value.trim(), null, null);
+        freeI.value = '';
+      }
+    }
+  });
+
+  // Allow pressing Enter in the free-text inputs
+  PD_CATS.forEach(cat => {
+    const freeI = document.getElementById(`pdFree-${cat}`);
+    if (freeI) {
+      freeI.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          document.querySelector(`.pd-add-btn[data-cat="${cat}"]`)?.click();
+        }
+      });
+    }
+  });
 
   // Emeute
   addListener('empathieTestInput', 'input', e => { state.emeute.empathieSucces = parseInt(e.target.value, 10) || 0; updateUI(); scheduleAutosave(); });
@@ -1173,8 +1639,7 @@ function bindAll() {
 
   // Assault section (delegated)
   document.getElementById('assault-section')?.addEventListener('input', e => {
-    if (!e.target.classList.contains('assault-roll-input')) return;
-    const idx    = parseInt(e.target.dataset.index, 10);
+    if (!e.target.classList.contains('assault-roll-input')) return;    const idx    = parseInt(e.target.dataset.index, 10);
     const action = e.target.dataset.action;
     const value  = parseInt(e.target.value, 10) || 0;
     if (!state.revolution.execution.assaults[idx]) {
@@ -1202,6 +1667,120 @@ function bindAll() {
   // Célébration révolution
   addListener('sciencesSolairesSucces', 'input', e => { state.revolution.celebration.sciencesSolairesSucces = parseInt(e.target.value, 10) || 0; updateRevolutionCelebrationUI(); scheduleAutosave(); });
   addListener('joursDeCombatInput',     'input', e => { state.revolution.celebration.joursDeCombat           = parseInt(e.target.value, 10) || 0; updateRevolutionCelebrationUI(); scheduleAutosave(); });
+
+  // 🎲 Dice roll buttons (delegated)
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.revolte-dice-btn');
+    if (!btn || !currentSessionId) return;
+
+    // Assault section buttons (data-action = reach | enter)
+    const action = btn.dataset.action;
+    if (action === 'reach' || action === 'enter') {
+      const idx        = parseInt(btn.dataset.index, 10);
+      const malus      = getMalus();
+      const assaultDiff = state.securitePlanetaire + malus;
+      const compLabel  = action === 'reach' ? 'Tactique' : 'Combat';
+      const placeName  = state.revolution.powerPlaces[idx]?.name || `Lieu ${idx + 1}`;
+      getRoller().open({
+        title:    `${compLabel} — ${placeName}`,
+        context:  `Diff ${assaultDiff}`,
+        diff:     assaultDiff,
+        lockDiff: true,
+        onResult: (result) => {
+          const inp = document.querySelector(`.assault-roll-input[data-index="${idx}"][data-action="${action}"]`);
+          if (inp) {
+            inp.value = result.succes ?? 0;
+            inp.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        },
+      });
+      return;
+    }
+
+    // Static test inputs
+    if (btn.dataset.input) openRollForInput(btn.dataset.input);
+  });
+
+  // Location selectors
+  addListener('loc-quadrant', 'change', e => {
+    const q = e.target.value;
+    state.locationRef.quadrant  = q;
+    state.locationRef.systemId  = null;
+    state.locationRef.systemNom = '';
+    state.locationRef.planetId  = null;
+    state.locationRef.planetNom = '';
+    const sSel = document.getElementById('loc-system');
+    const pSel = document.getElementById('loc-planet');
+    if (sSel) sSel.innerHTML = '<option value="">— Choisir un système —</option>';
+    if (pSel) pSel.innerHTML = '<option value="">— Choisir une planète —</option>';
+    document.getElementById('loc-planet-row')?.classList.add('hidden');
+    document.getElementById('location-info')?.classList.add('hidden');
+    const t = getLocationType();
+    if (q && t !== 'quadrant') {
+      document.getElementById('loc-system-row')?.classList.remove('hidden');
+      const filtered = (_worldSystems || []).filter(s => s.quadrant === q);
+      if (sSel) {
+        sSel.innerHTML = '<option value="">— Choisir un système —</option>' +
+          filtered.map(s => `<option value="${s.id}">${escHtml(s.nom)}</option>`).join('');
+      }
+    } else {
+      document.getElementById('loc-system-row')?.classList.toggle('hidden', !q || t === 'quadrant');
+      if (t === 'quadrant' && q) updateLocationInfo();
+    }
+    const locBar = document.getElementById('editor-session-location');
+    if (locBar) locBar.textContent = computeLocationRef();
+    scheduleAutosave();
+  });
+
+  addListener('loc-system', 'change', async e => {
+    const id  = e.target.value ? parseInt(e.target.value, 10) : null;
+    const sys = (_worldSystems || []).find(s => s.id === id);
+    state.locationRef.systemId  = id;
+    state.locationRef.systemNom = sys?.nom || '';
+    state.locationRef.planetId  = null;
+    state.locationRef.planetNom = '';
+    const pRow = document.getElementById('loc-planet-row');
+    const pSel = document.getElementById('loc-planet');
+    if (id && getLocationType() === 'planet') {
+      const planets = await ensurePlanets(id);
+      pRow?.classList.remove('hidden');
+      if (pSel) {
+        pSel.innerHTML = '<option value="">— Choisir une planète —</option>' +
+          planets.map(p => `<option value="${p.id}">${escHtml(p.nom)}</option>`).join('');
+      }
+    } else {
+      pRow?.classList.add('hidden');
+    }
+    document.getElementById('location-info')?.classList.add('hidden');
+    if (id) updateLocationInfo();
+    const locBar = document.getElementById('editor-session-location');
+    if (locBar) locBar.textContent = computeLocationRef();
+    scheduleAutosave();
+  });
+
+  addListener('loc-planet', 'change', e => {
+    const id       = e.target.value || null;   // keep as string — may be "sys_N_i"
+    const systemId = state.locationRef.systemId;
+    const planets  = _worldPlanets[systemId] || [];
+    const planet   = planets.find(p => p.id === id);
+    state.locationRef.planetId  = id;
+    state.locationRef.planetNom = planet?.nom || '';
+    updateLocationInfo();
+    const locBar = document.getElementById('editor-session-location');
+    if (locBar) locBar.textContent = computeLocationRef();
+    scheduleAutosave();
+  });
+
+  addListener('loc-ship', 'change', e => {
+    const id   = e.target.value || null;
+    const ship = (_worldShips || []).find(s => String(s.id) === String(id));
+    state.locationRef.shipId  = id;
+    state.locationRef.shipNom = ship?.name || '';
+    updateLocationInfo();
+    const locBar = document.getElementById('editor-session-location');
+    if (locBar) locBar.textContent = computeLocationRef();
+    scheduleAutosave();
+  });
 
   // Session actions
   document.getElementById('new-session-btn')?.addEventListener('click', showNewForm);
@@ -1273,6 +1852,8 @@ async function init() {
   }
 
   bindAll();
+  ensureWorldSystems(); // preload for location picker
+  ensureCharacters();   // preload for PD participant selects
   await loadSessionList();
 }
 

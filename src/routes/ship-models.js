@@ -11,7 +11,8 @@ const ALL_FIELDS = [
   'vitesse_croisiere','vitesse_hyperspatiale','vitesse_tactique','autonomie',
   'blindage','coque','senseurs','senseurs_k','senseurs_us',
   'manoeuvrabilite','equipage','passagers','soute','prix',
-  'image','armement_json','systemes_secondaires_json'
+  'image','armement_json','systemes_secondaires_json',
+  'description','history','mj_notes','special_features'
 ];
 
 // GET /api/ship-models  — all (admin needs no table; MJ/joueur needs table context)

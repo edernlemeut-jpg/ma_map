@@ -9,12 +9,13 @@
 import db from '../database.js';
 
 /** Entity types stored in table_visibility_overrides (universe data) */
-const UNIVERSE_TYPES = new Set(['factions', 'ship_models']);
+const UNIVERSE_TYPES = new Set(['factions', 'ship_models', 'secondary_systems']);
 
 /** Default visibility when no rule exists */
 const DEFAULT_VISIBLE = {
   factions: 1,     // visible by default
   ship_models: 0,
+  secondary_systems: 1, // visible by default (reference catalogue)
   systems: 0,
   ships: 0,
   npcs: 0,
@@ -45,7 +46,8 @@ function getDefault(entityType) {
 export function isVisible(entityType, entityId, tableId, role) {
   if (role === 'mj') return true;
 
-  // For systems: explicit rule takes priority; fall back to quadrant cascade
+  // For systems: explicit rule takes priority; default is hidden (systems: 0)
+  // Quadrant visibility affects map display only — systems require their own explicit rule
   if (entityType === 'systems') {
     const explicitRule = db.prepare(
       'SELECT visible FROM visibility_rules WHERE table_id = ? AND entity_type = ? AND entity_id = ?'
@@ -53,17 +55,7 @@ export function isVisible(entityType, entityId, tableId, role) {
 
     if (explicitRule !== undefined) return !!explicitRule.visible;
 
-    // No explicit rule — inherit from parent quadrant
-    const system = db.prepare('SELECT quadrant FROM systems WHERE id = ?').get(Number(entityId));
-    if (system) {
-      const quadrantRule = db.prepare(
-        'SELECT visible FROM visibility_rules WHERE table_id = ? AND entity_type = ? AND entity_id = ?'
-      ).get(tableId, 'quadrants', system.quadrant);
-
-      const quadrantVisible = quadrantRule ? quadrantRule.visible : getDefault('quadrants');
-      return !!quadrantVisible;
-    }
-    return !!getDefault('systems');
+    return !!getDefault('systems'); // 0 — hidden by default
   }
 
   const table = getVisibilityTable(entityType);
@@ -151,6 +143,7 @@ function getSourceTable(entityType) {
     systems: { table: 'systems', idCol: 'id' },
     factions: { table: 'factions', idCol: 'id' },
     ship_models: { table: 'ship_models', idCol: 'id' },
+    secondary_systems: { table: 'secondary_systems', idCol: 'id' },
     ships: { table: 'ships', idCol: 'id' },
     npcs: { table: 'npcs', idCol: 'id' },
     travel_routes: { table: 'travel_routes', idCol: 'id' }
