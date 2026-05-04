@@ -305,6 +305,7 @@ const newState = () => ({
   genre: 'homme',
   // PNJ spécifique
   pnj_niveau: 'normal',
+  pnj_nature: 'figurant',    // 'figurant' | 'second_role' | 'premier_role'
   pnj_is_pirate: false,
   pnj_is_named: false,
   domaines_libres: [],     // 3 domaines si PNJ non-pirate
@@ -390,6 +391,18 @@ document.getElementById('btn-prev').addEventListener('click', stepBack);
 document.getElementById('btn-next').addEventListener('click', stepForward);
 
 // ── Vue liste ─────────────────────────────────────────────────────────────────
+// Retourne la nature d'un PNJ (compat avec anciens personnages sans pnj_nature)
+function pnjNature(d) {
+  if (d.pnj_nature) return d.pnj_nature;
+  if (!d.pnj_is_named) return 'figurant';
+  return ['heros','boss','big_boss'].includes(d.pnj_niveau) ? 'premier_role' : 'second_role';
+}
+const PNJ_NATURE_LABEL = {
+  figurant:     '👥 Figurant',
+  second_role:  '🧑 Second Rôle',
+  premier_role: '🎭 Premier Rôle',
+};
+
 async function showListView() {
   setView('list');
 
@@ -541,8 +554,19 @@ function renderCharList(chars) {
         mjPjs.forEach(c => content.appendChild(charCard(c)));
       }
       if (mjPnjs.length) {
-        content.insertAdjacentHTML('beforeend', `<p class="text-xs text-gray-500 uppercase ${mjPjs.length ? 'mt-4 ' : ''}mb-2">PNJs</p>`);
-        mjPnjs.forEach(c => content.appendChild(charCard(c)));
+        const ORDER = ['premier_role', 'second_role', 'figurant'];
+        const SECTION_LABEL = {
+          premier_role: '🎭 Premiers Rôles',
+          second_role:  '🧑 Seconds Rôles',
+          figurant:     '👥 Figurants',
+        };
+        for (const nat of ORDER) {
+          const group = mjPnjs.filter(c => pnjNature(c.data || {}) === nat);
+          if (!group.length) continue;
+          content.insertAdjacentHTML('beforeend',
+            `<p class="text-xs text-gray-500 uppercase ${mjPjs.length || content.children.length ? 'mt-4 ' : ''}mb-2">${SECTION_LABEL[nat]}</p>`);
+          group.forEach(c => content.appendChild(charCard(c)));
+        }
       }
     } else {
       list.forEach(c => content.appendChild(charCard(c)));
@@ -565,7 +589,8 @@ function charCard(c) {
   div.className = 'flex items-center justify-between bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 gap-3';
   const arch = d.archetype_id ? (REF?.archetypes?.find(a => a.id === d.archetype_id)?.nom || '') : '';
   const orig = d.origine_id   ? (REF?.origines?.find(o => o.id === d.origine_id)?.nom || '') : '';
-  const sub  = [arch, orig].filter(Boolean).join(' · ') || (c.type === 'pnj' ? 'PNJ' : 'PJ');
+  const natLabel = c.type === 'pnj' ? PNJ_NATURE_LABEL[pnjNature(d)] : '';
+  const sub  = [arch, orig].filter(Boolean).join(' · ') || (c.type === 'pnj' ? natLabel : 'PJ');
   const creatorTag = (ROLE === 'mj' || ROLE === 'admin') && c.creator_name && c.type === 'pj'
     ? `<span class="text-xs text-yellow-500/80">👤 ${esc(c.creator_name)}</span>`
     : '';
@@ -665,6 +690,8 @@ function renderAndAttachSheet(container, char) {
     container.querySelector('#btn-add-entity')?.addEventListener('click', () => {
       const entities = _loadPnjEntities(char.id);
       entities.names.push(`Figurant ${entities.names.length + 1}`);
+      if (!entities.mutants) entities.mutants = [];
+      entities.mutants.push(false);
       _savePnjEntities(char.id, entities);
       renderAndAttachSheet(container, char);
     });
@@ -673,8 +700,18 @@ function renderAndAttachSheet(container, char) {
         const idx = parseInt(btn.dataset.delEntity);
         const entities = _loadPnjEntities(char.id);
         entities.names.splice(idx, 1);
+        if (entities.mutants) entities.mutants.splice(idx, 1);
         _savePnjEntities(char.id, entities);
         renderAndAttachSheet(container, char);
+      });
+    });
+    container.querySelectorAll('[data-entity-mutant]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const idx = parseInt(cb.dataset.entityMutant);
+        const entities = _loadPnjEntities(char.id);
+        if (!entities.mutants) entities.mutants = [];
+        entities.mutants[idx] = cb.checked;
+        _savePnjEntities(char.id, entities);
       });
     });
     container.querySelectorAll('.entity-name-input').forEach(inp => {
@@ -891,7 +928,7 @@ function renderSheet(char) {
           <h3 class="text-2xl font-bold">${esc(d.nom_personnage || char.name)}</h3>
           <p class="text-sm text-gray-400 mt-0.5">
             ${esc(orig?.nom || '')}${orig ? ' · ' : ''}${esc(arch?.nom || '')}${motiv ? ' · ' + esc(motiv.nom) : ''}
-            ${ typeLabel === 'PNJ' ? ` · <span class="text-purple-400">PNJ ${esc(d.pnj_niveau || '')}</span>` : '' }
+            ${ typeLabel === 'PNJ' ? ` · <span class="text-purple-400">${esc(PNJ_NATURE_LABEL[pnjNature(d)] || 'PNJ')} · ${esc(d.pnj_niveau || '')}</span>` : '' }
           </p>
           <p class="text-xs text-gray-600 mt-0.5">${typeLabel}${d.age ? ' · ' + esc(String(d.age)) + ' ans' : ''}</p>
         </div>
@@ -1085,22 +1122,27 @@ async function _patchTracker(char, tid, container) {
 
 // ── Entités PNJ multiples (non-nommés) ────────────────────────────────────────
 function _loadPnjEntities(charId) {
-  try { return JSON.parse(localStorage.getItem(`pnj_entities_${charId}`) || 'null') || { names: [] }; }
-  catch { return { names: [] }; }
+  try { return JSON.parse(localStorage.getItem(`pnj_entities_${charId}`) || 'null') || { names: [], mutants: [] }; }
+  catch { return { names: [], mutants: [] }; }
 }
 function _savePnjEntities(charId, data) {
   localStorage.setItem(`pnj_entities_${charId}`, JSON.stringify(data));
 }
 
-function renderPnjEntityCard(idx, name, sante) {
+function renderPnjEntityCard(idx, name, sante, isMutant) {
   const rows = [['Indemne','text-green-400'],['Blessé léger','text-yellow-400'],['Blessé grave','text-orange-400'],['Mort ?','text-red-500']];
   return `
   <div class="bg-gray-700/50 border border-gray-600 rounded-lg p-3">
     <div class="flex items-center justify-between mb-2">
       <input type="text" data-entity-idx="${idx}" value="${esc(name)}" placeholder="Nom de l'entité…"
         class="entity-name-input flex-1 bg-transparent border-b border-gray-500 text-sm text-gray-200 px-1 py-0.5 focus:outline-none focus:border-yellow-400">
+      <label class="flex items-center gap-1 ml-3 text-xs text-gray-400 cursor-pointer select-none shrink-0" title="Marquer comme mutant">
+        <input type="checkbox" data-entity-mutant="${idx}" ${isMutant ? 'checked' : ''}
+          class="rounded border-gray-500 bg-gray-700 text-cyan-500 focus:ring-0 cursor-pointer">
+        🧬
+      </label>
       <button data-del-entity="${idx}" type="button"
-        class="ml-3 text-xs text-gray-500 hover:text-red-400 transition-colors" title="Supprimer">✕</button>
+        class="ml-2 text-xs text-gray-500 hover:text-red-400 transition-colors" title="Supprimer">✕</button>
     </div>
     <div class="space-y-1">
       ${rows.map(([label, cls], row) => `
@@ -1116,18 +1158,19 @@ function renderPnjEntitySection(sante) {
   const charId = CURRENT_SHEET_CHAR?.id;
   const entities = _loadPnjEntities(charId);
   const names = entities.names || [];
+  const mutants = entities.mutants || [];
   return `
   <div class="mt-4 bg-gray-800 border border-gray-700 rounded-lg p-4">
     <div class="flex items-center justify-between mb-3">
-      <p class="text-sm font-semibold text-gray-300">👥 Entités en jeu</p>
+      <p class="text-sm font-semibold text-gray-300">👥 Unité — Figurants</p>
       <button id="btn-add-entity" type="button"
         class="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-green-700/30 border border-gray-600 hover:border-green-500 text-gray-300 hover:text-green-300 transition-colors">
         ＋ Ajouter
       </button>
     </div>
-    ${names.length === 0 ? '<p class="text-xs text-gray-500">Aucune entité. Cliquez sur ＋ Ajouter pour suivre plusieurs figurants indépendamment.</p>' : ''}
+    ${names.length === 0 ? '<p class="text-xs text-gray-500">Aucune entité. Cliquez sur ＋ Ajouter pour suivre plusieurs figurants indépendamment. Cochez 🧬 pour les mutants de l\'unité.</p>' : ''}
     <div class="space-y-3">
-      ${names.map((n, i) => renderPnjEntityCard(i, n, sante)).join('')}
+      ${names.map((n, i) => renderPnjEntityCard(i, n, sante, !!mutants[i])).join('')}
     </div>
   </div>`;
 }
@@ -1832,7 +1875,14 @@ async function editChar(id) {
     const { qualiteIds: cqIds, defautIds: cdIds, niveaux: cNiv } = collapseGroupedTraits(
       char.data?.qualites_ids || [], char.data?.defauts_ids || [], char.data?.traits_niveaux || {}
     );
-    DRAFT = { ...newState(), ...char.data, id: char.id, type: char.type, name: char.name,
+    const rawData = char.data || {};
+    // Compat rétro : dériver pnj_nature si absent
+    if (!rawData.pnj_nature) {
+      rawData.pnj_nature = rawData.pnj_is_named
+        ? (['heros','boss','big_boss'].includes(rawData.pnj_niveau) ? 'premier_role' : 'second_role')
+        : 'figurant';
+    }
+    DRAFT = { ...newState(), ...rawData, id: char.id, type: char.type, name: char.name,
       qualites_ids: cqIds, defauts_ids: cdIds, traits_niveaux: cNiv };
     EDITING_ID = char.id;
     CURRENT_STEP = 0;
@@ -3055,6 +3105,7 @@ function validatePNJType() { return !!DRAFT.pnj_niveau; }
 function renderStepPNJProfil() {
   const isPirate = DRAFT.pnj_is_pirate;
   const isNamed  = DRAFT.pnj_is_named;
+  const nature   = DRAFT.pnj_nature || (isNamed ? 'second_role' : 'figurant');
 
   const motivations = REF?.motivations || [];
   const archetypes  = REF?.archetypes  || [];
@@ -3084,17 +3135,27 @@ function renderStepPNJProfil() {
     </div>
   </div>
 
-  <!-- Nommé ? -->
+  <!-- Nature du PNJ -->
   <div class="mb-4">
-    <p class="text-xs text-gray-400 mb-2">Est-ce un personnage nommé ?</p>
-    <div class="flex gap-3">
-      <button data-named="false"
-        class="pnj-named-btn sel-btn flex-1 py-2 text-sm text-center ${!isNamed ? 'sel-gold' : ''}">
-        Figurant
+    <p class="text-xs text-gray-400 mb-2">Nature du personnage</p>
+    <div class="grid grid-cols-3 gap-2">
+      <button data-nature="figurant"
+        class="pnj-nature-btn sel-btn py-3 text-sm text-center ${nature === 'figurant' ? 'sel-gold' : ''}">
+        <div class="text-lg mb-0.5">👥</div>
+        <div class="font-semibold text-xs">Figurant</div>
+        <div class="text-xs text-gray-500 mt-0.5">Sans nom, en unité</div>
       </button>
-      <button data-named="true"
-        class="pnj-named-btn sel-btn flex-1 py-2 text-sm text-center ${isNamed ? 'sel-purple' : ''}">
-        Nommé
+      <button data-nature="second_role"
+        class="pnj-nature-btn sel-btn py-3 text-sm text-center ${nature === 'second_role' ? 'sel-purple' : ''}">
+        <div class="text-lg mb-0.5">🧑</div>
+        <div class="font-semibold text-xs">Second Rôle</div>
+        <div class="text-xs text-gray-500 mt-0.5">Nommé, indépendant</div>
+      </button>
+      <button data-nature="premier_role"
+        class="pnj-nature-btn sel-btn py-3 text-sm text-center ${nature === 'premier_role' ? 'sel-pirate' : ''}">
+        <div class="text-lg mb-0.5">🎭</div>
+        <div class="font-semibold text-xs">Premier Rôle</div>
+        <div class="text-xs text-gray-500 mt-0.5">Nommé, important</div>
       </button>
     </div>
   </div>
@@ -3139,6 +3200,7 @@ function renderStepPNJProfil() {
 }
 
 function validatePNJProfil() {
+  if (!DRAFT.pnj_nature) return false;
   if (DRAFT.pnj_is_pirate && DRAFT.pnj_is_named) {
     return !!DRAFT.motivation_id && !!DRAFT.archetype_id;
   }
@@ -3799,10 +3861,11 @@ function attachStepListeners() {
     });
   });
 
-  // PNJ: named toggle
-  step.querySelectorAll('.pnj-named-btn').forEach(btn => {
+  // PNJ: nature (figurant / second_role / premier_role)
+  step.querySelectorAll('.pnj-nature-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      DRAFT.pnj_is_named = btn.dataset.named === 'true';
+      DRAFT.pnj_nature   = btn.dataset.nature;
+      DRAFT.pnj_is_named = DRAFT.pnj_nature !== 'figurant';
       document.getElementById('wizard-step').innerHTML = renderStepPNJProfil();
       attachStepListeners();
     });
@@ -3831,6 +3894,9 @@ function attachStepListeners() {
     const shuffle = arr => [...arr].sort(() => Math.random() - 0.5);
     DRAFT.pnj_is_pirate = Math.random() < 0.5;
     DRAFT.pnj_is_named  = Math.random() < 0.5;
+    DRAFT.pnj_nature    = DRAFT.pnj_is_named
+      ? (Math.random() < 0.4 ? 'premier_role' : 'second_role')
+      : 'figurant';
     if (DRAFT.pnj_is_pirate) {
       DRAFT.domaines_libres = [];
       if (DRAFT.pnj_is_named) {
