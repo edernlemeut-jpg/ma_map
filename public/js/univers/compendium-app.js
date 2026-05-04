@@ -1257,6 +1257,7 @@ function renderPlanets(panel, _ignore) {
           ${buildCollapsible(`${sid}-info`, 'Informations générales', infoContent, true)}
           ${buildCollapsible(`${sid}-soleil`, '☀️ Étoile / Soleil', soleilContent, true)}
           ${buildCollapsible(`${sid}-corps`, `🪐 Corps célestes (${corpsCount})`, corpsContent, true)}
+          ${patrContent ? buildCollapsible(`${sid}-patr`, `👮 Patrouilles (${patrouilles.length})`, patrContent, true) : ''}
           ${buildCollapsible(`${sid}-matrix`, '📐 Matrice des distances', buildDistanceMatrix(soleil, corps), true)}
         </div>
       </div>`;
@@ -3892,6 +3893,15 @@ function openSystemModal(system) {
         <div id="fms-bodies-list" class="space-y-0.5 min-h-[24px]">${renderBodyList()}</div>
       </div>
 
+      <!-- Patrouilles -->
+      <div class="border-t border-gray-700 pt-4 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-gray-300">👮 Patrouilles</h3>
+          <button id="btn-add-patr" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1.5 rounded transition-colors">+ Ajouter</button>
+        </div>
+        <div id="fms-patr-list" class="space-y-1">${renderPatrList()}</div>
+      </div>
+
       <!-- Matrice de distances -->
       <div class="border-t border-gray-700 pt-4 mb-4">
         <div class="flex items-center justify-between mb-3">
@@ -4011,6 +4021,30 @@ function openSystemModal(system) {
     });
   });
 
+  const refreshPatrList = () => {
+    overlay.querySelector('#fms-patr-list').innerHTML = renderPatrList();
+    bindPatrButtons();
+  };
+  const bindPatrButtons = () => {
+    overlay.querySelectorAll('.btn-del-patr').forEach(btn => {
+      btn.addEventListener('click', () => {
+        patrouilles.splice(Number(btn.dataset.idx), 1);
+        refreshPatrList();
+      });
+    });
+    overlay.querySelectorAll('.patr-vaisseaux').forEach(inp => {
+      inp.addEventListener('input', () => { patrouilles[Number(inp.dataset.idx)].vaisseaux = inp.value; });
+    });
+    overlay.querySelectorAll('.patr-cout').forEach(inp => {
+      inp.addEventListener('input', () => { patrouilles[Number(inp.dataset.idx)].cout = inp.value; });
+    });
+  };
+  bindPatrButtons();
+  overlay.querySelector('#btn-add-patr').addEventListener('click', () => {
+    patrouilles.push({ vaisseaux: '', cout: '' });
+    refreshPatrList();
+  });
+
   overlay.querySelector('#btn-recalc-matrix').addEventListener('click', refreshMatrix);
 
   // Init matrix & refresh when star limit changes
@@ -4066,6 +4100,7 @@ function openSystemModal(system) {
       description: str('#fms-description') || null,
       soleil_json: Object.keys(soleilObj).length ? JSON.stringify(soleilObj) : null,
       corps_celestes_json: corps.length ? JSON.stringify(corps) : null,
+      patrouilles_json: patrouilles.length ? JSON.stringify(patrouilles) : null,
     };
 
     try {
@@ -4220,6 +4255,20 @@ function openBodyModal(body, onSave) {
         </div>
         <div class="col-span-2">${sta('bm-desc', 'Texte d\'ambiance', body.texte_ambiance)}</div>
         <div class="col-span-2">${sta('bm-description', 'Description', body.description)}</div>
+        <div class="col-span-2">
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs text-gray-400">Patrouilles</label>
+            <button type="button" id="bm-add-patr" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1 rounded transition-colors">+ Ajouter</button>
+          </div>
+          <div id="bm-patr-list" class="space-y-1.5">
+            ${(Array.isArray(body.patrouilles) ? body.patrouilles : []).map((p, i) => `
+              <div class="bm-patr-row flex items-center gap-2">
+                <input type="text" class="bm-patr-vaisseaux flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Vaisseaux" value="${esc(p.vaisseaux || '')}">
+                <input type="text" class="bm-patr-cout w-28 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Coût" value="${esc(p.cout || '')}">
+                <button type="button" class="bm-del-patr flex-shrink-0 text-red-500 hover:text-red-400 px-2 py-1 text-xs">✕</button>
+              </div>`).join('')}
+          </div>
+        </div>
       </div>
       <div class="flex gap-3 mt-4">
         <button id="bm-save" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors">OK</button>
@@ -4290,6 +4339,26 @@ function openBodyModal(body, onSave) {
     row.querySelector('.bm-sat-nom').focus();
   });
 
+  // Patrouilles corps céleste
+  const bindPatrBodyBtns = () => {
+    subOverlay.querySelectorAll('.bm-del-patr').forEach(btn => {
+      btn.addEventListener('click', () => btn.closest('.bm-patr-row').remove());
+    });
+  };
+  bindPatrBodyBtns();
+  subOverlay.querySelector('#bm-add-patr').addEventListener('click', () => {
+    const list = subOverlay.querySelector('#bm-patr-list');
+    const row = document.createElement('div');
+    row.className = 'bm-patr-row flex items-center gap-2';
+    row.innerHTML = `
+      <input type="text" class="bm-patr-vaisseaux flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Vaisseaux">
+      <input type="text" class="bm-patr-cout w-28 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500" placeholder="Coût">
+      <button type="button" class="bm-del-patr flex-shrink-0 text-red-500 hover:text-red-400 px-2 py-1 text-xs">✕</button>`;
+    list.appendChild(row);
+    row.querySelector('.bm-del-patr').addEventListener('click', () => row.remove());
+    row.querySelector('.bm-patr-vaisseaux').focus();
+  });
+
   subOverlay.querySelector('#bm-save').addEventListener('click', () => {
     const nom = subOverlay.querySelector('#bm-nom').value.trim();
     if (!nom) { subOverlay.querySelector('#bm-nom').focus(); return; }
@@ -4302,6 +4371,9 @@ function openBodyModal(body, onSave) {
     const satellites = [...subOverlay.querySelectorAll('.bm-satellite-row')]
       .map(row => ({ nom: row.querySelector('.bm-sat-nom')?.value?.trim() || '', distance: row.querySelector('.bm-sat-dist')?.value?.trim() ? Number(row.querySelector('.bm-sat-dist').value.trim()) : undefined, description: row.querySelector('.bm-sat-desc')?.value?.trim() || undefined }))
       .filter(s => s.nom);
+    const patrouilles_body = [...subOverlay.querySelectorAll('.bm-patr-row')]
+      .map(row => ({ vaisseaux: row.querySelector('.bm-patr-vaisseaux')?.value?.trim() || '', cout: row.querySelector('.bm-patr-cout')?.value?.trim() || '' }))
+      .filter(p => p.vaisseaux || p.cout);
     const gouvSel2 = subOverlay.querySelector('#bm-gouv')?.value?.trim();
     const gouvVal = gouvSel2 === 'Autre' ? (subOverlay.querySelector('#bm-gouv-autre')?.value?.trim() || undefined) : (gouvSel2 || undefined);
     const updated = {
@@ -4315,6 +4387,7 @@ function openBodyModal(body, onSave) {
       environnements: envChecked.length ? envChecked : undefined,
       astroports: astroports.length ? astroports : undefined,
       satellites: satellites.length ? satellites : undefined,
+      patrouilles: patrouilles_body.length ? patrouilles_body : undefined,
       commerce: str('#bm-commerce'),
       marchandiseA: str('#bm-mA'), marchandiseB: str('#bm-mB'), marchandiseC: str('#bm-mC'),
       illegal: str('#bm-illegal'),
