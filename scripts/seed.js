@@ -271,7 +271,7 @@ function upsertSystems() {
   const run = db.transaction(() => {
     let inserted = 0, updated = 0;
     const existing = new Set(
-      db.prepare('SELECT quadrant || "||" || nom AS key FROM systems').all().map(r => r.key)
+      db.prepare("SELECT quadrant || '||' || nom AS key FROM systems").all().map(r => r.key)
     );
     for (const row of data) {
       const key = (row.quadrant ?? '') + '||' + (row.nom ?? '');
