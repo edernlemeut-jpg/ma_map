@@ -73,12 +73,17 @@ export function setHealthCase(santeJson, niveauIndex, caseIndex, etat) {
     return { ok: false, error: 'sante_json invalide ou absent' };
   }
 
-  const niveau = state.niveaux[niveauIndex];
-  if (!niveau) {
-    return { ok: false, error: `Niveau d'index ${niveauIndex} introuvable` };
+  // Auto-extension : si le sante_json a été créé avec moins de niveaux ou de cases
+  // que nécessaire (ex : 3 niveaux au lieu de 4, ou moins de cases que car+sf actuel),
+  // on étend en ajoutant des cases "vide".
+  const existingCasesLen = state.niveaux[0]?.cases?.length || 1;
+  while (state.niveaux.length <= niveauIndex) {
+    state.niveaux.push({ cases: Array.from({ length: existingCasesLen }, () => ({ etat: 'vide' })) });
   }
-  if (!Array.isArray(niveau.cases) || niveau.cases[caseIndex] === undefined) {
-    return { ok: false, error: `Case d'index ${caseIndex} introuvable dans le niveau ${niveauIndex}` };
+  const niveau = state.niveaux[niveauIndex];
+  if (!Array.isArray(niveau.cases)) niveau.cases = [];
+  while (niveau.cases.length <= caseIndex) {
+    niveau.cases.push({ etat: 'vide' });
   }
 
   niveau.cases[caseIndex].etat = etat;

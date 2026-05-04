@@ -2446,11 +2446,24 @@ function renderStepTraits() {
 
   const isMutantOnly = t => String(t.restriction || '').toLowerCase().includes('mutant');
   const traitHasNation = t => t.nation && t.nation !== 'Aucune';
+  // Traits réservés aux pirates (PNJ)
+  const PIRATE_ONLY_IDS = new Set(['defaut-fraternite-pirate', 'qualite-loup-de-mer']);
+  const isPirateOnly = t =>
+    PIRATE_ONLY_IDS.has(t.id) ||
+    (t.id === 'qualite-heroïque' && DRAFT.type === 'pnj' && DRAFT.pnj_niveau === 'normal');
   const canSee = t => {
     if (DRAFT.type === 'pj' && t.pnj_only) return false;
     if (isMutantOnly(t) && !isMutant) return false;
     if (traitHasNation(t) && t.nation !== charNation) return false;
-    if (t.id === 'qualite-violent') return false; // auto-granté aux non-mutants, caché de la liste
+    if (t.id === 'qualite-violent') return false; // auto-granté aux non-mutants
+    if (t.id === 'defaut-tete-de-mutant-') return false; // auto-accordé aux mutants
+    if (t.id === 'defaut-tete-de-mutant-maudit' && !isMutant) return false;
+    // Incompatibilités Tête de mutant ↔ Cicatrices / Sale gueule
+    const hasTeteMutant = isMutant || DRAFT.defauts_ids.includes('defaut-tete-de-mutant-maudit');
+    if (hasTeteMutant && (t.id === 'defaut-cicatrices' || t.id === 'defaut-sale-gueule')) return false;
+    if (DRAFT.defauts_ids.some(d => d === 'defaut-cicatrices' || d === 'defaut-sale-gueule') && t.id === 'defaut-tete-de-mutant-maudit') return false;
+    // Traits pirates uniquement (PNJ non-pirate)
+    if (DRAFT.type === 'pnj' && !DRAFT.pnj_is_pirate && isPirateOnly(t)) return false;
     return true;
   };
 
@@ -2473,13 +2486,43 @@ function renderStepTraits() {
   const dPts   = traitPoints(DRAFT.defauts_ids,  REF?.defauts,  'cost', DRAFT.traits_niveaux);
   const dTotal = dPts;
   const qTotal = qPts;
-  const balance = dTotal - qTotal;
+  const FREE_PNJ_POINTS = { boss: 5, big_boss: 10 };
+  const freePoints = DRAFT.type === 'pnj' ? (FREE_PNJ_POINTS[DRAFT.pnj_niveau] || 0) : 0;
+  const balance = dTotal - qTotal + freePoints;
   const maxDef  = 10;
 
-  const displayList = TRAITS_TAB.filter === 'nation'  ? curGroups.nation  :
-                      TRAITS_TAB.filter === 'mutant'  ? curGroups.mutant  :
-                      TRAITS_TAB.filter === 'general' ? curGroups.general :
-                      curAll;
+  // Désespoir : les 3 traits séparés sont groupés en un sélecteur unique
+  const DESESPOIR_IDS = ['defaut-desespoir-1', 'defaut-desespoir-3', 'defaut-desespoir-5'];
+  const curDesesp = DRAFT.defauts_ids.find(id => DESESPOIR_IDS.includes(id));
+  const curDesespLevel = curDesesp ? parseInt(curDesesp.match(/-(\d+)$/)?.[1] || '0') : 0;
+  const showDesespoir = isDefaut && allD.some(t => DESESPOIR_IDS.includes(t.id));
+
+  const displayList = (TRAITS_TAB.filter === 'nation'  ? curGroups.nation  :
+                       TRAITS_TAB.filter === 'mutant'  ? curGroups.mutant  :
+                       TRAITS_TAB.filter === 'general' ? curGroups.general :
+                       curAll).filter(t => !DESESPOIR_IDS.includes(t.id));
+
+  // Carte synthétique Désespoir (niv 1/3/5)
+  const renderDesespoirCard = () => {
+    const isSel = curDesespLevel > 0;
+    return `
+    <div class="trait-btn w-full text-left ${isSel ? 'selected-d' : ''}">
+      <div class="flex justify-between items-center gap-2 flex-wrap mb-1">
+        <span class="${isSel ? 'text-yellow-300' : 'text-gray-300'} font-medium text-xs">Désespoir</span>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <select data-desespoir-level class="bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-xs text-gray-200">
+            <option value="">— niveau —</option>
+            ${[1, 3, 5].map(lv => {
+              const wouldExceed = dTotal - curDesespLevel + lv > maxDef;
+              return `<option value="${lv}" ${curDesespLevel === lv ? 'selected' : ''} ${wouldExceed && curDesespLevel !== lv ? 'disabled' : ''}>+${lv} pts</option>`;
+            }).join('')}
+          </select>
+        </div>
+      </div>
+      <p class="text-xs text-gray-400 mt-0.5"><span class="text-gray-500">Effet : </span>Niv 1 : E2F tests de moral. Niv 3 : −2 PP définitivement. Niv 5 : perd tous ses PP.</p>
+      <p class="text-xs text-gray-600 mt-0.5">PNJ uniquement.</p>
+    </div>`;
+  };
 
   const hasNation   = !!(charNation && curGroups.nation.length);
   const hasMutant   = !!(isMutant   && curGroups.mutant.length);
@@ -2568,6 +2611,7 @@ function renderStepTraits() {
   <div class="flex gap-4 text-xs mb-3 flex-wrap">
     <span>Défauts : <strong class="text-yellow-400">${dTotal} pts</strong> / max ${maxDef}</span>
     <span>Qualités : <strong class="text-blue-400">${qTotal} pts</strong></span>
+    ${freePoints ? `<span>Gratuits : <strong class="text-green-400">+${freePoints}</strong></span>` : ''}
     <span>Solde : <strong class="${balance >= 0 ? 'text-green-400' : 'text-red-400'}">${balance} pts</strong></span>
   </div>
 
@@ -2581,6 +2625,16 @@ function renderStepTraits() {
     <span class="text-green-400 font-semibold">✔ Violent</span>
     <span class="text-gray-500">Accordé automatiquement à tous les non-mutants (gratuit)</span>
   </div>` : ''}
+  ${isMutant && isDefaut ? `
+  <div class="mb-3 px-3 py-2 bg-gray-800/80 border border-gray-700 rounded-lg flex items-center gap-2 text-xs">
+    <span class="text-cyan-400 font-semibold">🧬 Tête de mutant</span>
+    <span class="text-gray-500">Accordé automatiquement à tous les mutants (sans coût supplémentaire). Incompatible avec Cicatrices et Sale gueule.</span>
+  </div>` : ''}
+  ${freePoints > 0 && !isDefaut ? `
+  <div class="mb-3 px-3 py-2 bg-gray-800/80 border border-gray-700 rounded-lg flex items-center gap-2 text-xs">
+    <span class="text-green-400 font-semibold">✔ ${freePoints} pts gratuits</span>
+    <span class="text-gray-500">${REF?.pnj_niveaux?.find(n => n.id === DRAFT.pnj_niveau)?.nom || 'Ce niveau'} dispose de ${freePoints} points de qualités sans désavantage.</span>
+  </div>` : ''}
 
   ${hasMultiCat ? `
   <div class="flex gap-1.5 mb-3 flex-wrap">
@@ -2591,8 +2645,8 @@ function renderStepTraits() {
   </div>` : ''}
 
   <div class="space-y-2">
-    ${displayList.length
-      ? displayList.map(renderCard).join('')
+    ${displayList.length || showDesespoir
+      ? displayList.map(renderCard).join('') + (showDesespoir ? renderDesespoirCard() : '')
       : '<p class="text-gray-600 text-xs py-4 text-center">Aucun trait disponible dans cette catégorie.</p>'}
   </div>`;
 }
@@ -3397,7 +3451,8 @@ function attachStepListeners() {
         const cost = parseInt(REF?.qualites?.find(q => q.id === id)?.cost || 0);
         const qPts = traitPoints(DRAFT.qualites_ids, REF?.qualites, 'cost', DRAFT.traits_niveaux);
         const dPs  = traitPoints(DRAFT.defauts_ids, REF?.defauts, 'cost', DRAFT.traits_niveaux);
-        const balance = dPs - qPts;
+        const freeP = DRAFT.type === 'pnj' ? ({ boss: 5, big_boss: 10 }[DRAFT.pnj_niveau] || 0) : 0;
+        const balance = dPs - qPts + freeP;
         if (idx >= 0) { DRAFT.qualites_ids.splice(idx, 1); }
         else if (balance >= cost) { DRAFT.qualites_ids.push(id); }
       } else {
@@ -3434,7 +3489,8 @@ function attachStepListeners() {
           if (dPts - curD + lv > 10) { sel.value = niveaux[id] || ''; return; }
         } else {
           const curQ = idx >= 0 ? (niveaux[id] || 0) : 0;
-          const balance = dPts - qPts + curQ;
+          const freeP = DRAFT.type === 'pnj' ? ({ boss: 5, big_boss: 10 }[DRAFT.pnj_niveau] || 0) : 0;
+          const balance = dPts - qPts + curQ + freeP;
           if (balance < lv) { sel.value = niveaux[id] || ''; return; }
         }
         niveaux[id] = lv;
@@ -3461,6 +3517,15 @@ function attachStepListeners() {
       attachStepListeners();
     });
   });
+
+  // Désespoir — sélecteur de niveau groupé
+  step.querySelector('[data-desespoir-level]')?.addEventListener('change', e => {
+    const lv = parseInt(e.target.value) || 0;
+    DRAFT.defauts_ids = DRAFT.defauts_ids.filter(id => !['defaut-desespoir-1','defaut-desespoir-3','defaut-desespoir-5'].includes(id));
+    if (lv) DRAFT.defauts_ids.push(`defaut-desespoir-${lv}`);
+    document.getElementById('wizard-step').innerHTML = renderStepTraits();
+    attachStepListeners();
+  });
   step.querySelector('#btn-rand-traits')?.addEventListener('click', () => {
     DRAFT.defauts_ids  = [];
     DRAFT.qualites_ids = [];
@@ -3470,12 +3535,18 @@ function attachStepListeners() {
     const charNation = orig?.nation || null;
     const isMutantOnly = t => String(t.restriction || '').toLowerCase().includes('mutant');
     const traitHasNation = t => t.nation && t.nation !== 'Aucune';
+    const PIRATE_ONLY_IDS_R = new Set(['defaut-fraternite-pirate', 'qualite-loup-de-mer']);
     const canSee = t => {
       if (DRAFT.type === 'pj' && t.pnj_only) return false;
       if (isMutantOnly(t) && !isMutant) return false;
       if (traitHasNation(t) && t.nation !== charNation) return false;
+      if (t.id === 'defaut-tete-de-mutant-') return false;
+      if (t.id === 'defaut-tete-de-mutant-maudit' && !isMutant) return false;
+      if (DRAFT.type === 'pnj' && !DRAFT.pnj_is_pirate &&
+         (PIRATE_ONLY_IDS_R.has(t.id) || (t.id === 'qualite-heroïque' && DRAFT.pnj_niveau === 'normal'))) return false;
       return true;
     };
+    const freeP = DRAFT.type === 'pnj' ? ({ boss: 5, big_boss: 10 }[DRAFT.pnj_niveau] || 0) : 0;
     const defauts = [...(REF?.defauts || []).filter(canSee)].sort(() => Math.random() - 0.5);
     let dPts = 0;
     for (const d of defauts) {
@@ -3487,7 +3558,7 @@ function attachStepListeners() {
     let qPts = 0;
     for (const q of qualites) {
       const pts = Math.abs(parseInt(q.cost) || 0);
-      if (pts > 0 && qPts + pts <= dPts) { DRAFT.qualites_ids.push(q.id); qPts += pts; }
+      if (pts > 0 && qPts + pts <= dPts + freeP) { DRAFT.qualites_ids.push(q.id); qPts += pts; }
     }
     document.getElementById('wizard-step').innerHTML = renderStepTraits();
     attachStepListeners();
@@ -3814,8 +3885,18 @@ async function saveCharacter() {
     name: DRAFT.nom_personnage,
     data: {
       ...DRAFT,
-      panache:   3,
-      gloire:    0,
+      // Panache et Gloire initiaux selon le niveau PNJ (modifiables par traits)
+      ...((() => {
+        const PNJ_BASE_PANACHE = { normal: 0, elite: 3, heros: 5, boss: 5, big_boss: 5 };
+        const PNJ_BASE_GLOIRE  = { normal: 0, elite: 1, heros: 3, boss: 3, big_boss: 3 };
+        const heroiqueNiv = DRAFT.qualites_ids.includes('qualite-heroïque') ? (DRAFT.traits_niveaux?.['qualite-heroïque'] || 0) : 0;
+        const hasDesesp3 = DRAFT.defauts_ids.includes('defaut-desespoir-3');
+        const hasDesesp5 = DRAFT.defauts_ids.includes('defaut-desespoir-5');
+        const basePanache = DRAFT.type === 'pnj' ? (PNJ_BASE_PANACHE[DRAFT.pnj_niveau] ?? 3) : 3;
+        const baseGloire  = DRAFT.type === 'pnj' ? (PNJ_BASE_GLOIRE[DRAFT.pnj_niveau] ?? 0) : 0;
+        const finalPanache = hasDesesp5 ? 0 : Math.max(0, basePanache + heroiqueNiv - (hasDesesp3 ? 2 : 0));
+        return { panache: finalPanache, gloire: baseGloire };
+      })()),
       sante:     (finalAttrs.carrure || 0) + (finalAttrs.sang_froid || 0),
       energie_x: DRAFT.is_mutant ? (finalAttrs.perception || 0) + (finalAttrs.intelligence || 0) : null,
       credits:   EDITING_ID ? (DRAFT.credits ?? 0) : startingCredits,
