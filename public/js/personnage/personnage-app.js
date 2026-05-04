@@ -174,7 +174,85 @@ const VARIABLE_TRAIT_LEVELS = {
   'defaut-signe-distinctif': [1, 3, 5],
   'defaut-vengeance ':       [1, 3, 5],
   'defaut-wanted':           [1, 3, 5],
+  // Traits groupés (plusieurs entrées DB → un sélecteur de niveau)
+  'defaut-desespoir':             [1, 3, 5],
+  'defaut-amarres':               [1, 3, 5],
+  'qualite-celebrite-galactique': [1, 2, 3, 4, 5],
+  'qualite-discret':              [3, 5],
+  'qualite-equipement-special':   [1, 3, 5],
+  'qualite-grade':                [1, 3, 5],
+  'qualite-specialite':           [1, 3, 5],
+  'qualite-statut-social':        [1, 3, 5],
 };
+
+// Traits dont les niveaux sont en suffixe dans la DB (ex: defaut-desespoir-3)
+// → groupés en un sélecteur de niveau dans le wizard
+const GROUPED_TRAITS = [
+  { base: 'defaut-desespoir',             section: 'defauts',  levels: [1, 3, 5] },
+  { base: 'defaut-amarres',               section: 'defauts',  levels: [1, 3, 5] },
+  { base: 'qualite-celebrite-galactique', section: 'qualites', levels: [1, 2, 3, 4, 5] },
+  { base: 'qualite-discret',              section: 'qualites', levels: [3, 5] },
+  { base: 'qualite-equipement-special',   section: 'qualites', levels: [1, 3, 5] },
+  { base: 'qualite-grade',                section: 'qualites', levels: [1, 3, 5] },
+  { base: 'qualite-specialite',           section: 'qualites', levels: [1, 3, 5] },
+  { base: 'qualite-statut-social',        section: 'qualites', levels: [1, 3, 5] },
+];
+
+// Post-traitement du REF : remplace les N entrées individuelles par une entrée canonique
+function postProcessREF() {
+  for (const grp of GROUPED_TRAITS) {
+    const list = grp.section === 'defauts' ? REF.defauts : REF.qualites;
+    if (!Array.isArray(list)) continue;
+    const individuals = grp.levels.map(lv => list.find(t => t.id === `${grp.base}-${lv}`)).filter(Boolean);
+    if (!individuals.length) continue;
+    const synthetic = { ...individuals[0], id: grp.base, name: individuals[0].name.replace(/\s*\d+$/, '').trim() };
+    const firstIdx = list.findIndex(t => t.id === individuals[0].id);
+    list.splice(firstIdx, 1, synthetic);
+    for (let i = 1; i < individuals.length; i++) {
+      const ri = list.findIndex(t => t.id === individuals[i].id);
+      if (ri >= 0) list.splice(ri, 1);
+    }
+  }
+}
+
+// Expand : canonical ID + niveau → ID spécifique DB (avant sauvegarde)
+function expandGroupedTraits(qualiteIds, defautIds, niveaux) {
+  const qOut = [], dOut = [], niv = { ...niveaux };
+  const exp = (ids, out) => {
+    for (const id of ids) {
+      const grp = GROUPED_TRAITS.find(g => g.base === id);
+      if (grp && niv[id]) { out.push(`${id}-${niv[id]}`); delete niv[id]; }
+      else                 { out.push(id); }
+    }
+  };
+  exp(qualiteIds, qOut);
+  exp(defautIds,  dOut);
+  return { qualiteIds: qOut, defautIds: dOut, niveaux: niv };
+}
+
+// Collapse : ID spécifique DB → canonical ID + niveau (au chargement)
+function collapseGroupedTraits(qualiteIds, defautIds, niveaux) {
+  const qOut = [], dOut = [], niv = { ...niveaux };
+  const col = (ids, out) => {
+    for (const id of ids) {
+      let found = false;
+      for (const grp of GROUPED_TRAITS) {
+        for (const lv of grp.levels) {
+          if (id === `${grp.base}-${lv}`) {
+            if (!out.includes(grp.base)) out.push(grp.base);
+            niv[grp.base] = lv;
+            found = true; break;
+          }
+        }
+        if (found) break;
+      }
+      if (!found) out.push(id);
+    }
+  };
+  col(qualiteIds, qOut);
+  col(defautIds,  dOut);
+  return { qualiteIds: qOut, defautIds: dOut, niveaux: niv };
+}
 
 // ── State global ──────────────────────────────────────────────────────────────
 let REF = null;          // données de référence
@@ -255,6 +333,7 @@ async function init() {
     if (!r.ok) throw new Error('Erreur chargement données');
     const { data } = await r.json();
     REF = data;
+    postProcessREF();
   } catch (e) {
     showError('Impossible de charger les données de référence : ' + e.message);
     return;
@@ -1744,7 +1823,11 @@ async function editChar(id) {
     if (!r.ok) throw new Error();
     const { data: char } = await r.json();
     // Rehydrate draft from saved data
-    DRAFT = { ...newState(), ...char.data, id: char.id, type: char.type, name: char.name };
+    const { qualiteIds: cqIds, defautIds: cdIds, niveaux: cNiv } = collapseGroupedTraits(
+      char.data?.qualites_ids || [], char.data?.defauts_ids || [], char.data?.traits_niveaux || {}
+    );
+    DRAFT = { ...newState(), ...char.data, id: char.id, type: char.type, name: char.name,
+      qualites_ids: cqIds, defauts_ids: cdIds, traits_niveaux: cNiv };
     EDITING_ID = char.id;
     CURRENT_STEP = 0;
     setView('wizard');
@@ -2491,38 +2574,10 @@ function renderStepTraits() {
   const balance = dTotal - qTotal + freePoints;
   const maxDef  = 10;
 
-  // Désespoir : les 3 traits séparés sont groupés en un sélecteur unique
-  const DESESPOIR_IDS = ['defaut-desespoir-1', 'defaut-desespoir-3', 'defaut-desespoir-5'];
-  const curDesesp = DRAFT.defauts_ids.find(id => DESESPOIR_IDS.includes(id));
-  const curDesespLevel = curDesesp ? parseInt(curDesesp.match(/-(\d+)$/)?.[1] || '0') : 0;
-  const showDesespoir = isDefaut && allD.some(t => DESESPOIR_IDS.includes(t.id));
-
-  const displayList = (TRAITS_TAB.filter === 'nation'  ? curGroups.nation  :
-                       TRAITS_TAB.filter === 'mutant'  ? curGroups.mutant  :
-                       TRAITS_TAB.filter === 'general' ? curGroups.general :
-                       curAll).filter(t => !DESESPOIR_IDS.includes(t.id));
-
-  // Carte synthétique Désespoir (niv 1/3/5)
-  const renderDesespoirCard = () => {
-    const isSel = curDesespLevel > 0;
-    return `
-    <div class="trait-btn w-full text-left ${isSel ? 'selected-d' : ''}">
-      <div class="flex justify-between items-center gap-2 flex-wrap mb-1">
-        <span class="${isSel ? 'text-yellow-300' : 'text-gray-300'} font-medium text-xs">Désespoir</span>
-        <div class="flex items-center gap-1.5 shrink-0">
-          <select data-desespoir-level class="bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-xs text-gray-200">
-            <option value="">— niveau —</option>
-            ${[1, 3, 5].map(lv => {
-              const wouldExceed = dTotal - curDesespLevel + lv > maxDef;
-              return `<option value="${lv}" ${curDesespLevel === lv ? 'selected' : ''} ${wouldExceed && curDesespLevel !== lv ? 'disabled' : ''}>+${lv} pts</option>`;
-            }).join('')}
-          </select>
-        </div>
-      </div>
-      <p class="text-xs text-gray-400 mt-0.5"><span class="text-gray-500">Effet : </span>Niv 1 : E2F tests de moral. Niv 3 : −2 PP définitivement. Niv 5 : perd tous ses PP.</p>
-      <p class="text-xs text-gray-600 mt-0.5">PNJ uniquement.</p>
-    </div>`;
-  };
+  const displayList = TRAITS_TAB.filter === 'nation'  ? curGroups.nation  :
+                      TRAITS_TAB.filter === 'mutant'  ? curGroups.mutant  :
+                      TRAITS_TAB.filter === 'general' ? curGroups.general :
+                      curAll;
 
   const hasNation   = !!(charNation && curGroups.nation.length);
   const hasMutant   = !!(isMutant   && curGroups.mutant.length);
@@ -2645,8 +2700,8 @@ function renderStepTraits() {
   </div>` : ''}
 
   <div class="space-y-2">
-    ${displayList.length || showDesespoir
-      ? displayList.map(renderCard).join('') + (showDesespoir ? renderDesespoirCard() : '')
+    ${displayList.length
+      ? displayList.map(renderCard).join('')
       : '<p class="text-gray-600 text-xs py-4 text-center">Aucun trait disponible dans cette catégorie.</p>'}
   </div>`;
 }
@@ -3880,18 +3935,27 @@ async function saveCharacter() {
   const tresorBonus   = DRAFT.qualites_ids.includes('qualite-tresor') ? (niveauxC['qualite-tresor'] || 0) * 250 : 0;
   const startingCredits = archCredits + richeBonus + tresorBonus;
 
+  // Expand : canonical IDs → IDs spécifiques DB avant envoi
+  const { qualiteIds: expQ, defautIds: expD, niveaux: expNiv } = expandGroupedTraits(
+    DRAFT.qualites_ids || [], DRAFT.defauts_ids || [], DRAFT.traits_niveaux || {}
+  );
+
   const payload = {
     type: DRAFT.type,
     name: DRAFT.nom_personnage,
     data: {
       ...DRAFT,
+      qualites_ids: expQ,
+      defauts_ids:  expD,
+      traits_niveaux: expNiv,
       // Panache et Gloire initiaux selon le niveau PNJ (modifiables par traits)
       ...((() => {
         const PNJ_BASE_PANACHE = { normal: 0, elite: 3, heros: 5, boss: 5, big_boss: 5 };
         const PNJ_BASE_GLOIRE  = { normal: 0, elite: 1, heros: 3, boss: 3, big_boss: 3 };
         const heroiqueNiv = DRAFT.qualites_ids.includes('qualite-heroïque') ? (DRAFT.traits_niveaux?.['qualite-heroïque'] || 0) : 0;
-        const hasDesesp3 = DRAFT.defauts_ids.includes('defaut-desespoir-3');
-        const hasDesesp5 = DRAFT.defauts_ids.includes('defaut-desespoir-5');
+        const desespNiv = DRAFT.defauts_ids.includes('defaut-desespoir') ? (DRAFT.traits_niveaux?.['defaut-desespoir'] || 0) : 0;
+        const hasDesesp3 = desespNiv === 3;
+        const hasDesesp5 = desespNiv === 5;
         const basePanache = DRAFT.type === 'pnj' ? (PNJ_BASE_PANACHE[DRAFT.pnj_niveau] ?? 3) : 3;
         const baseGloire  = DRAFT.type === 'pnj' ? (PNJ_BASE_GLOIRE[DRAFT.pnj_niveau] ?? 0) : 0;
         const finalPanache = hasDesesp5 ? 0 : Math.max(0, basePanache + heroiqueNiv - (hasDesesp3 ? 2 : 0));
