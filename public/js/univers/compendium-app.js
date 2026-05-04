@@ -465,8 +465,8 @@ function renderPjTab(panel) {
 
 function _pnjNature(d) {
   if (d.pnj_nature) return d.pnj_nature;
-  if (d.pnj_is_named) return 'second_role';
-  return 'figurant';
+  if (!d.pnj_is_named) return 'figurant';
+  return ['heros', 'boss', 'big_boss'].includes(d.pnj_niveau) ? 'premier_role' : 'second_role';
 }
 
 function renderNamedNpcs(panel, npcs) {
