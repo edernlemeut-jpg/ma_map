@@ -206,6 +206,12 @@ function postProcessREF() {
     const individuals = grp.levels.map(lv => list.find(t => t.id === `${grp.base}-${lv}`)).filter(Boolean);
     if (!individuals.length) continue;
     const synthetic = { ...individuals[0], id: grp.base, name: individuals[0].name.replace(/\s*\d+$/, '').trim() };
+    // Stocker description + effets par niveau pour l'affichage dans renderCard
+    synthetic._levels_data = {};
+    for (const ind of individuals) {
+      const lv = parseInt(ind.id.match(/-(\d+)$/)?.[1]);
+      if (lv) synthetic._levels_data[lv] = { description: ind.description || '', effects: ind.effects || '' };
+    }
     const firstIdx = list.findIndex(t => t.id === individuals[0].id);
     list.splice(firstIdx, 1, synthetic);
     for (let i = 1; i < individuals.length; i++) {
@@ -2630,8 +2636,20 @@ function renderStepTraits() {
           </select>
         </div>
       </div>
-      ${t.description ? `<p class="text-xs text-gray-500">${esc(t.description)}</p>` : ''}
-      ${t.effects     ? `<p class="text-xs text-gray-400 mt-0.5"><span class="text-gray-500">Effet : </span>${esc(t.effects)}</p>` : ''}
+      ${(() => {
+        if (t._levels_data) {
+          if (chosen && t._levels_data[chosen]) {
+            const d = t._levels_data[chosen];
+            return (d.description ? `<p class="text-xs text-gray-500">${esc(d.description)}</p>` : '')
+                 + (d.effects     ? `<p class="text-xs text-gray-400 mt-0.5"><span class="text-gray-500">Effet : </span>${esc(d.effects)}</p>` : '');
+          }
+          return Object.entries(t._levels_data)
+            .map(([lv, d]) => `<p class="text-xs text-gray-400 mt-0.5"><span class="text-gray-500">Niv ${lv} : </span>${esc(d.effects || d.description || '')}</p>`)
+            .join('');
+        }
+        return (t.description ? `<p class="text-xs text-gray-500">${esc(t.description)}</p>` : '')
+             + (t.effects     ? `<p class="text-xs text-gray-400 mt-0.5"><span class="text-gray-500">Effet : </span>${esc(t.effects)}</p>` : '');
+      })()}
     </div>`;
     }
     const sel = isDefaut ? DRAFT.defauts_ids.includes(t.id) : DRAFT.qualites_ids.includes(t.id);
