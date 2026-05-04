@@ -29,6 +29,7 @@ let state = {
   modelsSort: { col: 'nom', dir: 'asc' },
   activeShipId: null,
   perilEditorOpen: null,
+  pnjNatureTab: 'premier_role',
 };
 
 let poller = null;
@@ -462,30 +463,39 @@ function renderPjTab(panel) {
   }
 }
 
+function _pnjNature(d) {
+  if (d.pnj_nature) return d.pnj_nature;
+  if (d.pnj_is_named) return 'second_role';
+  return 'figurant';
+}
+
 function renderNamedNpcs(panel, npcs) {
   const isMJUser = state.isMJ || state.isAdmin;
-  const pnjs = (state.characters || []).filter(c => c.type === 'pnj');
-  const hasNamedNpcs = Array.isArray(npcs) && npcs.length > 0;
+  const allPnjs = (state.characters || []).filter(c => c.type === 'pnj');
 
-  let headerHtml = `
-    <div class="mb-5 flex items-center justify-between flex-wrap gap-2">
-      <h3 class="text-base font-semibold text-gray-200">🎭 Personnages Non-Joueurs</h3>
-      ${isMJUser ? `<a href="/personnage.html?new=pnj" class="px-3 py-1.5 bg-purple-700 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors">＋ Nouveau PNJ</a>` : ''}
-    </div>`;
+  const PNJ_TABS = [
+    { key: 'premier_role', label: '🎭 Premiers Rôles' },
+    { key: 'second_role',  label: '🧑 Seconds Rôles' },
+    { key: 'figurant',     label: '👥 Figurants' },
+  ];
 
-  if (!pnjs.length && !hasNamedNpcs) {
-    panel.innerHTML = headerHtml + `
-      <div class="text-center py-12 px-4">
-        <p class="text-2xl mb-3">🎭</p>
-        <p class="text-gray-400 italic max-w-md mx-auto">Aucun PNJ disponible dans cet univers…</p>
-      </div>`;
-    return;
-  }
+  const countFor = key => allPnjs.filter(c => _pnjNature(c.data || {}) === key).length;
 
-  // Full PNJ fiches from characters API
+  const tabBtns = PNJ_TABS.map(t => {
+    const active = state.pnjNatureTab === t.key;
+    return `<button data-pnj-tab="${t.key}"
+      class="flex-1 px-2 py-2 text-xs font-medium rounded-t transition-colors border-b-2 flex items-center justify-center gap-1
+        ${active ? 'text-white border-purple-400 bg-gray-700/60' : 'text-gray-400 border-transparent hover:text-gray-200 hover:bg-gray-800'}">
+      ${t.label}
+      <span class="text-xs px-1.5 py-0.5 rounded-full ${active ? 'bg-purple-500/20 text-purple-300' : 'bg-gray-700 text-gray-500'}">${countFor(t.key)}</span>
+    </button>`;
+  }).join('');
+
+  const pnjs = allPnjs.filter(c => _pnjNature(c.data || {}) === state.pnjNatureTab);
+
   let pnjCards = '';
   if (pnjs.length) {
-    pnjCards = '<div class="space-y-2 mb-6">' + pnjs.map(c => {
+    pnjCards = '<div class="space-y-2">' + pnjs.map(c => {
       const d = c.data || {};
       const name = d.nom_personnage || c.name;
       const arch = d.action_archetype || '';
@@ -507,13 +517,33 @@ function renderNamedNpcs(panel, npcs) {
         </div>
       </div>`;
     }).join('') + '</div>';
+  } else {
+    pnjCards = `<p class="text-gray-600 text-xs py-4 text-center">Aucun PNJ dans cette catégorie.</p>`;
   }
 
-  if (!hasNamedNpcs) {
-    panel.innerHTML = headerHtml + pnjCards;
-    _wireCharButtons(panel, isMJUser, () => renderNamedNpcs(panel, npcs));
-    return;
-  }
+  panel.innerHTML = `
+    <div class="mb-4 flex items-center justify-between flex-wrap gap-2">
+      <h3 class="text-base font-semibold text-gray-200">🎭 Personnages Non-Joueurs</h3>
+      ${isMJUser ? `<a href="/personnage.html?new=pnj" class="px-3 py-1.5 bg-purple-700 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors">＋ Nouveau PNJ</a>` : ''}
+    </div>
+    <div class="flex gap-0 border-b border-gray-700 mb-3">${tabBtns}</div>
+    <div id="pnj-tab-content">${pnjCards}</div>`;
+
+  panel.querySelectorAll('[data-pnj-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.pnjNatureTab = btn.dataset.pnjTab;
+      renderNamedNpcs(panel, npcs);
+    });
+  });
+
+  _wireCharButtons(panel, isMJUser, () => renderNamedNpcs(panel, npcs));
+
+  // Legacy named_npcs section suppressed — données déjà dans state.characters
+  return;
+
+  /* legacy block kept for reference, never reached */
+  const hasNamedNpcs = Array.isArray(npcs) && npcs.length > 0;
+  if (!hasNamedNpcs) return;
 
   // Legacy named_npcs grid
   const cards = npcs.map(npc => {
