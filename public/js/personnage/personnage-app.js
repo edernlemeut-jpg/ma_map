@@ -317,7 +317,7 @@ let DRAFT = newState();
 let CURRENT_STEP = 0;
 let EDITING_ID = null;   // si on édite un personnage existant
 let TRAITS_TAB    = { section: 'd', filter: 'all' }; // UI-only : onglets de l'étape Traits
-let LIST_TAB      = 'joueurs';   // UI-only : onglet actif de la liste MJ ('joueurs' | 'mj')
+let LIST_TAB      = 'joueurs';   // UI-only : onglet actif de la liste MJ ('joueurs' | 'premier_role' | 'second_role' | 'figurant')
 let CHARS_CACHE   = [];          // dernier fetch de la liste (pour changer d'onglet sans re-fetch)
 let MUTATION_TAB  = 'basique';               // UI-only : onglet actif de l'étape Mutations
 let SHEET_TAB     = 'caracteristiques';      // UI-only : onglet actif de la fiche
@@ -444,14 +444,17 @@ function renderCharList(chars) {
   }
 
   // MJ : onglets séparés
-  const pjsJoueurs = chars.filter(c => c.type === 'pj'  && c.created_by !== USER_ID);
-  const mesCreas   = chars.filter(c => c.created_by === USER_ID || c.type === 'pnj');
-  // Dédupliquer (PNJ créé par le MJ compte une seule fois)
-  const mesCreaUniq = [...new Map(mesCreas.map(c => [c.id, c])).values()];
+  const allPjs        = chars.filter(c => c.type === 'pj');
+  const allPnjs       = chars.filter(c => c.type === 'pnj');
+  const premiersRoles = allPnjs.filter(c => pnjNature(c.data || {}) === 'premier_role');
+  const secondsRoles  = allPnjs.filter(c => pnjNature(c.data || {}) === 'second_role');
+  const figurants     = allPnjs.filter(c => pnjNature(c.data || {}) === 'figurant');
+  // compat rétro : si LIST_TAB vaut 'mj', basculer vers premier_role
+  if (LIST_TAB === 'mj') LIST_TAB = 'premier_role';
 
   const tabBtn = (key, label, count) => `
     <button data-list-tab="${key}"
-      class="flex-1 px-3 py-2 text-xs font-medium rounded-t transition-colors border-b-2 flex items-center justify-center gap-2
+      class="flex-1 px-2 py-2 text-xs font-medium rounded-t transition-colors border-b-2 flex items-center justify-center gap-1
         ${LIST_TAB === key
           ? 'text-white border-yellow-400 bg-gray-700/60'
           : 'text-gray-400 border-transparent hover:text-gray-200 hover:bg-gray-800'}">
@@ -462,8 +465,10 @@ function renderCharList(chars) {
 
   container.insertAdjacentHTML('beforeend', `
     <div class="flex gap-0 border-b border-gray-700 mb-3">
-      ${tabBtn('joueurs', '🧑‍🤝‍🧑 PJs des joueurs', pjsJoueurs.length)}
-      ${tabBtn('mj',      '🎲 Mes créations',        mesCreaUniq.length)}
+      ${tabBtn('joueurs',      '🧑 PJs',         allPjs.length)}
+      ${tabBtn('premier_role', '🎭 Premiers',    premiersRoles.length)}
+      ${tabBtn('second_role',  '🧑 Seconds',     secondsRoles.length)}
+      ${tabBtn('figurant',     '👥 Figurants',   figurants.length)}
     </div>
     <div id="list-tab-content" class="space-y-2"></div>
   `);
@@ -471,7 +476,10 @@ function renderCharList(chars) {
   const content = container.querySelector('#list-tab-content');
   const renderTab = async () => {
     content.innerHTML = '';
-    const list = LIST_TAB === 'joueurs' ? pjsJoueurs : mesCreaUniq;
+    const list = LIST_TAB === 'joueurs'      ? allPjs
+               : LIST_TAB === 'premier_role' ? premiersRoles
+               : LIST_TAB === 'second_role'  ? secondsRoles
+               :                               figurants;
 
     // Panneau MJ — expérience et récompenses (onglet Joueurs uniquement)
     if (LIST_TAB === 'joueurs') {
@@ -546,31 +554,7 @@ function renderCharList(chars) {
       content.appendChild(p);
       return;
     }
-    if (LIST_TAB === 'mj') {
-      const mjPjs  = mesCreaUniq.filter(c => c.type === 'pj');
-      const mjPnjs = mesCreaUniq.filter(c => c.type === 'pnj');
-      if (mjPjs.length) {
-        content.insertAdjacentHTML('beforeend', '<p class="text-xs text-gray-500 uppercase mb-2">PJs</p>');
-        mjPjs.forEach(c => content.appendChild(charCard(c)));
-      }
-      if (mjPnjs.length) {
-        const ORDER = ['premier_role', 'second_role', 'figurant'];
-        const SECTION_LABEL = {
-          premier_role: '🎭 Premiers Rôles',
-          second_role:  '🧑 Seconds Rôles',
-          figurant:     '👥 Figurants',
-        };
-        for (const nat of ORDER) {
-          const group = mjPnjs.filter(c => pnjNature(c.data || {}) === nat);
-          if (!group.length) continue;
-          content.insertAdjacentHTML('beforeend',
-            `<p class="text-xs text-gray-500 uppercase ${mjPjs.length || content.children.length ? 'mt-4 ' : ''}mb-2">${SECTION_LABEL[nat]}</p>`);
-          group.forEach(c => content.appendChild(charCard(c)));
-        }
-      }
-    } else {
-      list.forEach(c => content.appendChild(charCard(c)));
-    }
+    list.forEach(c => content.appendChild(charCard(c)));
   };
 
   renderTab();
