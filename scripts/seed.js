@@ -18,6 +18,7 @@ function seed() {
   seedGalacticEvents();
   seedShipModels();
   seedAdminSystems();
+  seedSecondarySystems();
 
   console.log('✅ Seed complete');
 }
@@ -177,6 +178,59 @@ function seedAdminSystems() {
       }
     }
     console.log(`  ✅ admin_systems: ${count} rows inserted`);
+  });
+
+  insertMany();
+}
+
+function seedSecondarySystems() {
+  const existing = db.prepare('SELECT COUNT(*) AS c FROM secondary_systems').get().c;
+  if (existing > 0) {
+    console.log(`  ⏭️  secondary_systems: ${existing} rows already exist — skipping`);
+    return;
+  }
+
+  let data;
+  try {
+    data = loadJSON('secondary_systems_data.json');
+  } catch {
+    console.log('  ⏭️  secondary_systems_data.json not found — skipping');
+    return;
+  }
+
+  const insert = db.prepare(`
+    INSERT OR IGNORE INTO secondary_systems
+      (id, nom, categorie, localisation, installation, disponibilite,
+       prix_10t, prix_100t, prix_1000t, prix_10000t, description, source_livre,
+       faction_id, stat_modifiers_json)
+    VALUES
+      (@id, @nom, @categorie, @localisation, @installation, @disponibilite,
+       @prix_10t, @prix_100t, @prix_1000t, @prix_10000t, @description, @source_livre,
+       @faction_id, @stat_modifiers_json)
+  `);
+
+  const insertMany = db.transaction(() => {
+    let count = 0;
+    for (const row of data) {
+      insert.run({
+        id:                 row.id,
+        nom:               row.nom,
+        categorie:         row.categorie ?? null,
+        localisation:      row.localisation ?? null,
+        installation:      row.installation ?? null,
+        disponibilite:     row.disponibilite ?? null,
+        prix_10t:          row.prix_10t ?? null,
+        prix_100t:         row.prix_100t ?? null,
+        prix_1000t:        row.prix_1000t ?? null,
+        prix_10000t:       row.prix_10000t ?? null,
+        description:       row.description ?? null,
+        source_livre:      row.source_livre ?? null,
+        faction_id:        row.faction_id ?? null,
+        stat_modifiers_json: row.stat_modifiers_json ?? '[]',
+      });
+      count++;
+    }
+    console.log(`  ✅ secondary_systems: ${count} rows inserted`);
   });
 
   insertMany();
