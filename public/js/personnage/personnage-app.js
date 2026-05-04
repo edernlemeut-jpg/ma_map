@@ -1922,9 +1922,9 @@ const STEPS_PJ = [
 
 // ── Steps PNJ ─────────────────────────────────────────────────────────────────
 const STEPS_PNJ = [
-  { label: 'Mutant ?',          render: renderStepMutant,         validate: () => true },
-  { label: 'Type de PNJ',       render: renderStepPNJType,        validate: validatePNJType },
   { label: 'Profil',            render: renderStepPNJProfil,      validate: validatePNJProfil },
+  { label: 'Type de PNJ',       render: renderStepPNJType,        validate: validatePNJType },
+  { label: 'Mutant ?',          render: renderStepMutant,         validate: () => true },
   { label: 'Origine',           render: renderStepOrigine,        validate: () => true },
   { label: 'Attributs',         render: renderStepPNJAttributs,   validate: validatePNJAttributs },
   { label: 'Compétences',       render: renderStepPNJCompetences, validate: () => true },
