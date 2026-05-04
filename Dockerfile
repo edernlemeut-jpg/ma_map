@@ -30,6 +30,7 @@ COPY perils_data.json ./
 COPY quadrants_MA.json ./
 COPY characters_data.json ./
 COPY secondary_systems_data.json ./
+COPY systems_data.json ./
 
 # Répertoire de la base SQLite (monté comme volume à l'exécution)
 RUN mkdir -p /app/db

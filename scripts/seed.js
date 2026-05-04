@@ -19,6 +19,7 @@ function seed() {
   seedShipModels();
   seedAdminSystems();
   seedSecondarySystems();
+  upsertSystems();
 
   console.log('✅ Seed complete');
 }
@@ -234,6 +235,67 @@ function seedSecondarySystems() {
   });
 
   insertMany();
+}
+
+function upsertSystems() {
+  let data;
+  try {
+    data = loadJSON('systems_data.json');
+  } catch {
+    console.log('  ⏭️  systems_data.json not found — skipping upsert');
+    return;
+  }
+
+  const upsert = db.prepare(`
+    INSERT INTO systems
+      (id, quadrant, nom, faction, is_frontiere, route, gouvernement, description,
+       soleil_json, corps_celestes_json, patrouilles_json, texte_ambiance, peril_list_id)
+    VALUES
+      (@id, @quadrant, @nom, @faction, @is_frontiere, @route, @gouvernement, @description,
+       @soleil_json, @corps_celestes_json, @patrouilles_json, @texte_ambiance, @peril_list_id)
+    ON CONFLICT(id) DO UPDATE SET
+      quadrant         = excluded.quadrant,
+      nom              = excluded.nom,
+      faction          = excluded.faction,
+      is_frontiere     = excluded.is_frontiere,
+      route            = excluded.route,
+      gouvernement     = excluded.gouvernement,
+      description      = excluded.description,
+      soleil_json      = excluded.soleil_json,
+      corps_celestes_json = excluded.corps_celestes_json,
+      patrouilles_json = excluded.patrouilles_json,
+      texte_ambiance   = excluded.texte_ambiance,
+      peril_list_id    = excluded.peril_list_id
+  `);
+
+  const run = db.transaction(() => {
+    let inserted = 0, updated = 0;
+    const existing = new Set(
+      db.prepare('SELECT id FROM systems').all().map(r => r.id)
+    );
+    for (const row of data) {
+      const wasNew = !existing.has(row.id);
+      upsert.run({
+        id:                  row.id,
+        quadrant:            row.quadrant ?? '',
+        nom:                 row.nom ?? '',
+        faction:             row.faction ?? '',
+        is_frontiere:        row.is_frontiere ?? 0,
+        route:               row.route ?? '',
+        gouvernement:        row.gouvernement ?? '',
+        description:         row.description ?? '',
+        soleil_json:         row.soleil_json ?? '{}',
+        corps_celestes_json: row.corps_celestes_json ?? '[]',
+        patrouilles_json:    row.patrouilles_json ?? '[]',
+        texte_ambiance:      row.texte_ambiance ?? null,
+        peril_list_id:       row.peril_list_id ?? '',
+      });
+      if (wasNew) inserted++; else updated++;
+    }
+    console.log(`  ✅ systems upsert: ${inserted} inserts, ${updated} updates`);
+  });
+
+  run();
 }
 
 seed();
