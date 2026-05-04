@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chasses au Trésor (TdM) — Metal Adventures</title>
+  <link rel="stylesheet" href="/css/tailwind.css?v=2.0.0">
+  <link rel="stylesheet" href="/css/ma-theme.css">
+  <style>
+    .tab-btn {
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+      color: #9ca3af;
+    }
+    .tab-btn.active {
+      color: #c8a464;
+      border-bottom-color: #c8a464;
+    }
+    .tab-btn:hover:not(.active) { color: #d1d5db; }
+
+    .btn-primary {
+      background: #92400e;
+      color: #fef3c7;
+      font-weight: 500;
+    }
+    .btn-primary:hover { background: #b45309; }
+
+    .mf-pool-bar-fill {
+      transition: width 0.3s ease;
+    }
+
+    /* Scrollbar fine */
+    #chasse-list::-webkit-scrollbar { width: 4px; }
+    #chasse-list::-webkit-scrollbar-track { background: transparent; }
+    #chasse-list::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 2px; }
+
+    #right-panel::-webkit-scrollbar { width: 4px; }
+    #right-panel::-webkit-scrollbar-track { background: transparent; }
+    #right-panel::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 2px; }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+
+  <!-- Header commun -->
+  <header class="border-b border-gray-700 bg-gray-800 flex-shrink-0">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/index.html" class="text-gray-400 hover:text-gray-200 text-sm">← Accueil</a>
+        <span class="text-gray-600">|</span>
+        <h1 class="font-bold text-amber-300">🗺️ Chasses au Trésor</h1>
+        <span class="text-xs text-gray-500">— Supplément TdM</span>
+      </div>
+      <nav class="flex items-center gap-4 text-sm">
+        <span id="header-table-info" class="hidden flex items-center gap-2 text-gray-300 border-r border-gray-600 pr-4 mr-2">
+          <span id="header-table-name" class="font-medium"></span>
+          <span id="header-table-role" class="text-xs"></span>
+          <a href="#" id="header-change-table" class="text-blue-400 hover:text-blue-300 text-xs ml-1" title="Changer de table">✕</a>
+        </span>
+        <span id="auth-user-info" class="hidden flex items-center gap-3">
+          <span id="auth-user-name" class="text-gray-300"></span>
+          <a href="#" id="auth-logout-btn" class="text-red-400 hover:text-red-300 hover:underline">Déconnexion</a>
+        </span>
+        <a href="/login.html" id="auth-login-link" class="text-blue-400 hover:underline">Connexion</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Contenu principal : layout 2 colonnes -->
+  <main class="flex-1 flex overflow-hidden" style="height: calc(100vh - 57px);">
+
+    <!-- Colonne gauche : liste des chasses -->
+    <aside class="w-72 flex-shrink-0 border-r border-gray-700 flex flex-col bg-gray-850">
+      <div class="p-4 border-b border-gray-700 flex items-center justify-between">
+        <h2 class="font-semibold text-sm text-gray-200">Mes chasses</h2>
+        <button id="btn-new-chasse" class="text-xs px-3 py-1.5 rounded btn-primary">+ Nouvelle</button>
+      </div>
+      <div id="chasse-list" class="flex-1 overflow-y-auto p-3 space-y-2">
+        <p class="text-gray-500 text-sm text-center py-8">Chargement…</p>
+      </div>
+    </aside>
+
+    <!-- Colonne droite : détail / panneau vide -->
+    <section id="right-panel" class="flex-1 overflow-y-auto p-6">
+      <div class="flex flex-col items-center justify-center h-full text-gray-500 gap-4 py-20">
+        <span class="text-5xl">🗺️</span>
+        <p class="text-center">Sélectionnez une chasse dans la liste<br>ou créez-en une nouvelle.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       MODAL — Nouvelle chasse / Édition
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <div id="new-chasse-modal" class="fixed inset-0 bg-black/70 z-40 hidden flex items-center justify-center p-4">
+    <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg border border-gray-600">
+
+      <div class="p-5 border-b border-gray-700 flex items-center justify-between">
+        <h2 class="font-semibold text-lg">Nouvelle chasse au trésor</h2>
+        <button onclick="closeNewModal()" class="text-gray-400 hover:text-white text-xl leading-none">×</button>
+      </div>
+
+      <div class="p-5 space-y-4">
+
+        <!-- Nom -->
+        <div>
+          <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Nom de la chasse *</label>
+          <input id="modal-nom" type="text" maxlength="120"
+            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+            placeholder="Ex : La carte du capitaine Ibañez">
+        </div>
+
+        <!-- Difficulté + Séances -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Difficulté</label>
+            <input id="modal-difficulte" type="number" min="1" max="10"
+              class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+              placeholder="1–10">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Nb séances prévues</label>
+            <input id="modal-seances" type="number" min="1"
+              class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+              placeholder="Ex : 3">
+          </div>
+        </div>
+
+        <!-- Statut -->
+        <div>
+          <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Statut</label>
+          <select id="modal-statut"
+            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-500">
+            <option value="en_cours">En cours</option>
+            <option value="terminee">Terminée</option>
+            <option value="abandonnee">Abandonnée</option>
+          </select>
+        </div>
+
+        <!-- Notes -->
+        <div>
+          <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Notes MJ</label>
+          <textarea id="modal-notes" rows="2"
+            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-500 resize-none"
+            placeholder="Intrigues, PNJs, étapes clés…"></textarea>
+        </div>
+
+        <!-- Aperçu génération -->
+        <div class="bg-gray-750 border border-gray-600 rounded-lg p-3">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs font-semibold text-amber-300 uppercase tracking-wide">Contenu généré aléatoirement</p>
+            <button onclick="rerollModal()" class="text-xs px-2 py-0.5 rounded bg-gray-600 hover:bg-gray-500 text-gray-200">🎲 Re-tirer</button>
+          </div>
+          <pre id="modal-generate-preview" class="text-xs text-gray-300 whitespace-pre-wrap font-mono leading-relaxed"></pre>
+        </div>
+
+        <!-- Cache données générées -->
+        <div id="modal-gen-cache" class="hidden" data-gen="{}"></div>
+
+      </div>
+
+      <div class="p-5 border-t border-gray-700 flex justify-end gap-3">
+        <button onclick="closeNewModal()" class="px-4 py-2 text-sm rounded bg-gray-700 hover:bg-gray-600 text-gray-200">Annuler</button>
+        <button id="btn-save-chasse" onclick="saveNewChasse()"
+          class="px-4 py-2 text-sm rounded btn-primary font-medium">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast erreurs -->
+  <div id="toast" class="hidden"></div>
+
+  <script type="module" src="/js/tresors-app.js"></script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dépenses Metal Faktor — Metal Adventures</title>
+  <link rel="stylesheet" href="/css/tailwind.css?v=2.0.0">
+  <link rel="stylesheet" href="/css/ma-theme.css">
+  <style>
+    .mf-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid #374151;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      transition: border-color 0.15s;
+    }
+    .mf-card.available {
+      border-color: #1e3a2e;
+    }
+    .mf-card.available:hover {
+      border-color: #34d399;
+      background: rgba(52,211,153,0.04);
+    }
+    .mf-card.unavailable {
+      opacity: 0.5;
+    }
+    .mf-cost {
+      font-family: 'Courier New', monospace;
+      font-size: 1rem;
+      font-weight: bold;
+    }
+    .mf-cost.affordable { color: #34d399; }
+    .mf-cost.unaffordable { color: #6b7280; }
+    .mf-category-badge {
+      font-size: 0.65rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .tab-btn {
+      padding: 0.5rem 1.25rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+      color: #9ca3af;
+    }
+    .tab-btn.active {
+      color: #c8a464;
+      border-bottom-color: #c8a464;
+    }
+    .tab-btn:hover:not(.active) { color: #d1d5db; }
+    .mf-pool-bar-fill {
+      transition: width 0.3s ease;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="border-b border-gray-700 bg-gray-800">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="text-xl font-bold">⚙️ Metal Adventures</h1>
+      <nav class="flex items-center gap-4 text-sm">
+        <span id="header-table-info" class="hidden flex items-center gap-2 text-gray-300 border-r border-gray-600 pr-4 mr-2">
+          <span id="header-table-name" class="font-medium"></span>
+          <span id="header-table-role" class="text-xs"></span>
+          <a href="#" id="header-change-table" class="text-blue-400 hover:text-blue-300 text-xs ml-1" title="Changer de table">✕</a>
+        </span>
+        <span id="auth-user-info" class="hidden flex items-center gap-3">
+          <span id="auth-user-name" class="text-gray-300"></span>
+          <a href="#" id="auth-logout-btn" class="text-red-400 hover:text-red-300 hover:underline">Déconnexion</a>
+        </span>
+        <a href="/login.html" id="auth-login-link" class="text-blue-400 hover:underline">Connexion</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="flex-1 max-w-5xl mx-auto w-full px-4 py-6">
+
+    <!-- Access denied (non-MJ) -->
+    <div id="access-denied" class="hidden text-center py-20">
+      <p class="text-4xl mb-4">🔒</p>
+      <p class="text-gray-400 text-lg">Cette page est réservée au Meneur de Jeu.</p>
+      <a href="/index.html" class="mt-4 inline-block text-blue-400 hover:underline">← Retour au tableau de bord</a>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="text-center py-20 text-gray-400">Chargement…</div>
+
+    <!-- Main content (MJ only) -->
+    <div id="app" class="hidden">
+
+      <!-- Page title -->
+      <div class="mb-6">
+        <h2 class="text-2xl font-bold mb-1" style="color:var(--gold)">Dépenses Metal Faktor</h2>
+        <p class="text-sm text-gray-400">Retours de flamme et dommages collatéraux disponibles selon votre réserve MF.</p>
+      </div>
+
+      <!-- MF Pool status bar -->
+      <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-6">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-semibold text-gray-300">Réserve MJ</span>
+          <span class="text-sm text-gray-400">
+            <span id="mj-pool-value" class="text-white font-bold text-lg">0</span>
+            <span class="text-gray-500"> / 50 dés MF</span>
+          </span>
+        </div>
+        <div class="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+          <div id="mf-pool-bar" class="mf-pool-bar-fill h-3 rounded-full bg-green-600" style="width:0%"></div>
+        </div>
+        <div class="flex justify-between text-xs text-gray-500 mt-1">
+          <span>0</span>
+          <span id="mf-tension-label" class="font-medium"></span>
+          <span>50</span>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="flex items-center gap-3 mb-4 flex-wrap">
+        <div class="flex gap-1 bg-gray-800 border border-gray-700 rounded-lg p-1">
+          <button class="tab-btn active" data-tab="available">Disponibles <span id="count-available" class="ml-1 text-xs bg-green-800 text-green-200 rounded-full px-1.5"></span></button>
+          <button class="tab-btn" data-tab="unavailable">Non disponibles <span id="count-unavailable" class="ml-1 text-xs bg-gray-700 text-gray-400 rounded-full px-1.5"></span></button>
+        </div>
+        <div class="flex gap-1 flex-wrap ml-auto">
+          <select id="filter-category" class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300">
+            <option value="">Toutes catégories</option>
+            <option value="retour">Retour de flamme</option>
+            <option value="combat">Combat pirate</option>
+            <option value="voyage">Voyage planétaire</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Cards grid -->
+      <div id="cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+    </div>
+  </main>
+
+  <script type="module" src="/js/mf-faktor-app.js"></script>
+
+  <!-- Modal dépense MF -->
+  <div id="spend-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+    <div class="bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl">
+
+      <!-- Header -->
+      <div class="flex items-start justify-between mb-1">
+        <h3 id="modal-title" class="font-bold text-white text-base leading-snug pr-4"></h3>
+        <button id="modal-cancel-btn" class="text-gray-500 hover:text-gray-300 text-xl leading-none shrink-0">✕</button>
+      </div>
+      <p id="modal-page" class="text-xs text-gray-600 mb-4"></p>
+
+      <!-- Dynamic body (variable cost + source choice) -->
+      <div id="modal-body" class="mb-3"></div>
+
+      <!-- Summary -->
+      <div id="modal-summary" class="text-sm mb-3 min-h-[1.25rem]"></div>
+
+      <!-- Error -->
+      <p id="modal-error" class="hidden text-red-400 text-sm mb-3"></p>
+
+      <!-- Actions -->
+      <div class="flex gap-3 mt-4">
+        <button id="modal-cancel-btn-bottom"
+          class="flex-1 py-2 text-sm rounded border border-gray-600 text-gray-400 hover:text-gray-200 hover:border-gray-400 transition-colors">
+          Annuler
+        </button>
+        <button id="modal-confirm-btn"
+          class="flex-1 py-2 text-sm rounded bg-yellow-700 hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium transition-colors">
+          <span id="modal-confirm-label">Confirmer</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>
