@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const SCHEMA_VERSION = 12;
+const SCHEMA_VERSION = 13;
 
 function migrate() {
   const currentVersion = db.pragma('user_version', { simple: true });
@@ -31,6 +31,7 @@ function migrate() {
   if (currentVersion < 10) migrateV10();
   if (currentVersion < 11) migrateV11();
   if (currentVersion < 12) migrateV12();
+  if (currentVersion < 13) migrateV13();
 
   db.pragma(`user_version = ${SCHEMA_VERSION}`);
   console.log(`✅ Migrated to schema version ${SCHEMA_VERSION}`);
@@ -520,6 +521,39 @@ function migrateV12() {
     db.exec("ALTER TABLE ship_models ADD COLUMN longueur TEXT DEFAULT ''");
   }
   console.log('✅ v12: ships.equipage_detail_json, systemes_secondaires_etat_json, armement_etat_json');
+}
+
+function migrateV13() {
+  console.log('🔧 Applying migration v13...');
+  // Create secondary_systems table (was created via manual migration script outside git)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS secondary_systems (
+      id              TEXT PRIMARY KEY,
+      nom             TEXT NOT NULL,
+      categorie       TEXT,
+      localisation    TEXT,
+      installation    INTEGER,
+      disponibilite   TEXT,
+      prix_10t        REAL,
+      prix_100t       REAL,
+      prix_1000t      REAL,
+      prix_10000t     REAL,
+      description     TEXT,
+      source_livre    TEXT,
+      faction_id      INTEGER REFERENCES factions(id) ON DELETE SET NULL,
+      stat_modifiers_json TEXT DEFAULT NULL,
+      created_at      TEXT DEFAULT (datetime('now'))
+    );
+  `);
+  // Add columns that may be missing if table already existed
+  const cols = db.prepare('PRAGMA table_info(secondary_systems)').all().map(c => c.name);
+  if (!cols.includes('faction_id')) {
+    db.exec('ALTER TABLE secondary_systems ADD COLUMN faction_id INTEGER REFERENCES factions(id) ON DELETE SET NULL');
+  }
+  if (!cols.includes('stat_modifiers_json')) {
+    db.exec('ALTER TABLE secondary_systems ADD COLUMN stat_modifiers_json TEXT DEFAULT NULL');
+  }
+  console.log('✅ v13: secondary_systems table ensured');
 }
 
 migrate();
