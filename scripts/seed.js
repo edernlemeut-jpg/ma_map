@@ -246,16 +246,16 @@ function upsertSystems() {
     return;
   }
 
+  // Upsert based on (quadrant, nom) — the actual UNIQUE constraint.
+  // We do NOT force the id (AUTOINCREMENT on prod may differ from local ids).
   const upsert = db.prepare(`
     INSERT INTO systems
-      (id, quadrant, nom, faction, is_frontiere, route, gouvernement, description,
+      (quadrant, nom, faction, is_frontiere, route, gouvernement, description,
        soleil_json, corps_celestes_json, patrouilles_json, texte_ambiance, peril_list_id)
     VALUES
-      (@id, @quadrant, @nom, @faction, @is_frontiere, @route, @gouvernement, @description,
+      (@quadrant, @nom, @faction, @is_frontiere, @route, @gouvernement, @description,
        @soleil_json, @corps_celestes_json, @patrouilles_json, @texte_ambiance, @peril_list_id)
-    ON CONFLICT(id) DO UPDATE SET
-      quadrant         = excluded.quadrant,
-      nom              = excluded.nom,
+    ON CONFLICT(quadrant, nom) DO UPDATE SET
       faction          = excluded.faction,
       is_frontiere     = excluded.is_frontiere,
       route            = excluded.route,
@@ -271,12 +271,12 @@ function upsertSystems() {
   const run = db.transaction(() => {
     let inserted = 0, updated = 0;
     const existing = new Set(
-      db.prepare('SELECT id FROM systems').all().map(r => r.id)
+      db.prepare('SELECT quadrant || "||" || nom AS key FROM systems').all().map(r => r.key)
     );
     for (const row of data) {
-      const wasNew = !existing.has(row.id);
+      const key = (row.quadrant ?? '') + '||' + (row.nom ?? '');
+      const wasNew = !existing.has(key);
       upsert.run({
-        id:                  row.id,
         quadrant:            row.quadrant ?? '',
         nom:                 row.nom ?? '',
         faction:             row.faction ?? '',
