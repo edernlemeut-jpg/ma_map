@@ -933,7 +933,7 @@ function renderSheet(char) {
     case 'inventaire':  content = renderSheetTabInventaire(d, editable); break;
     case 'experience':  content = renderSheetTabExperience(char, d, finalAttrs, domPriv); break;
     case 'sorcellerie': content = renderSheetTabSorcellerie(char, d, competences); break;
-    default:            content = renderSheetTabCaracteristiques(d, finalAttrs, attrBonus, attrs, sante, energieX, arch, domPriv);
+    default:            content = renderSheetTabCaracteristiques(d, finalAttrs, attrBonus, attrs, sante, energieX, arch, domPriv, editable);
   }
 
   const avatarHtml = d.avatar_url
@@ -1433,7 +1433,7 @@ function renderReputationBlock(d, editable) {
   </div>`;
 }
 
-function renderSheetTabCaracteristiques(d, finalAttrs, attrBonus, attrs, sante, energieX, arch, domPriv) {
+function renderSheetTabCaracteristiques(d, finalAttrs, attrBonus, attrs, sante, energieX, arch, domPriv, editable = false) {
   const isMutant = d.is_mutant;
   return `
   <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
