@@ -3424,8 +3424,15 @@ function renderStepPNJCompetences() {
 
   const byDomain = {};
   domaines.forEach(d => { byDomain[d.id] = []; });
-  // Exclude "(Au choix)" base skills — must be entered as typed instances
+  // Exclude "(Au choix)" base skills — handled separately below
   competences.filter(c => !/\(au choix/i.test(c.name)).forEach(c => { if (byDomain[c.domain]) byDomain[c.domain].push(c); });
+
+  // Build map: domain → list of "(Au choix)" base names (excluding Sorcellerie handled separately)
+  const auChoixByDomain = {};
+  domaines.forEach(d => { auChoixByDomain[d.id] = []; });
+  competences.filter(c => /\(au choix/i.test(c.name) && !/^sorcellerie/i.test(c.name)).forEach(c => {
+    if (auChoixByDomain[c.domain]) auChoixByDomain[c.domain].push(c.name.split('(')[0].trim());
+  });
 
   return `
   <div class="flex items-center justify-between mb-2">
@@ -3500,6 +3507,42 @@ function renderStepPNJCompetences() {
         }
       }
 
+      // Bloc "(Au choix)" — Artisanat, Arts, Connaissance, Environnement, Langue, Pilotage…
+      const acBases = auChoixByDomain[dom.id] || [];
+      const auChoixBlock = acBases.map(base => {
+        // Instances déjà saisies pour cette base
+        const instances = Object.entries(DRAFT.competences_pnj)
+          .filter(([k]) => k.toLowerCase().startsWith(base.toLowerCase() + ' ('));
+        const instanceRows = instances.map(([sk, val]) => `
+          <div class="flex items-center gap-2 py-0.5 border-b border-gray-700/50">
+            <span class="flex-1 text-xs text-gray-300 truncate">${esc(sk)}</span>
+            <select data-pnj-sk="${esc(sk)}" class="sk-pnj-libre bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-xs w-14 shrink-0">
+              <option value="0">—</option>
+              ${poolUniq.map(pv => {
+                const avail = remaining.filter(x=>x===pv).length + (val===pv?1:0);
+                return `<option value="${pv}" ${val===pv?'selected':''} ${avail===0&&val!==pv?'disabled':''}>${pv}</option>`;
+              }).join('')}
+            </select>
+            <span class="text-xs font-mono w-6 text-right shrink-0 ${val>0?'text-yellow-300':'text-gray-700'}">${val>0?val:'—'}</span>
+            <button data-pnj-ac-del="${esc(sk)}" class="text-red-500 hover:text-red-400 text-xs ml-1 shrink-0 w-5">✕</button>
+          </div>`).join('');
+        // Champ d'ajout
+        const addRow = `
+          <div class="flex gap-1 mt-1 items-center flex-wrap">
+            <span class="text-xs text-gray-500 shrink-0">${esc(base)}</span>
+            <input data-pnj-ac-input="${esc(base)}" placeholder="Type…"
+              class="pnj-ac-inp flex-1 min-w-0 text-xs bg-gray-700 border border-gray-600 rounded px-2 py-0.5">
+            <select data-pnj-ac-lev="${esc(base)}" class="pnj-ac-lev text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5 shrink-0 w-14">
+              ${poolUniq.map(pv => {
+                const avail = remaining.filter(x=>x===pv).length;
+                return `<option value="${pv}" ${avail===0?'disabled':''}>${pv}</option>`;
+              }).join('')}
+            </select>
+            <button data-pnj-ac-add="${esc(base)}" class="px-2 py-0.5 text-xs bg-green-800/60 hover:bg-green-700/60 border border-green-700/50 rounded text-green-300 shrink-0">➕</button>
+          </div>`;
+        return instanceRows + addRow;
+      }).join('');
+
       return `
       <div>
         <p class="text-xs font-semibold mb-1 ${priv ? 'text-yellow-300' : 'text-gray-400'}">
@@ -3521,6 +3564,7 @@ function renderStepPNJCompetences() {
               <span class="text-xs font-mono w-6 text-right shrink-0 ${val>0?'text-yellow-300':'text-gray-700'}">${val>0?val:'—'}</span>
             </div>`;
           }).join('')}
+          ${auChoixBlock}
           ${sorcBlock}
         </div>
       </div>`;
@@ -4167,9 +4211,34 @@ function attachStepListeners() {
     });
   });
 
+  // PNJ compétences "(Au choix)" — ajouter une instance typée
+  step.querySelectorAll('[data-pnj-ac-add]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const base = btn.dataset.pnjAcAdd;
+      const inp  = step.querySelector(`[data-pnj-ac-input="${CSS.escape(base)}"]`);
+      const lev  = step.querySelector(`[data-pnj-ac-lev="${CSS.escape(base)}"]`);
+      const type = inp?.value?.trim();
+      if (!type) { inp?.focus(); return; }
+      const level = parseInt(lev?.value || '0');
+      if (!level) return;
+      const key = `${base} (${type})`;
+      DRAFT.competences_pnj[key] = level;
+      document.getElementById('wizard-step').innerHTML = renderStepPNJCompetences();
+      attachStepListeners();
+    });
+  });
+
+  // PNJ compétences "(Au choix)" — supprimer une instance typée
+  step.querySelectorAll('[data-pnj-ac-del]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      delete DRAFT.competences_pnj[btn.dataset.pnjAcDel];
+      document.getElementById('wizard-step').innerHTML = renderStepPNJCompetences();
+      attachStepListeners();
+    });
+  });
+
   // Sorcellerie PNJ — ajouter un domaine
-  step.querySelector('#btn-add-pnj-sorc')?.addEventListener('click', () => {
-    const domSel = step.querySelector('#pnj-sorc-domain');
+  step.querySelector('#btn-add-pnj-sorc')?.addEventListener('click', () => {    const domSel = step.querySelector('#pnj-sorc-domain');
     const levSel = step.querySelector('#pnj-sorc-level');
     const domain = domSel?.value?.trim();
     const level  = parseInt(levSel?.value || '1');
