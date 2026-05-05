@@ -3052,8 +3052,9 @@ function openShipFiche(ship) {
     const SAT_LEVEL_COLOR = { satisfait: 'text-green-400', leger: 'text-yellow-400', gravement: 'text-orange-400', mutinerie: 'text-red-400' };
 
     ct.innerHTML = `
-      <!-- CAPITAINE -->
+      <!-- CAPITAINE + BOSCO + COMPOSITION -->
       <div class="bg-gray-800 rounded-lg p-3 mb-3 border border-gray-700">
+        <!-- Capitaine -->
         <div class="flex items-center justify-between gap-2 flex-wrap">
           <div>
             <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Capitaine</p>
@@ -3069,6 +3070,43 @@ function openShipFiche(ship) {
           <div class="flex gap-2">
             <button id="sf-cap-save" class="flex-1 bg-blue-700 hover:bg-blue-600 text-white text-xs px-3 py-1.5 rounded">Enregistrer</button>
             <button id="sf-cap-cancel" class="flex-1 bg-gray-600 hover:bg-gray-500 text-white text-xs px-3 py-1.5 rounded">Annuler</button>
+          </div>
+        </div>
+
+        <!-- Bosco -->
+        <div class="border-t border-gray-700 mt-3 pt-3">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <div>
+              <p class="text-xs text-gray-500 mb-0.5">Bosco <span class="text-gray-600">(PNJ nommé obligatoire)</span></p>
+              <p class="text-xs text-white font-medium">${esc(crewState.bosco_nom || '—')}</p>
+            </div>
+            ${canEdit ? `<button id="sf-bosco-edit-btn" class="text-xs text-blue-400 hover:text-blue-200 underline">Changer</button>` : ''}
+          </div>
+          <div id="sf-bosco-form" class="hidden mt-1 space-y-1">
+            <select id="sf-bosco-sel" class="w-full bg-gray-700 border border-gray-600 rounded px-1.5 py-1 text-xs text-gray-100 min-h-[30px]">
+              <option value="">— Aucun Bosco —</option>
+            </select>
+            <div class="flex gap-1">
+              <button id="sf-bosco-save" class="flex-1 bg-blue-700 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded">OK</button>
+              <button id="sf-bosco-cancel" class="flex-1 bg-gray-600 text-white text-xs px-2 py-1 rounded">✕</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Composition équipage -->
+        <div class="border-t border-gray-700 mt-3 pt-3">
+          <p class="text-xs text-gray-500 mb-2 font-medium">Composition de l'équipage</p>
+          <div class="grid grid-cols-3 gap-2">
+            ${[['Normaux', 'normaux', 'nommes_n'], ['Élite', 'elite', 'nommes_e'], ['Héros', 'heros', 'nommes_h']].map(([lbl, k, kn]) => `
+            <div class="bg-gray-700/40 rounded p-2">
+              <p class="text-xs text-gray-400 mb-1 font-medium">${lbl}</p>
+              ${canEdit
+                ? `<div class="flex flex-col gap-1">
+                    <input type="number" class="sf-crew-count bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-xs text-white w-full min-h-[28px]" data-key="${k}" value="${crewState[k] || 0}" min="0" placeholder="Total">
+                    <input type="number" class="sf-crew-count bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-xs text-gray-400 w-full min-h-[28px]" data-key="${kn}" value="${crewState[kn] || 0}" min="0" placeholder="Nommés">
+                  </div>`
+                : `<p class="text-xs text-white">${crewState[k] || 0} <span class="text-gray-500 block text-xs">(${crewState[kn] || 0} nommés)</span></p>`}
+            </div>`).join('')}
           </div>
         </div>
       </div>
@@ -3091,62 +3129,22 @@ function openShipFiche(ship) {
         <p class="text-xs text-gray-600 mt-2">3 tours pour changer d'alerte (réveil → équipement → poste).</p>
       </div>
 
-      <!-- POSTES D'ÉQUIPAGE -->
-      <div class="mb-3">
-        <div class="flex items-center justify-between mb-2">
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Postes d'équipage</p>
-          ${canEdit ? `<button id="sf-veille-btn" class="bg-amber-900/60 hover:bg-amber-800 border border-amber-700 text-amber-300 text-xs px-3 py-1.5 rounded-lg transition-colors">⚓ Test de veille</button>` : ''}
-        </div>
-        <p class="text-xs text-gray-500 mb-2">Effectif modèle : <span class="text-white">${esc(statVal('equipage') || '—')}</span></p>
-        <div class="space-y-2" id="sf-crew-list">
-          ${crewData.map(cd => renderCrewSlot(cd)).join('')}
-        </div>
-      </div>
-
-      <!-- SATISFACTION -->
+      <!-- POINTS DE SATISFACTION -->
       <div class="bg-gray-800 rounded-lg p-3 mb-3 border border-gray-700">
         <div class="flex items-center justify-between mb-3">
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Satisfaction</p>
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Points de satisfaction</p>
           <span class="text-xs font-bold ${SAT_LEVEL_COLOR[satLevel]}">${SAT_LEVEL_LABEL[satLevel]}</span>
         </div>
-        <!-- Composition -->
-        <div class="grid grid-cols-2 gap-2 mb-3">
-          <div class="col-span-2">
-            <p class="text-xs text-gray-500 mb-1">Bosco <span class="text-gray-600">(PNJ nommé obligatoire)</span></p>
-            <p class="text-xs text-white font-medium">${esc(crewState.bosco_nom || '—')}</p>
-            ${canEdit ? `<button id="sf-bosco-edit-btn" class="text-xs text-blue-400 hover:text-blue-200 underline mt-0.5">Changer</button>` : ''}
-            <div id="sf-bosco-form" class="hidden mt-1 space-y-1">
-              <select id="sf-bosco-sel" class="w-full bg-gray-700 border border-gray-600 rounded px-1.5 py-1 text-xs text-gray-100 min-h-[30px]">
-                <option value="">— Aucun Bosco —</option>
-              </select>
-              <div class="flex gap-1">
-                <button id="sf-bosco-save" class="flex-1 bg-blue-700 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded">OK</button>
-                <button id="sf-bosco-cancel" class="flex-1 bg-gray-600 text-white text-xs px-2 py-1 rounded">✕</button>
-              </div>
-            </div>
-          </div>
-          ${[['Normaux', 'normaux', 'nommes_n'], ['Élite', 'elite', 'nommes_e'], ['Héros', 'heros', 'nommes_h']].map(([lbl, k, kn]) => `
-          <div class="bg-gray-700/40 rounded p-2">
-            <p class="text-xs text-gray-400 mb-1 font-medium">${lbl}</p>
-            ${canEdit
-              ? `<div class="flex gap-1 items-center flex-wrap">
-                  <input type="number" class="sf-crew-count bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-xs text-white w-14 min-h-[28px]" data-key="${k}" value="${crewState[k] || 0}" min="0">
-                  <span class="text-xs text-gray-600">dont nommés</span>
-                  <input type="number" class="sf-crew-count bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-xs text-white w-12 min-h-[28px]" data-key="${kn}" value="${crewState[kn] || 0}" min="0">
-                </div>`
-              : `<p class="text-xs text-white">${crewState[k] || 0} <span class="text-gray-500">(${crewState[kn] || 0} nommés)</span></p>`}
-          </div>`).join('')}
-        </div>
-        <!-- Jauge -->
         ${satMax > 0 ? `
         <div class="mb-3">
           <p class="text-xs text-gray-500 mb-2">${satMax} case(s) / niveau · PP ${capitainePP} + Gloire ${capitaineGloire}</p>
-          <div class="space-y-1.5">
+          <div class="space-y-1">
             ${SAT_ROWS.map(row => {
               const rowArr = (crewState.satisfaction?.[row] || []).slice(0, satMax);
               const colors = SAT_COLORS[row];
-              return `<div class="flex items-center gap-2">
-                <span class="text-xs w-28 shrink-0 ${SAT_TEXT[row]}">${SAT_LABELS[row]}</span>
+              const ROW_BG = { S: '', L: 'bg-yellow-900/20', G: 'bg-orange-900/25', M: '' };
+              return `<div class="flex items-center gap-2 rounded px-1.5 py-1 ${ROW_BG[row]}">
+                <span class="text-xs w-32 shrink-0 font-medium ${SAT_TEXT[row]}">${SAT_LABELS[row]}</span>
                 <div class="flex gap-1 flex-wrap">
                   ${Array.from({ length: satMax }, (_, i) => {
                     const ticked = rowArr[i] ?? false;
@@ -3171,6 +3169,18 @@ function openShipFiche(ship) {
           <p class="text-xs text-gray-500 mb-2">Échec : 1/2 équipage se mutine. Aucun succès : 2/3.</p>
           ${canEdit ? `<button id="sf-mutinerie-btn" class="w-full bg-red-800 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded">🎲 Test Commandement (diff ${mutinerieDiff})</button>` : ''}
         </div>` : ''}
+      </div>
+
+      <!-- POSTES D'ÉQUIPAGE -->
+      <div class="mb-3">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Postes d'équipage</p>
+          ${canEdit ? `<button id="sf-veille-btn" class="bg-amber-900/60 hover:bg-amber-800 border border-amber-700 text-amber-300 text-xs px-3 py-1.5 rounded-lg transition-colors">⚓ Test de veille</button>` : ''}
+        </div>
+        <p class="text-xs text-gray-500 mb-2">Effectif modèle : <span class="text-white">${esc(statVal('equipage') || '—')}</span></p>
+        <div class="space-y-2" id="sf-crew-list">
+          ${crewData.map(cd => renderCrewSlot(cd)).join('')}
+        </div>
       </div>
 
       <!-- TRÉSOR -->
