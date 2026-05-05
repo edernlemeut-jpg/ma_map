@@ -3026,7 +3026,7 @@ function openShipFiche(ship) {
     const capitaineChar  = cachedCharacters?.find(c => String(c.id) === String(capitaineId));
     const capitaineNom   = capitaineChar?.name || (capitaineId ? `ID: ${String(capitaineId).substring(0, 8)}…` : '—');
     const capitainePP    = capitaineChar?.pp    ?? 0;
-    const capitaineGloire = capitaineChar?.gloire ?? 0;
+    const capitaineGloire = capitaineChar?.data?.gloire ?? capitaineChar?.gloire ?? 0;
 
     // Sync satisfaction_max with current captain PP+Gloire if out of date
     if (capitaineChar) {
@@ -3261,7 +3261,7 @@ function openShipFiche(ship) {
         ship.capitaine_id = newCapId;
         const capChar = cachedCharacters?.find(c => String(c.id) === String(newCapId));
         if (capChar) {
-          const newMax = (capChar.pp || 0) + (capChar.gloire || 0);
+          const newMax = (capChar.pp || 0) + (capChar.data?.gloire ?? capChar.gloire ?? 0);
           crewState.satisfaction_max = newMax;
           if (!crewState.satisfaction) crewState.satisfaction = {};
           for (const r of ['S', 'L', 'G', 'M']) {
