@@ -2656,12 +2656,11 @@ function renderStepCompetences() {
           ${!hasSorcellerie || !isSorcellerie ? `
           <div class="flex gap-1 mt-1.5 items-center flex-wrap">
             ${selectOrInput}
-            ${!isSorcellerie ? `
             <select data-ac-lev="${esc(acSk.name)}" class="ac-lev-sel text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5 shrink-0 w-14">
               <option value="1" ${hasRoom1?'':'disabled'}>+1</option>
               <option value="2" ${hasRoom2?'':'disabled'} ${defaultLev===2?'selected':''}>+2</option>
               <option value="3" ${hasRoom3?'':'disabled'} ${defaultLev===3?'selected':''}>+3</option>
-            </select>` : ''}
+            </select>
             <button data-ac-add="${esc(acSk.name)}" class="px-2 py-1 text-xs bg-green-800/60 hover:bg-green-700/60 border border-green-700/50 rounded text-green-300 shrink-0">➕ ${isSorcellerie ? 'Choisir domaine' : 'Ajouter'}</button>
           </div>` : `<p class="text-xs text-purple-400/70 mt-1 italic">Domaine déjà sélectionné. Supprimez-le pour en choisir un autre.</p>`}
         </div>`;
@@ -3483,9 +3482,52 @@ function renderStepPNJCompetences() {
         </div>
       </div>`;
     }).join('')}
-  </div>`;
-}
+  </div>
 
+  ${(() => {
+    const sorcDomains = visibleSorcelleries();
+    if (!sorcDomains.length) return '';
+    const sorcEntry = Object.entries(DRAFT.competences_pnj).find(([k]) => /^sorcellerie \(/i.test(k));
+    const sorcName  = sorcEntry?.[0] || '';
+    const sorcVal   = sorcEntry?.[1] || 0;
+    if (sorcEntry) {
+      return `
+  <div class="mt-4 bg-purple-900/10 border border-purple-800/40 rounded-lg p-3">
+    <p class="text-xs font-semibold text-purple-300 mb-2">✨ Sorcellerie</p>
+    <div class="flex items-center gap-2">
+      <span class="flex-1 text-xs text-gray-300 truncate">${esc(sorcName)}</span>
+      <select data-pnj-sk="${esc(sorcName)}" class="sk-pnj-libre bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-xs w-14 shrink-0">
+        <option value="0" ${sorcVal===0?'selected':''}>—</option>
+        ${poolUniq.map(pv => {
+          const avail = remaining.filter(x=>x===pv).length + (sorcVal===pv?1:0);
+          return `<option value="${pv}" ${sorcVal===pv?'selected':''} ${avail===0&&sorcVal!==pv?'disabled':''}>${pv}</option>`;
+        }).join('')}
+      </select>
+      <span class="text-xs font-mono w-6 text-right shrink-0 ${sorcVal>0?'text-yellow-300':'text-gray-700'}">${sorcVal>0?sorcVal:'—'}</span>
+      <button id="btn-del-pnj-sorc" class="text-red-500 hover:text-red-400 text-xs ml-1 shrink-0 w-5">✕</button>
+    </div>
+  </div>`;
+    }
+    return `
+  <div class="mt-4 bg-purple-900/10 border border-purple-800/40 rounded-lg p-3">
+    <p class="text-xs font-semibold text-purple-300 mb-2">✨ Sorcellerie <span class="text-gray-500 font-normal">(optionnel)</span></p>
+    <div class="flex gap-2 items-center flex-wrap">
+      <select id="pnj-sorc-domain" class="text-xs bg-gray-700 border border-gray-600 rounded px-2 py-0.5 flex-1 min-w-0">
+        <option value="">— choisir un domaine —</option>
+        ${sorcDomains.map(d => `<option value="${esc(d.name)}">${esc(d.name)}</option>`).join('')}
+      </select>
+      <select id="pnj-sorc-level" class="text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5 shrink-0 w-14">
+        ${poolUniq.map(pv => {
+          const avail = remaining.filter(x=>x===pv).length;
+          return `<option value="${pv}" ${avail===0?'disabled':''}>${pv}</option>`;
+        }).join('')}
+      </select>
+      <button id="btn-add-pnj-sorc" class="px-2 py-1 text-xs bg-purple-800/60 hover:bg-purple-700/60 border border-purple-700/50 rounded text-purple-300 shrink-0">➕ Ajouter</button>
+    </div>
+  </div>`;
+  })()}
+  `;
+}
 
 // ── Listeners des étapes ──────────────────────────────────────────────────────
 function attachStepListeners() {
@@ -3706,7 +3748,7 @@ function attachStepListeners() {
       if (isSorc && Object.keys(DRAFT.competences_libres).some(sk => /^sorcellerie \(/i.test(sk))) {
         alert('Un personnage ne peut pratiquer qu\'un seul domaine de sorcellerie.'); return;
       }
-      const level = isSorc ? 1 : parseInt(levSel?.value || '1');
+      const level = parseInt(levSel?.value || '1');
       const resolved = resolveAuChoixKey(acName, typeName) || `${acName.split('(')[0].trim()} (${typeName})`;
       DRAFT.competences_libres[resolved] = level;
       document.getElementById('wizard-step').innerHTML = renderStepCompetences();
@@ -4121,6 +4163,26 @@ function attachStepListeners() {
       document.getElementById('wizard-step').innerHTML = renderStepPNJCompetences();
       attachStepListeners();
     });
+  });
+
+  // Sorcellerie PNJ — ajouter un domaine
+  step.querySelector('#btn-add-pnj-sorc')?.addEventListener('click', () => {
+    const domSel = step.querySelector('#pnj-sorc-domain');
+    const levSel = step.querySelector('#pnj-sorc-level');
+    const domain = domSel?.value?.trim();
+    const level  = parseInt(levSel?.value || '1');
+    if (!domain) { alert('Veuillez choisir un domaine de sorcellerie.'); return; }
+    DRAFT.competences_pnj[`Sorcellerie (${domain})`] = level;
+    document.getElementById('wizard-step').innerHTML = renderStepPNJCompetences();
+    attachStepListeners();
+  });
+
+  // Sorcellerie PNJ — supprimer le domaine
+  step.querySelector('#btn-del-pnj-sorc')?.addEventListener('click', () => {
+    const key = Object.keys(DRAFT.competences_pnj).find(k => /^sorcellerie \(/i.test(k));
+    if (key) delete DRAFT.competences_pnj[key];
+    document.getElementById('wizard-step').innerHTML = renderStepPNJCompetences();
+    attachStepListeners();
   });
 }
 

@@ -86,7 +86,11 @@ router.get('/ref-data', (req, res) => {
     rulesData[cat] = rows.map(r => {
       let extra = {};
       try { extra = JSON.parse(r.extra || '{}'); } catch { /* ignore */ }
-      return { id: r.id, name: r.name, description: r.description, ...extra };
+      const obj = { id: r.id, name: r.name, description: r.description, ...extra };
+      // Sorcelleries : conserver extra comme objet imbriqué pour que le frontend
+      // puisse utiliser d.extra.quality, d.extra.visible_to_players, etc.
+      if (cat === 'sorcelleries') obj.extra = extra;
+      return obj;
     });
   }
 
