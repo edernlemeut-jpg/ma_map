@@ -128,7 +128,8 @@ function archChoixTypeOptions(sk) {
  */
 function resolveAuChoixKey(baseComp, chosen) {
   if (!chosen) return null;
-  const base = baseComp.replace(/\s*\(Au choix\)\s*/i, '').trim();
+  // Prendre tout ce qui précède la première parenthèse pour ignorer les suffixes comme "(B&B)" ou "(R&P)"
+  const base = baseComp.split('(')[0].trim();
   // Chercher une correspondance exacte dans REF
   const match = (REF?.competences || []).find(c =>
     c.name.toLowerCase().startsWith(base.toLowerCase() + ' (') &&
