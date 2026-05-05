@@ -2849,6 +2849,31 @@ function renderStepTraits() {
     ${sectionTab('q', '② Avantages',    qTotal, DRAFT.qualites_ids.length || '')}
   </div>
 
+  ${!isMutant && !isDefaut && !isSorcFilter ? `
+  <div class="mb-3 px-3 py-2 bg-gray-800/80 border border-gray-700 rounded-lg flex items-center gap-2 text-xs">
+    <span class="text-green-400 font-semibold">✔ Violent</span>
+    <span class="text-gray-500">Accordé automatiquement à tous les non-mutants (gratuit)</span>
+  </div>` : ''}
+  ${isMutant && isDefaut ? `
+  <div class="mb-3 px-3 py-2 bg-gray-800/80 border border-gray-700 rounded-lg flex items-center gap-2 text-xs">
+    <span class="text-cyan-400 font-semibold">🧬 Tête de mutant</span>
+    <span class="text-gray-500">Accordé automatiquement à tous les mutants (sans coût supplémentaire). Incompatible avec Cicatrices et Sale gueule.</span>
+  </div>` : ''}
+  ${freePoints > 0 && !isDefaut ? `
+  <div class="mb-3 px-3 py-2 bg-gray-800/80 border border-gray-700 rounded-lg flex items-center gap-2 text-xs">
+    <span class="text-green-400 font-semibold">✔ ${freePoints} pts gratuits</span>
+    <span class="text-gray-500">${REF?.pnj_niveaux?.find(n => n.id === DRAFT.pnj_niveau)?.nom || 'Ce niveau'} dispose de ${freePoints} points de qualités sans désavantage.</span>
+  </div>` : ''}
+
+  ${(hasMultiCat || (!isDefaut && sorcDomainsWithQual.length > 0)) ? `
+  <div class="flex gap-1.5 mb-3 flex-wrap">
+    ${filterBtn('all',     'Tous')}
+    ${curGroups.general.length ? filterBtn('general', 'Généraux') : ''}
+    ${hasNation ? filterBtn('nation', nationImgTag + ' ' + esc(nationLabel)) : ''}
+    ${hasMutant ? filterBtn('mutant', '🧬 Mutants') : ''}
+    ${!isDefaut && sorcDomainsWithQual.length ? filterBtn('sorcellerie', '✨ Sorcellerie') : ''}
+  </div>` : ''}
+
   ${isSorcFilter ? (() => {
     const cur = DRAFT.sorcellerie_quality;
     return `
@@ -2883,31 +2908,6 @@ function renderStepTraits() {
       }).join('')}
     </div>`;
   })() : `
-  ${!isMutant && !isDefaut ? `
-  <div class="mb-3 px-3 py-2 bg-gray-800/80 border border-gray-700 rounded-lg flex items-center gap-2 text-xs">
-    <span class="text-green-400 font-semibold">✔ Violent</span>
-    <span class="text-gray-500">Accordé automatiquement à tous les non-mutants (gratuit)</span>
-  </div>` : ''}
-  ${isMutant && isDefaut ? `
-  <div class="mb-3 px-3 py-2 bg-gray-800/80 border border-gray-700 rounded-lg flex items-center gap-2 text-xs">
-    <span class="text-cyan-400 font-semibold">🧬 Tête de mutant</span>
-    <span class="text-gray-500">Accordé automatiquement à tous les mutants (sans coût supplémentaire). Incompatible avec Cicatrices et Sale gueule.</span>
-  </div>` : ''}
-  ${freePoints > 0 && !isDefaut ? `
-  <div class="mb-3 px-3 py-2 bg-gray-800/80 border border-gray-700 rounded-lg flex items-center gap-2 text-xs">
-    <span class="text-green-400 font-semibold">✔ ${freePoints} pts gratuits</span>
-    <span class="text-gray-500">${REF?.pnj_niveaux?.find(n => n.id === DRAFT.pnj_niveau)?.nom || 'Ce niveau'} dispose de ${freePoints} points de qualités sans désavantage.</span>
-  </div>` : ''}
-
-  ${(hasMultiCat || (!isDefaut && sorcDomainsWithQual.length > 0)) ? `
-  <div class="flex gap-1.5 mb-3 flex-wrap">
-    ${filterBtn('all',     'Tous')}
-    ${curGroups.general.length ? filterBtn('general', 'Généraux') : ''}
-    ${hasNation ? filterBtn('nation', nationImgTag + ' ' + esc(nationLabel)) : ''}
-    ${hasMutant ? filterBtn('mutant', '🧬 Mutants') : ''}
-    ${!isDefaut && sorcDomainsWithQual.length ? filterBtn('sorcellerie', '✨ Sorcellerie') : ''}
-  </div>` : ''}
-
   <div class="space-y-2">
     ${displayList.length
       ? displayList.map(renderCard).join('')
@@ -3774,8 +3774,9 @@ function attachStepListeners() {
         const cost = parseInt(REF?.qualites?.find(q => q.id === id)?.cost || 0);
         const qPts = traitPoints(DRAFT.qualites_ids, REF?.qualites, 'cost', DRAFT.traits_niveaux);
         const dPs  = traitPoints(DRAFT.defauts_ids, REF?.defauts, 'cost', DRAFT.traits_niveaux);
+        const sorcQ = DRAFT.sorcellerie_quality?.level || 0;
         const freeP = DRAFT.type === 'pnj' ? ({ boss: 5, big_boss: 10 }[DRAFT.pnj_niveau] || 0) : 0;
-        const balance = dPs - qPts + freeP;
+        const balance = dPs - qPts - sorcQ + freeP;
         if (idx >= 0) { DRAFT.qualites_ids.splice(idx, 1); }
         else if (balance >= cost) { DRAFT.qualites_ids.push(id); }
       } else {
