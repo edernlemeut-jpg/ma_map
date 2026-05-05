@@ -525,7 +525,43 @@ function renderNamedNpcs(panel, npcs) {
 
   let pnjCards = '';
   if (pnjs.length) {
-    pnjCards = '<div class="space-y-2">' + pnjs.map(c => {
+    // ── Awards panel (MJ uniquement) ──────────────────────────────────────────
+    let awardsPanel = '';
+    if (isMJUser) {
+      awardsPanel = `
+      <div id="pnj-awards-panel" class="bg-gray-800/80 border border-purple-700/40 rounded-xl p-4 mb-3">
+        <p class="text-sm font-semibold text-purple-300 mb-3">🎖 Progression — PNJs</p>
+        <div class="space-y-2">
+          ${pnjs.map(c => `
+          <div class="flex flex-wrap items-center gap-2 py-1.5 border-b border-gray-700/50 last:border-0">
+            <span class="text-sm text-gray-300 w-32 truncate flex-shrink-0">${esc(c.data?.nom_personnage || c.name)}</span>
+            <span class="text-xs text-yellow-400 w-16">${c.data?.px_actuel ?? 0} PX</span>
+            <input type="number" data-px-for="${esc(String(c.id))}" min="1" value="500"
+              class="w-16 bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-xs text-center">
+            <button data-char-id="${esc(String(c.id))}" data-award="px" data-delta="-1"
+              class="pnj-award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-red-800/40 rounded text-xs border border-gray-600 hover:border-red-600 transition-colors">−</button>
+            <button data-char-id="${esc(String(c.id))}" data-award="px" data-delta="1"
+              class="pnj-award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-green-800/40 rounded text-xs border border-gray-600 hover:border-green-600 transition-colors">+ PX</button>
+            <span class="text-xs text-gray-500 ml-1">Gloire <strong class="text-gray-200">${c.data?.gloire ?? 0}</strong></span>
+            <div class="flex gap-1">
+              <button data-char-id="${esc(String(c.id))}" data-award="gloire" data-delta="-1"
+                class="pnj-award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-red-800/40 rounded text-xs border border-gray-600 hover:border-red-600 transition-colors">−</button>
+              <button data-char-id="${esc(String(c.id))}" data-award="gloire" data-delta="1"
+                class="pnj-award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-green-800/40 rounded text-xs border border-gray-600 hover:border-green-600 transition-colors">+</button>
+            </div>
+            <span class="text-xs text-gray-500 ml-1">Panache <strong class="text-gray-200">${c.data?.panache ?? 3}</strong></span>
+            <div class="flex gap-1">
+              <button data-char-id="${esc(String(c.id))}" data-award="panache" data-delta="-1"
+                class="pnj-award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-red-800/40 rounded text-xs border border-gray-600 hover:border-red-600 transition-colors">−</button>
+              <button data-char-id="${esc(String(c.id))}" data-award="panache" data-delta="1"
+                class="pnj-award-btn px-1.5 py-0.5 bg-gray-700 hover:bg-green-800/40 rounded text-xs border border-gray-600 hover:border-green-600 transition-colors">+</button>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }
+
+    pnjCards = awardsPanel + '<div class="space-y-2">' + pnjs.map(c => {
       const d = c.data || {};
       const name = d.nom_personnage || c.name;
       const arch = d.action_archetype || '';
@@ -534,15 +570,22 @@ function renderNamedNpcs(panel, npcs) {
       const avatarHtml = d.avatar_url
         ? `<img src="${esc(d.avatar_url)}" class="w-10 h-10 rounded-full object-cover shrink-0" alt="">`
         : `<div class="w-10 h-10 rounded-full bg-purple-900 flex items-center justify-center text-lg shrink-0">🎭</div>`;
+      const statsHtml = [
+        d.px_actuel != null ? `<span class="text-xs text-blue-300">${d.px_actuel} PX</span>` : '',
+        d.gloire     != null ? `<span class="text-xs text-yellow-300">✦ ${d.gloire} Gloire</span>` : '',
+        d.panache    != null ? `<span class="text-xs text-cyan-300">⚓ ${d.panache} Panache</span>` : '',
+      ].filter(Boolean).join(' ');
       return `<div class="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3">
         ${avatarHtml}
         <div class="flex-1 min-w-0">
           <p class="font-medium truncate">${esc(name)}</p>
           <p class="text-xs text-gray-400">${esc(sub)}</p>
+          ${statsHtml ? `<div class="flex gap-2 mt-0.5">${statsHtml}</div>` : ''}
         </div>
-        <div class="flex gap-1 shrink-0">
+        <div class="flex gap-1 shrink-0 flex-wrap justify-end">
           <button data-view-char="${esc(String(c.id))}" class="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors">👁 Voir</button>
           ${isMJUser ? `<a href="/personnage.html?edit=${esc(String(c.id))}" class="px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded text-xs transition-colors">✏️ Modifier</a>` : ''}
+          ${isMJUser ? `<button data-duplicate-char="${esc(String(c.id))}" data-char-name="${esc(name)}" class="px-2 py-1 bg-green-900/60 hover:bg-green-700 rounded text-xs transition-colors">📋 Dupliquer</button>` : ''}
           ${isMJUser ? `<button data-delete-char="${esc(String(c.id))}" data-char-name="${esc(name)}" class="px-2 py-1 bg-red-900/60 hover:bg-red-700 rounded text-xs transition-colors">🗑</button>` : ''}
         </div>
       </div>`;
@@ -567,6 +610,64 @@ function renderNamedNpcs(panel, npcs) {
   });
 
   _wireCharButtons(panel, isMJUser, () => renderNamedNpcs(panel, npcs));
+
+  // ── Wiring Dupliquer ──────────────────────────────────────────────────────
+  if (isMJUser) {
+    panel.querySelectorAll('[data-duplicate-char]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const charId = btn.dataset.duplicateChar;
+        const charName = btn.dataset.charName;
+        btn.disabled = true;
+        btn.textContent = '…';
+        const r = await fetchWithTable(`/api/characters/${charId}/duplicate`, {
+          method: 'POST', credentials: 'include',
+        });
+        if (r.ok) {
+          try {
+            const cr = await fetchWithTable('/api/characters');
+            if (cr.ok) { const cj = await cr.json(); state.characters = cj.data ?? []; }
+          } catch {}
+          renderNamedNpcs(panel, npcs);
+        } else {
+          btn.disabled = false;
+          btn.textContent = '📋 Dupliquer';
+          const err = await r.json().catch(() => ({}));
+          alert(`Erreur ${r.status} : ${err?.error?.message || 'Impossible de dupliquer'}`);
+        }
+      });
+    });
+
+    // ── Wiring Awards PNJ ─────────────────────────────────────────────────
+    panel.querySelectorAll('.pnj-award-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const { charId, award, delta } = btn.dataset;
+        let body;
+        if (award === 'gloire')       body = { gloire_delta:  parseInt(delta, 10) };
+        else if (award === 'panache') body = { panache_delta: parseInt(delta, 10) };
+        else if (award === 'px') {
+          const input = panel.querySelector(`[data-px-for="${charId}"]`);
+          const amount = parseInt(input?.value || '500', 10);
+          body = { px_delta: parseInt(delta, 10) * amount };
+        }
+        if (!body) return;
+        const r = await fetchWithTable(`/api/characters/${charId}/awards`, {
+          method: 'PATCH', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (r.ok) {
+          try {
+            const cr = await fetchWithTable('/api/characters');
+            if (cr.ok) { const cj = await cr.json(); state.characters = cj.data ?? []; }
+          } catch {}
+          renderNamedNpcs(panel, npcs);
+        } else {
+          const err = await r.json().catch(() => ({}));
+          alert(`Erreur ${r.status} : ${err?.error?.message || 'Impossible de modifier le personnage'}`);
+        }
+      });
+    });
+  }
 
   // Legacy named_npcs section suppressed — données déjà dans state.characters
   return;

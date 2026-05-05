@@ -234,13 +234,12 @@ router.put('/:id', (req, res) => {
   success(res, parseCharacter(db.prepare('SELECT * FROM characters WHERE id = ?').get(row.id)));
 });
 
-// PATCH /api/characters/:id/awards — MJ modifie gloire / panache / px d'un personnage
+// PATCH /api/characters/:id/awards — MJ modifie gloire / panache / px d'un personnage (PJ et PNJ)
 router.patch('/:id/awards', (req, res) => {
   if (!isMJ(req) && !req.user?.is_admin) return forbidden(res, 'Seul le MJ peut modifier ces valeurs');
   const tableId = getTableId(req);
   const row = db.prepare('SELECT * FROM characters WHERE id = ? AND table_id = ?').get(req.params.id, tableId);
   if (!row) return notFound(res, 'Personnage introuvable');
-  if (row.type !== 'pj') return validationError(res, 'Réservé aux PJs');
 
   let d = {};
   try { d = JSON.parse(row.data_json); } catch { /* ignore */ }
@@ -395,6 +394,46 @@ router.patch('/:id/health', (req, res) => {
     .run(result.updated, now, row.id);
 
   success(res, parseCharacter(db.prepare('SELECT * FROM characters WHERE id = ?').get(row.id)));
+});
+
+// POST /api/characters/:id/duplicate — MJ duplique un personnage (PJ ou PNJ)
+router.post('/:id/duplicate', (req, res) => {
+  if (!isMJ(req) && !req.user?.is_admin) return forbidden(res, 'Seul le MJ peut dupliquer un personnage');
+  const tableId = getTableId(req);
+  if (!tableId) return validationError(res, 'Aucune table sélectionnée');
+
+  const row = db.prepare('SELECT * FROM characters WHERE id = ? AND table_id = ?').get(req.params.id, tableId);
+  if (!row) return notFound(res, 'Personnage introuvable');
+
+  // Lire le nom existant et générer un nom de copie
+  let data = {};
+  try { data = JSON.parse(row.data_json || '{}'); } catch { /* ignore */ }
+  const originalName = row.name || 'Personnage';
+  const copyName = `${originalName} (copie)`;
+  if (data.nom_personnage) data.nom_personnage = `${data.nom_personnage} (copie)`;
+
+  const newId  = 'chr_' + randomUUID();
+  const now    = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO characters (
+      id, table_id, created_by, type, name, data_json,
+      user_id, archetype, is_mutant, stats_json, competences_json,
+      sante_json, sante_niveaux, motivation, overdrive_trigger,
+      qualites_json, defauts_json, energie_x_max, pp,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    newId, tableId, req.user.id, row.type, copyName, JSON.stringify(data),
+    null, row.archetype ?? null, row.is_mutant ?? 0,
+    row.stats_json ?? null, row.competences_json ?? null,
+    row.sante_json ?? null, row.sante_niveaux ?? 3,
+    row.motivation ?? null, row.overdrive_trigger ?? null,
+    row.qualites_json ?? null, row.defauts_json ?? null, row.energie_x_max ?? 0,
+    row.pp ?? 3,
+    now, now
+  );
+
+  success(res, parseCharacter(db.prepare('SELECT * FROM characters WHERE id = ?').get(newId)), 201);
 });
 
 // DELETE /api/characters/:id
