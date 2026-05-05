@@ -76,9 +76,13 @@ router.get('/ref-data', (req, res) => {
   const cats = ['competences', 'qualites', 'defauts', 'mutations', 'sorcelleries'];
   const rulesData = {};
   for (const cat of cats) {
-    const rows = db.prepare(
-      'SELECT id, name, description, extra FROM rules_entries WHERE category = ? AND (table_id IS NULL) ORDER BY name COLLATE NOCASE'
-    ).all(cat);
+    const rows = tableId
+      ? db.prepare(
+          'SELECT id, name, description, extra FROM rules_entries WHERE category = ? AND (table_id IS NULL OR table_id = ?) ORDER BY name COLLATE NOCASE'
+        ).all(cat, tableId)
+      : db.prepare(
+          'SELECT id, name, description, extra FROM rules_entries WHERE category = ? AND table_id IS NULL ORDER BY name COLLATE NOCASE'
+        ).all(cat);
     rulesData[cat] = rows.map(r => {
       let extra = {};
       try { extra = JSON.parse(r.extra || '{}'); } catch { /* ignore */ }
