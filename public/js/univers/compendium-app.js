@@ -3067,7 +3067,12 @@ function openShipFiche(ship) {
         const alertJaune = Math.max(1, Math.ceil(nb / 2));
         postAlerte = activeCount >= nb ? 'rouge' : activeCount >= alertJaune ? 'jaune' : 'verte';
       }
-      return { code, label: crewLabels[code], nb, members, activeCount, postAlerte, competence: POSTE_COMP[code] };
+      const requiredCount = nb > 0 && currentAlerte
+        ? (currentAlerte === 'rouge' ? nb
+          : currentAlerte === 'jaune' ? Math.max(1, Math.ceil(nb / 2))
+          : Math.max(1, Math.ceil(nb / 4)))
+        : null;
+      return { code, label: crewLabels[code], nb, members, activeCount, postAlerte, competence: POSTE_COMP[code], requiredCount };
     });
 
     const satLevel = satCurrentLevel();
@@ -3556,8 +3561,13 @@ function openShipFiche(ship) {
           <span class="text-sm font-semibold text-white">${esc(cd.label)}</span>
           <span class="text-xs text-gray-500">(${esc(cd.competence)})</span>
         </div>
-        <span class="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">
-          ${cd.nb > 0 ? `${cd.activeCount}/${cd.nb}` : (cd.activeCount > 0 ? cd.activeCount : '—')}
+        <span class="text-xs px-2 py-0.5 rounded-full
+          ${cd.requiredCount != null
+            ? (cd.activeCount >= cd.requiredCount ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300')
+            : 'bg-gray-700 text-gray-300'}">
+          ${cd.requiredCount != null
+            ? `${cd.activeCount}/${cd.requiredCount}`
+            : (cd.nb > 0 ? `${cd.activeCount}/${cd.nb}` : (cd.activeCount > 0 ? cd.activeCount : '—'))}
         </span>
       </div>
       ${memberHtml}
