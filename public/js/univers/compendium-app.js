@@ -3025,12 +3025,12 @@ function openShipFiche(ship) {
     const capitaineId    = ship.capitaine_id || null;
     const capitaineChar  = cachedCharacters?.find(c => String(c.id) === String(capitaineId));
     const capitaineNom   = capitaineChar?.name || (capitaineId ? `ID: ${String(capitaineId).substring(0, 8)}…` : '—');
-    const capitainePP    = capitaineChar?.pp    ?? 0;
-    const capitaineGloire = capitaineChar?.data?.gloire ?? capitaineChar?.gloire ?? 0;
+    const capitainePanache = capitaineChar?.data?.panache ?? capitaineChar?.pp ?? 3;
+    const capitaineGloire  = capitaineChar?.data?.gloire ?? capitaineChar?.gloire ?? 0;
 
     // Sync satisfaction_max with current captain PP+Gloire if out of date
     if (capitaineChar) {
-      const expectedMax = capitainePP + capitaineGloire;
+      const expectedMax = capitainePanache + capitaineGloire;
       if (crewState.satisfaction_max !== expectedMax) {
         crewState.satisfaction_max = expectedMax;
         if (!crewState.satisfaction) crewState.satisfaction = {};
@@ -3082,7 +3082,7 @@ function openShipFiche(ship) {
           <div>
             <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Capitaine</p>
             <p class="text-sm font-bold text-white">${esc(capitaineNom)}</p>
-            ${capitaineChar ? `<p class="text-xs text-gray-500 mt-0.5">PP ${capitainePP} · Gloire ${capitaineGloire} → <span class="text-gray-300">${capitainePP + capitaineGloire} cases de satisfaction</span></p>` : ''}
+            ${capitaineChar ? `<p class="text-xs text-gray-500 mt-0.5">Panache ${capitainePanache} · Gloire ${capitaineGloire} → <span class="text-gray-300">${capitainePanache + capitaineGloire} cases de satisfaction</span></p>` : ''}
           </div>
           ${canEdit ? `<button id="sf-cap-edit-btn" class="text-xs text-blue-400 hover:text-blue-200 underline">Changer</button>` : ''}
         </div>
@@ -3160,7 +3160,7 @@ function openShipFiche(ship) {
         </div>
         ${satMax > 0 ? `
         <div class="mb-3">
-          <p class="text-xs text-gray-500 mb-2">${satMax} case(s) / niveau · PP ${capitainePP} + Gloire ${capitaineGloire}</p>
+          <p class="text-xs text-gray-500 mb-2">${satMax} case(s) / niveau · Panache ${capitainePanache} + Gloire ${capitaineGloire}</p>
           <div class="space-y-1">
             ${SAT_ROWS.map(row => {
               const rowArr = (crewState.satisfaction?.[row] || []).slice(0, satMax);
@@ -3261,7 +3261,7 @@ function openShipFiche(ship) {
         ship.capitaine_id = newCapId;
         const capChar = cachedCharacters?.find(c => String(c.id) === String(newCapId));
         if (capChar) {
-          const newMax = (capChar.pp || 0) + (capChar.data?.gloire ?? capChar.gloire ?? 0);
+          const newMax = (capChar.data?.panache ?? capChar.pp ?? 3) + (capChar.data?.gloire ?? capChar.gloire ?? 0);
           crewState.satisfaction_max = newMax;
           if (!crewState.satisfaction) crewState.satisfaction = {};
           for (const r of ['S', 'L', 'G', 'M']) {
