@@ -2723,7 +2723,7 @@ function openShipFiche(ship) {
     if (idx === 0) renderFicheCaracs(ct);
     else if (idx === 1) renderFicheEtatCoque(ct);
     else if (idx === 2) renderFicheArmement(ct);
-    else if (idx === 3) renderFicheEquipage(ct);
+    else if (idx === 3) { cachedCharacters = null; renderFicheEquipage(ct); }
     else if (idx === 4) renderFicheSystemes(ct);
   };
   overlay.querySelectorAll('.sf-tab').forEach((btn, i) => btn.addEventListener('click', () => renderTab(i)));
@@ -2984,6 +2984,15 @@ function openShipFiche(ship) {
 
   // ---- Tab 3: Équipage ----
   function renderFicheEquipage(ct) {
+    // Si les personnages ne sont pas encore chargés, les charger d'abord
+    if (!cachedCharacters) {
+      ct.innerHTML = '<p class="p-6 text-xs text-gray-500 italic text-center">Chargement des personnages…</p>';
+      fetchWithTable('/api/characters')
+        .then(r => r.json())
+        .then(j => { cachedCharacters = j.data ?? []; renderFicheEquipage(ct); })
+        .catch(() => { cachedCharacters = []; renderFicheEquipage(ct); });
+      return;
+    }
     const currentAlerte = hullState.alerte || '';
     const satMax  = crewState.satisfaction_max || 0;
     const SAT_ROWS   = ['S', 'L', 'G', 'M'];
@@ -3013,11 +3022,25 @@ function openShipFiche(ship) {
     const mutinerieDiff = mTicks + totalNommes;
 
     // Captain data
-    const capitaineId   = ship.capitaine_id || null;
-    const capitaineChar = cachedCharacters?.find(c => String(c.id) === String(capitaineId));
-    const capitaineNom  = capitaineChar?.name || (capitaineId ? '…' : '—');
+    const capitaineId    = ship.capitaine_id || null;
+    const capitaineChar  = cachedCharacters?.find(c => String(c.id) === String(capitaineId));
+    const capitaineNom   = capitaineChar?.name || (capitaineId ? `ID: ${String(capitaineId).substring(0, 8)}…` : '—');
     const capitainePP    = capitaineChar?.pp    ?? 0;
     const capitaineGloire = capitaineChar?.gloire ?? 0;
+
+    // Sync satisfaction_max with current captain PP+Gloire if out of date
+    if (capitaineChar) {
+      const expectedMax = capitainePP + capitaineGloire;
+      if (crewState.satisfaction_max !== expectedMax) {
+        crewState.satisfaction_max = expectedMax;
+        if (!crewState.satisfaction) crewState.satisfaction = {};
+        for (const r of ['S', 'L', 'G', 'M']) {
+          const prev = crewState.satisfaction[r] || [];
+          crewState.satisfaction[r] = Array.from({ length: expectedMax }, (_, i) => prev[i] ?? false);
+        }
+        saveCrewState(); // fire-and-forget
+      }
+    }
 
     const alerteDefs = [
       { value: 'verte',  label: 'Alerte Verte', activeClass: 'border-green-500 bg-green-900/30 text-green-300',
