@@ -237,19 +237,22 @@ function renderApp() {
     }
   }
 
-  // For non-MJ players: hide tabs whose data is empty (except PJ and Flotte which are always shown)
+  // For non-MJ players, each API endpoint already returns only items visible to this player.
+  // So checking length > 0 is equivalent to "at least one item is visible to this player profile".
+  // MJ/admin always see all tabs regardless of individual item visibility.
   if (!isMJOrAdmin && state.tableId) {
-    const dataTabMap = {
-      systems:           state.systems.length,
-      factions:          state.factions.length,
-      ship_models:       state.ship_models.length,
-      named_npcs:        state.named_npcs.length,
-      secondary_systems: state.secondary_systems.length,
+    // These tabs have per-item visibility toggles; show only if player can see at least one item.
+    const tabVisibility = {
+      systems:           state.systems.length > 0,
+      factions:          state.factions.length > 0,
+      ship_models:       state.ship_models.length > 0,
+      named_npcs:        state.named_npcs.length > 0,
+      secondary_systems: state.secondary_systems.length > 0,
     };
-    for (const [tab, count] of Object.entries(dataTabMap)) {
+    for (const [tab, hasVisible] of Object.entries(tabVisibility)) {
       const btn = document.querySelector(`[data-tab="${tab}"]`);
       if (!btn) continue;
-      if (count === 0) {
+      if (!hasVisible) {
         btn.classList.add('hidden');
         if (state.activeTab === tab) state.activeTab = null;
       } else {
