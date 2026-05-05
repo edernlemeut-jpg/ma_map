@@ -190,6 +190,8 @@ const VARIABLE_TRAIT_LEVELS = {
 const GROUPED_TRAITS = [
   { base: 'defaut-desespoir',             section: 'defauts',  levels: [1, 3, 5] },
   { base: 'defaut-amarres',               section: 'defauts',  levels: [1, 3, 5] },
+  { base: 'defaut-vengeance',             section: 'defauts',  levels: [1, 3, 5] },
+  { base: 'defaut-subordonne',            section: 'defauts',  levels: [1, 3, 5] },
   { base: 'qualite-celebrite-galactique', section: 'qualites', levels: [1, 2, 3, 4, 5] },
   { base: 'qualite-discret',              section: 'qualites', levels: [3, 5] },
   { base: 'qualite-equipement-special',   section: 'qualites', levels: [1, 3, 5] },
@@ -2518,31 +2520,45 @@ function renderStepCompetences() {
           </div>`;
         }).join('');
 
-        const selectOrInput = opts
+        const isSorcellerie = /^sorcellerie/i.test(base);
+        const sorcDomains   = isSorcellerie ? (REF?.sorcelleries || []) : null;
+        // Pour Sorcellerie : un seul domaine possible, vérifier si déjà présent
+        const hasSorcellerie = isSorcellerie && Object.keys(DRAFT.competences_libres).some(sk => /^sorcellerie \(/i.test(sk));
+
+        const selectOrInput = isSorcellerie
           ? `<select data-ac-type="${esc(acSk.name)}" class="ac-type-sel flex-1 min-w-0 text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5">
-               <option value="">— choisir —</option>
-               ${opts.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}
-               <option value="__autre__">Autre…</option>
-             </select>
-             <input data-ac-libre="${esc(acSk.name)}" placeholder="Préciser…"
-               class="ac-libre-inp hidden text-xs bg-gray-700 border border-gray-600 rounded px-2 py-0.5 w-24 shrink-0">`
-          : `<input data-ac-libre="${esc(acSk.name)}" placeholder="Nom du type…"
-               class="ac-libre-inp flex-1 min-w-0 text-xs bg-gray-700 border border-gray-600 rounded px-2 py-0.5">`;
+               <option value="">— choisir un domaine —</option>
+               ${(sorcDomains || []).map(d => `<option value="${esc(d.name)}">${esc(d.name)}${d.no_quality_required ? ' (sans compétence)' : ''}</option>`).join('')}
+             </select>`
+          : opts
+            ? `<select data-ac-type="${esc(acSk.name)}" class="ac-type-sel flex-1 min-w-0 text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5">
+                 <option value="">— choisir —</option>
+                 ${opts.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}
+                 <option value="__autre__">Autre…</option>
+               </select>
+               <input data-ac-libre="${esc(acSk.name)}" placeholder="Préciser…"
+                 class="ac-libre-inp hidden text-xs bg-gray-700 border border-gray-600 rounded px-2 py-0.5 w-24 shrink-0">`
+            : `<input data-ac-libre="${esc(acSk.name)}" placeholder="Nom du type…"
+                 class="ac-libre-inp flex-1 min-w-0 text-xs bg-gray-700 border border-gray-600 rounded px-2 py-0.5">`;
 
         return `
         <div class="mt-2 bg-gray-800/40 border border-gray-700/50 rounded-lg p-2">
-          <p class="text-xs font-medium text-gray-400 mb-1">${esc(base)} <span class="text-gray-600 font-normal">(spécialisée)</span></p>
+          <p class="text-xs font-medium text-gray-400 mb-1">${esc(base)} <span class="text-gray-600 font-normal">(spécialisée)</span>
+            ${isSorcellerie ? '<span class="text-purple-400 ml-1">⚡ Coûte 1 EX par sort · 1 seul domaine</span>' : ''}
+          </p>
           ${origOnlyRows}
           ${instanceRows}
+          ${!hasSorcellerie || !isSorcellerie ? `
           <div class="flex gap-1 mt-1.5 items-center flex-wrap">
             ${selectOrInput}
+            ${!isSorcellerie ? `
             <select data-ac-lev="${esc(acSk.name)}" class="ac-lev-sel text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5 shrink-0 w-14">
               <option value="1" ${hasRoom1?'':'disabled'}>+1</option>
               <option value="2" ${hasRoom2?'':'disabled'} ${defaultLev===2?'selected':''}>+2</option>
               <option value="3" ${hasRoom3?'':'disabled'} ${defaultLev===3?'selected':''}>+3</option>
-            </select>
-            <button data-ac-add="${esc(acSk.name)}" class="px-2 py-1 text-xs bg-green-800/60 hover:bg-green-700/60 border border-green-700/50 rounded text-green-300 shrink-0">➕ Ajouter</button>
-          </div>
+            </select>` : ''}
+            <button data-ac-add="${esc(acSk.name)}" class="px-2 py-1 text-xs bg-green-800/60 hover:bg-green-700/60 border border-green-700/50 rounded text-green-300 shrink-0">➕ ${isSorcellerie ? 'Choisir domaine' : 'Ajouter'}</button>
+          </div>` : `<p class="text-xs text-purple-400/70 mt-1 italic">Domaine déjà sélectionné. Supprimez-le pour en choisir un autre.</p>`}
         </div>`;
       }).join('');
 
@@ -3538,13 +3554,18 @@ function attachStepListeners() {
   step.querySelectorAll('[data-ac-add]').forEach(btn => {
     btn.addEventListener('click', () => {
       const acName  = btn.dataset.acAdd;
+      const isSorc  = /^sorcellerie/i.test(acName.split('(')[0].trim());
       const typeSel = step.querySelector(`.ac-type-sel[data-ac-type="${CSS.escape(acName)}"]`);
       const libreInp= step.querySelector(`.ac-libre-inp[data-ac-libre="${CSS.escape(acName)}"]`);
       const levSel  = step.querySelector(`.ac-lev-sel[data-ac-lev="${CSS.escape(acName)}"]`);
       let typeName = typeSel ? typeSel.value : '';
       if (typeName === '__autre__' || !typeSel) typeName = (libreInp?.value || '').trim();
       if (!typeName) { alert('Veuillez choisir ou saisir un type.'); return; }
-      const level = parseInt(levSel?.value || '1');
+      // Sorcellerie : vérifier unicité
+      if (isSorc && Object.keys(DRAFT.competences_libres).some(sk => /^sorcellerie \(/i.test(sk))) {
+        alert('Un personnage ne peut pratiquer qu\'un seul domaine de sorcellerie.'); return;
+      }
+      const level = isSorc ? 1 : parseInt(levSel?.value || '1');
       const resolved = resolveAuChoixKey(acName, typeName) || `${acName.split('(')[0].trim()} (${typeName})`;
       DRAFT.competences_libres[resolved] = level;
       document.getElementById('wizard-step').innerHTML = renderStepCompetences();

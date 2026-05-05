@@ -30,6 +30,7 @@ let state = {
   activeShipId: null,
   perilEditorOpen: null,
   pnjNatureTab: 'premier_role',
+  sorcelleries: [],
 };
 
 let poller = null;
@@ -65,7 +66,7 @@ async function init() {
 
     // Handle hash-based tab selection (e.g. #flotte)
     const hash = window.location.hash.replace('#', '');
-  const validTabs = ['systems', 'factions', 'perils', 'quadrants', 'ship_models', 'ships', 'named_npcs', 'secondary_systems', 'pj'];
+  const validTabs = ['systems', 'factions', 'perils', 'quadrants', 'ship_models', 'ships', 'named_npcs', 'secondary_systems', 'pj', 'sorcelleries'];
     if (hash && validTabs.includes(hash) && (hash !== 'ships' || state.tableId)) {
       state.activeTab = hash;
     }
@@ -150,6 +151,14 @@ async function loadAllData() {
       : await fetch('/api/secondary-systems', { credentials: 'include' });
     if (ssRes.ok) { const ssj = await ssRes.json(); state.secondary_systems = ssj.data ?? []; }
   } catch {}
+
+  // Load sorcelleries (MJ/admin only)
+  if (state.isMJ || state.isAdmin) {
+    try {
+      const sorcRes = await fetch('/api/rules?category=sorcelleries', { credentials: 'include' });
+      if (sorcRes.ok) { const sj = await sorcRes.json(); state.sorcelleries = sj.data ?? []; }
+    } catch {}
+  }
 
   if (activeShipIdRes) {
     try {
@@ -239,6 +248,17 @@ function renderApp() {
     }
   }
 
+  // Sorcellerie tab: MJ/admin only
+  const sorcBtn = $('tab-btn-sorcelleries');
+  if (sorcBtn) {
+    if (!state.isMJ && !state.isAdmin) {
+      sorcBtn.classList.add('hidden');
+      if (state.activeTab === 'sorcelleries') state.activeTab = 'systems';
+    } else {
+      sorcBtn.classList.remove('hidden');
+    }
+  }
+
   if (totalCount === 0 && !state.isMJ && !state.isAdmin) {
     $('empty-global').classList.remove('hidden');
     $('tab-nav').classList.add('hidden');
@@ -324,7 +344,7 @@ function renderActiveTab() {
   panel.classList.remove('hidden');
 
   const data = state[state.activeTab];
-  const renderers = { systems: renderSystems, factions: renderFactions, perils: renderPerils, quadrants: renderQuadrants, ship_models: renderShipModels, ships: renderFleet, named_npcs: renderNamedNpcs, secondary_systems: renderSecondarySystemsTab, pj: renderPjTab };
+  const renderers = { systems: renderSystems, factions: renderFactions, perils: renderPerils, quadrants: renderQuadrants, ship_models: renderShipModels, ships: renderFleet, named_npcs: renderNamedNpcs, secondary_systems: renderSecondarySystemsTab, pj: renderPjTab, sorcelleries: renderSorcelleriesTab };
   if (renderers[state.activeTab]) renderers[state.activeTab](panel, data);
 }
 
@@ -5238,5 +5258,252 @@ export {
   performSearch, exitSearchMode, renderSearchResults,
   openEditModal, EDIT_FIELDS, renderEditButton
 };
+
+// ── Sorcelleries ──────────────────────────────────────────────────────────────
+
+function renderSorcelleriesTab(panel) {
+  const isMJUser = state.isMJ || state.isAdmin;
+  const domains = state.sorcelleries || [];
+
+  const renderDomainCard = (d) => {
+    const ex = d.extra || {};
+    const isVulgaire = ex.no_quality_required;
+    const qualHtml = ex.quality ? `
+      <div class="mt-2 text-xs text-gray-400">
+        <span class="font-semibold text-gray-300">Qualité :</span> ${esc(ex.quality.name)}
+        ${ex.quality.level_names ? `
+          <ul class="ml-3 mt-0.5 list-disc list-inside space-y-0.5 text-gray-500">
+            ${Object.entries(ex.quality.level_names).map(([lv, nm]) => `<li>+${lv} — ${esc(nm)}</li>`).join('')}
+          </ul>` : ''}
+      </div>` : '';
+    const spells = ex.spells || [];
+    const circleLabel = { 1: '1er Cercle', 2: '2e Cercle', 3: '3e Cercle' };
+    const spellsByCircle = [3, 2, 1].map(c => ({ circle: c, list: spells.filter(s => s.circle === c) })).filter(g => g.list.length);
+    const spellsHtml = spells.length ? `
+      <div class="mt-3">
+        ${spellsByCircle.map(g => `
+          <p class="text-xs font-semibold text-purple-300 mt-2 mb-1">${circleLabel[g.circle]}</p>
+          <div class="space-y-1.5">
+            ${g.list.map(s => `
+              <div class="bg-gray-900 border border-gray-700 rounded px-3 py-2 text-xs">
+                <p class="font-semibold text-gray-200">${esc(s.name)}</p>
+                <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-gray-500 mt-0.5">
+                  ${s.target    ? `<span>Cible : ${esc(s.target)}</span>` : ''}
+                  ${s.range     ? `<span>Portée : ${esc(s.range)} m</span>` : ''}
+                  ${s.difficulty ? `<span>Diff. : ${esc(s.difficulty)}</span>` : ''}
+                  ${s.duration  ? `<span>Durée : ${esc(s.duration)}</span>` : ''}
+                </div>
+                ${s.ambiance ? `<p class="text-gray-500 italic mt-1">${esc(s.ambiance)}</p>` : ''}
+                ${s.effects  ? `<p class="text-gray-300 mt-1">${esc(s.effects)}</p>` : ''}
+              </div>`).join('')}
+          </div>`).join('')}
+      </div>` : '<p class="text-xs text-gray-600 mt-2 italic">Aucun sort formalisé.</p>';
+
+    return `
+      <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-1" data-sorc-id="${esc(String(d.id))}">
+        <div class="flex items-start justify-between gap-2 flex-wrap">
+          <div>
+            <p class="font-semibold text-gray-100 flex items-center gap-2">
+              ✨ ${esc(d.name)}
+              ${ex.is_violent ? '<span class="text-xs bg-red-900/50 text-red-300 border border-red-800 px-1.5 py-0.5 rounded">⚔️ Violent</span>' : '<span class="text-xs bg-gray-700 text-gray-400 border border-gray-600 px-1.5 py-0.5 rounded">Non-violent</span>'}
+              ${isVulgaire ? '<span class="text-xs bg-purple-900/40 text-purple-300 border border-purple-800 px-1.5 py-0.5 rounded">Pas de compétence requise</span>' : ''}
+            </p>
+            ${d.description ? `<p class="text-xs text-gray-400 mt-0.5">${esc(d.description)}</p>` : ''}
+          </div>
+          ${isMJUser ? `
+          <div class="flex gap-1 shrink-0">
+            <button data-sorc-edit="${esc(String(d.id))}" class="px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded text-xs transition-colors">✏️ Modifier</button>
+            <button data-sorc-delete="${esc(String(d.id))}" data-sorc-name="${esc(d.name)}" class="px-2 py-1 bg-red-900/60 hover:bg-red-700 rounded text-xs transition-colors">🗑</button>
+          </div>` : ''}
+        </div>
+        ${ex.accessibility ? `<p class="text-xs text-gray-500"><span class="text-gray-400">Accessibilité :</span> ${esc(ex.accessibility)}</p>` : ''}
+        ${qualHtml}
+        ${spellsHtml}
+      </div>`;
+  };
+
+  panel.innerHTML = `
+    <div class="mb-5 flex items-center justify-between flex-wrap gap-2">
+      <h3 class="text-base font-semibold text-gray-200">✨ Domaines de Sorcellerie</h3>
+      ${isMJUser ? `<button id="btn-sorc-new" class="px-3 py-1.5 bg-purple-700 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors">＋ Nouveau domaine</button>` : ''}
+    </div>
+    <div id="sorc-form-area"></div>
+    ${!domains.length
+      ? `<div class="text-center py-12"><p class="text-2xl mb-3">✨</p><p class="text-gray-400 italic">Aucun domaine de sorcellerie défini.</p></div>`
+      : `<div class="space-y-4">${domains.map(renderDomainCard).join('')}</div>`
+    }`;
+
+  if (isMJUser) {
+    panel.querySelector('#btn-sorc-new')?.addEventListener('click', () => openSorcForm(panel, null));
+    panel.querySelectorAll('[data-sorc-edit]').forEach(btn =>
+      btn.addEventListener('click', () => {
+        const d = domains.find(x => String(x.id) === btn.dataset.sorcEdit);
+        if (d) openSorcForm(panel, d);
+      })
+    );
+    panel.querySelectorAll('[data-sorc-delete]').forEach(btn =>
+      btn.addEventListener('click', async () => {
+        if (!confirm(`Supprimer le domaine "${btn.dataset.sorcName}" ? Cette action est irréversible.`)) return;
+        try {
+          const r = await fetch(`/api/rules/${btn.dataset.sorcDelete}`, { method: 'DELETE', credentials: 'include' });
+          if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error?.message || `Erreur ${r.status}`);
+          const sorcRes = await fetch('/api/rules?category=sorcelleries', { credentials: 'include' });
+          if (sorcRes.ok) { state.sorcelleries = (await sorcRes.json()).data ?? []; }
+          renderSorcelleriesTab(panel);
+        } catch (e) { alert(e.message); }
+      })
+    );
+  }
+}
+
+function openSorcForm(panel, domain) {
+  const formArea = panel.querySelector('#sorc-form-area');
+  const ex = domain?.extra || {};
+  const spells = ex.spells || [];
+  const levelNames = ex.quality?.level_names || { 1: '', 3: '', 5: '' };
+
+  const buildSpellRow = (s, idx) => `
+    <div class="sorc-spell-row bg-gray-900 border border-gray-700 rounded-lg p-3 space-y-2" data-spell-idx="${idx}">
+      <div class="flex items-center justify-between gap-2">
+        <input class="spell-name flex-1 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs" placeholder="Nom du sort" value="${esc(s.name || '')}">
+        <select class="spell-circle bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs">
+          <option value="3" ${s.circle===3?'selected':''}>3e Cercle</option>
+          <option value="2" ${s.circle===2?'selected':''}>2e Cercle</option>
+          <option value="1" ${s.circle===1?'selected':''}>1er Cercle</option>
+        </select>
+        <button class="spell-del px-2 py-1 bg-red-900/50 hover:bg-red-700 rounded text-xs">✕</button>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <input class="spell-target bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs" placeholder="Cible" value="${esc(s.target || '')}">
+        <input class="spell-range bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs" placeholder="Portée (m)" value="${esc(s.range || '')}">
+        <input class="spell-difficulty bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs" placeholder="Difficulté" value="${esc(s.difficulty || '')}">
+        <select class="spell-duration bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs">
+          <option value="instantané" ${(s.duration||'instantané')==='instantané'?'selected':''}>Instantané</option>
+          <option value="continue" ${s.duration==='continue'?'selected':''}>Continue</option>
+        </select>
+      </div>
+      <textarea class="spell-ambiance w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs" rows="2" placeholder="Texte d'ambiance">${esc(s.ambiance || '')}</textarea>
+      <textarea class="spell-effects w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs" rows="2" placeholder="Effets du sort">${esc(s.effects || '')}</textarea>
+    </div>`;
+
+  formArea.innerHTML = `
+    <div class="bg-gray-800 border border-purple-700 rounded-xl p-4 mb-6 space-y-3">
+      <h4 class="font-semibold text-purple-300">${domain ? `Modifier : ${esc(domain.name)}` : '＋ Nouveau domaine'}</h4>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-400">Nom du domaine</label>
+          <input id="sorc-name" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm mt-0.5" value="${esc(domain?.name || '')}">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400">Condition d'accessibilité</label>
+          <input id="sorc-accessibility" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm mt-0.5" value="${esc(ex.accessibility || '')}">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400">Description</label>
+        <textarea id="sorc-desc" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm mt-0.5" rows="2">${esc(domain?.description || '')}</textarea>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" id="sorc-violent" class="rounded" ${ex.is_violent ? 'checked' : ''}>
+          <span>⚔️ Violent ?</span>
+        </label>
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" id="sorc-no-quality" class="rounded" ${ex.no_quality_required ? 'checked' : ''}>
+          <span>Pas de qualité requise (ex: Vulgaire)</span>
+        </label>
+      </div>
+      <div id="sorc-quality-block" class="${ex.no_quality_required ? 'hidden' : ''} space-y-2 border border-gray-600 rounded-lg p-3">
+        <p class="text-xs font-semibold text-gray-300">Qualité associée</p>
+        <input id="sorc-qual-name" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm" placeholder="Nom de la qualité" value="${esc(ex.quality?.name || '')}">
+        <div class="grid grid-cols-3 gap-2">
+          <div><label class="text-xs text-gray-500">Rang +1</label><input id="sorc-qual-1" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs" placeholder="Nom rang +1" value="${esc(levelNames[1] || '')}"></div>
+          <div><label class="text-xs text-gray-500">Rang +3</label><input id="sorc-qual-3" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs" placeholder="Nom rang +3" value="${esc(levelNames[3] || '')}"></div>
+          <div><label class="text-xs text-gray-500">Rang +5</label><input id="sorc-qual-5" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs" placeholder="Nom rang +5" value="${esc(levelNames[5] || '')}"></div>
+        </div>
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-semibold text-gray-300">Sorts</p>
+          <button id="btn-sorc-add-spell" class="px-2 py-1 bg-purple-800 hover:bg-purple-700 rounded text-xs">＋ Sort</button>
+        </div>
+        <div id="sorc-spells-list" class="space-y-2">${spells.map(buildSpellRow).join('')}</div>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button id="btn-sorc-save" class="flex-1 py-2 bg-purple-700 hover:bg-purple-600 text-white rounded-lg text-sm font-medium">💾 Enregistrer</button>
+        <button id="btn-sorc-cancel" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm">Annuler</button>
+      </div>
+    </div>`;
+
+  let spellIdx = spells.length;
+
+  const noQualCheckbox = formArea.querySelector('#sorc-no-quality');
+  const qualBlock = formArea.querySelector('#sorc-quality-block');
+  noQualCheckbox.addEventListener('change', () => {
+    qualBlock.classList.toggle('hidden', noQualCheckbox.checked);
+  });
+
+  formArea.querySelector('#btn-sorc-add-spell').addEventListener('click', () => {
+    const list = formArea.querySelector('#sorc-spells-list');
+    const div = document.createElement('div');
+    div.innerHTML = buildSpellRow({ name:'', circle:3, target:'', range:'', difficulty:'', duration:'instantané', ambiance:'', effects:'' }, spellIdx++);
+    const row = div.firstElementChild;
+    row.querySelector('.spell-del').addEventListener('click', () => row.remove());
+    list.appendChild(row);
+  });
+
+  formArea.querySelectorAll('.spell-del').forEach(btn =>
+    btn.addEventListener('click', () => btn.closest('.sorc-spell-row').remove())
+  );
+
+  formArea.querySelector('#btn-sorc-cancel').addEventListener('click', () => { formArea.innerHTML = ''; });
+
+  formArea.querySelector('#btn-sorc-save').addEventListener('click', async () => {
+    const name = formArea.querySelector('#sorc-name').value.trim();
+    if (!name) { alert('Le nom est requis.'); return; }
+    const noQual = noQualCheckbox.checked;
+    const quality = noQual ? null : {
+      name: formArea.querySelector('#sorc-qual-name').value.trim(),
+      level_names: {
+        1: formArea.querySelector('#sorc-qual-1').value.trim(),
+        3: formArea.querySelector('#sorc-qual-3').value.trim(),
+        5: formArea.querySelector('#sorc-qual-5').value.trim(),
+      }
+    };
+    const spellRows = formArea.querySelectorAll('.sorc-spell-row');
+    const spellsData = Array.from(spellRows).map(row => ({
+      name:       row.querySelector('.spell-name').value.trim(),
+      circle:     parseInt(row.querySelector('.spell-circle').value),
+      target:     row.querySelector('.spell-target').value.trim(),
+      range:      row.querySelector('.spell-range').value.trim(),
+      difficulty: row.querySelector('.spell-difficulty').value.trim(),
+      duration:   row.querySelector('.spell-duration').value,
+      ambiance:   row.querySelector('.spell-ambiance').value.trim(),
+      effects:    row.querySelector('.spell-effects').value.trim(),
+    })).filter(s => s.name);
+
+    const extraData = {
+      accessibility:      formArea.querySelector('#sorc-accessibility').value.trim(),
+      quality,
+      no_quality_required: noQual,
+      no_skill_required:  noQual,
+      is_violent:         formArea.querySelector('#sorc-violent').checked,
+      spells:             spellsData,
+    };
+
+    try {
+      const url    = domain ? `/api/rules/${domain.id}` : '/api/rules';
+      const method = domain ? 'PUT' : 'POST';
+      const body   = domain
+        ? { name, description: formArea.querySelector('#sorc-desc').value.trim(), extra: extraData }
+        : { category: 'sorcelleries', name, description: formArea.querySelector('#sorc-desc').value.trim(), extra: extraData };
+      const r = await fetch(url, { method, credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error?.message || `Erreur ${r.status}`);
+      const sorcRes = await fetch('/api/rules?category=sorcelleries', { credentials: 'include' });
+      if (sorcRes.ok) { state.sorcelleries = (await sorcRes.json()).data ?? []; }
+      renderSorcelleriesTab(panel);
+    } catch (e) { alert(e.message); }
+  });
+}
 
 init();

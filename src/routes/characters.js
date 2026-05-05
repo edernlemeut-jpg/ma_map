@@ -73,7 +73,7 @@ router.get('/ref-data', (req, res) => {
     !isJoueur || visibleNationIds.has(o.nation)
   );
 
-  const cats = ['competences', 'qualites', 'defauts', 'mutations'];
+  const cats = ['competences', 'qualites', 'defauts', 'mutations', 'sorcelleries'];
   const rulesData = {};
   for (const cat of cats) {
     const rows = db.prepare(

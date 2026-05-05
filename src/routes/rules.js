@@ -4,7 +4,7 @@ import * as rules from '../services/rules-service.js';
 
 const router = Router();
 
-const CATEGORIES = ['competences', 'qualites', 'defauts', 'mutations', 'actions'];
+const CATEGORIES = ['competences', 'qualites', 'defauts', 'mutations', 'actions', 'sorcelleries'];
 
 // GET /api/rules  — list all visible entries
 // Query: ?category=competences&table_id=...
