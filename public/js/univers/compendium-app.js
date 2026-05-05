@@ -2999,14 +2999,14 @@ function openShipFiche(ship) {
   function getSatisfactionMax() { return crewState.satisfaction_max || 0; }
 
   function getSatisfactionLevel() {
+    // Highest level with at least 1 box checked = current threshold
+    // Filling all S boxes does NOT move to L — only checking an L box does.
     const levels = ['S','L','G','M'];
-    const max = getSatisfactionMax();
-    if (!max) return 'S';
+    let current = 'S';
     for (const lvl of levels) {
-      const filled = (crewState.satisfaction[lvl] || []).filter(Boolean).length;
-      if (filled < max) return lvl;
+      if ((crewState.satisfaction[lvl] || []).some(Boolean)) current = lvl;
     }
-    return 'M';
+    return current;
   }
 
   function getMutinerieCases() {
@@ -3127,7 +3127,10 @@ function openShipFiche(ship) {
 
       <!-- ── État d'alerte ── -->
       <div class="mb-4">
-        <p class="text-xs text-gray-400 mb-2 font-semibold uppercase tracking-wide">🚨 État d'alerte</p>
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide">🚨 État d'alerte</p>
+          ${currentAlerte && canEdit ? `<button class="sf-alerte-reset text-xs text-gray-500 hover:text-gray-300 underline">• Désactiver</button>` : ''}
+        </div>
         <div class="flex gap-2 flex-wrap mb-2">
           ${alertes.map(a => `
             <button class="sf-alerte-btn flex-1 min-w-[90px] rounded-lg border-2 p-2 text-center transition-colors
@@ -3137,10 +3140,7 @@ function openShipFiche(ship) {
               <p class="text-xs opacity-70">${a.desc}</p>
             </button>`).join('')}
         </div>
-        ${currentAlerte
-          ? `<p class="text-xs text-gray-400 italic mb-1">${esc(alerteDescriptions[currentAlerte]||'')}</p>
-             ${canEdit ? `<button class="sf-alerte-reset text-xs text-gray-500 hover:text-gray-300 underline">• Désactiver</button>` : ''}`
-          : ''}
+        ${currentAlerte ? `<p class="text-xs text-gray-400 italic mb-1">${esc(alerteDescriptions[currentAlerte]||'')}</p>` : ''}
         <p class="text-xs text-gray-500 mt-2">Effectif déclaré : <span class="text-white font-bold">${esc(statVal('equipage') || '—')}</span></p>
       </div>
 
@@ -3150,10 +3150,10 @@ function openShipFiche(ship) {
         <div class="flex items-center gap-2 mb-3 flex-wrap">
           <span class="text-xs text-gray-400 w-12 flex-shrink-0">Bosco :</span>
           ${canEdit
-            ? `<input type="text" id="sf-bosco-nom" value="${esc(crewState.bosco_nom||'')}" placeholder="Nom du Bosco"
-                class="flex-1 min-w-[120px] bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 min-h-[28px]">
-               <button id="sf-bosco-save" class="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded text-xs min-h-[28px]">✓</button>`
-            : `<span class="text-sm text-white">${crewState.bosco_nom ? esc(crewState.bosco_nom) : '<em class="text-gray-500">Non désigné</em>'}</span>`}
+            ? `<select id="sf-bosco-select" class="flex-1 min-w-[160px] bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 min-h-[28px]">
+                 <option value="">— Choisir un PNJ nommé —</option>
+               </select>`
+            : `<span class="text-sm text-white" id="sf-bosco-display">${crewState.bosco_nom ? esc(crewState.bosco_nom) : '<em class="text-gray-500">Non désigné</em>'}</span>`}
         </div>
         <table class="w-full text-xs border-collapse">
           <thead><tr class="text-gray-500 border-b border-gray-700">
@@ -3258,10 +3258,7 @@ function openShipFiche(ship) {
     });
     ct.querySelector('.sf-alerte-reset')?.addEventListener('click', async () => { hullState.alerte = ''; await saveHullState(); renderFicheEquipage(ct); });
 
-    ct.querySelector('#sf-bosco-save')?.addEventListener('click', async () => {
-      crewState.bosco_nom = ct.querySelector('#sf-bosco-nom')?.value?.trim() || '';
-      await saveCrewState();
-    });
+    // Bosco select wired in loadBoscoSelect (called below)
 
     ct.querySelectorAll('.sf-crew-comp').forEach(inp => {
       inp.addEventListener('change', async () => {
@@ -3273,13 +3270,28 @@ function openShipFiche(ship) {
     ct.querySelectorAll('.sf-sat-box').forEach(box => {
       if (!canEdit) return;
       box.addEventListener('click', async () => {
-        const lvl = box.dataset.level;
+        const clickedLvl = box.dataset.level;
         const bi = Number(box.dataset.index);
         const max = getSatisfactionMax();
-        const arr = Array(max).fill(false).map((_,j) => (crewState.satisfaction[lvl]||[])[j] ?? false);
-        const filledCount = arr.filter(Boolean).length;
-        const newCount = (filledCount === bi + 1) ? bi : bi + 1;
-        crewState.satisfaction[lvl] = Array(max).fill(false).map((_,j) => j < newCount);
+        const levels = ['S','L','G','M'];
+        const clickedIdx = levels.indexOf(clickedLvl);
+        const arr = Array(max).fill(false).map((_,j) => (crewState.satisfaction[clickedLvl]||[])[j] ?? false);
+        const prevFilled = arr.filter(Boolean).length;
+        const newFilled = (prevFilled === bi + 1) ? bi : bi + 1;
+        // Update clicked level
+        crewState.satisfaction[clickedLvl] = Array(max).fill(false).map((_,j) => j < newFilled);
+        if (newFilled > 0) {
+          // Cascade: fill all lower levels completely
+          for (let i = 0; i < clickedIdx; i++) {
+            crewState.satisfaction[levels[i]] = Array(max).fill(true);
+          }
+        }
+        if (newFilled < prevFilled) {
+          // Cascade: clear all higher levels
+          for (let i = clickedIdx + 1; i < levels.length; i++) {
+            crewState.satisfaction[levels[i]] = Array(max).fill(false);
+          }
+        }
         await saveCrewState();
         renderFicheEquipage(ct);
       });
@@ -3397,6 +3409,7 @@ function openShipFiche(ship) {
       });
     });
 
+    loadBoscoSelect(ct);
     if (canEdit) wireCrewForms(ct, crewData);
   }
 
@@ -3449,7 +3462,9 @@ function openShipFiche(ship) {
       <div class="sf-crew-add-form flex gap-1 mt-2 flex-wrap items-center" data-code="${esc(cd.code)}">
         <select class="sf-crew-type bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 min-h-[32px]" data-code="${esc(cd.code)}">
           <option value="score">Score fixe</option>
-          <option value="perso">Personnage</option>
+          <option value="pj">PJ</option>
+          <option value="premier_role">Premier Rôle</option>
+          <option value="second_role">Second Rôle</option>
           <option value="figurant">Figurant</option>
         </select>
         <div class="sf-input-score flex gap-1 flex-1 min-w-[140px]">
@@ -3463,7 +3478,7 @@ function openShipFiche(ship) {
         </div>
         <div class="sf-input-figurant hidden flex gap-1 flex-1 min-w-[200px]">
           <select class="sf-crew-figurant-tmpl w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 min-h-[32px]" data-code="${esc(cd.code)}">
-            <option value="">— Template —</option>
+            <option value="">— Figurant —</option>
           </select>
           <input type="number" placeholder="Nb" class="sf-crew-figurant-count bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 w-14 min-h-[32px]" min="1" value="1" data-code="${esc(cd.code)}">
         </div>
@@ -3498,14 +3513,15 @@ function openShipFiche(ship) {
         form.querySelector('.sf-input-score')?.classList.add('hidden');
         form.querySelector('.sf-input-perso')?.classList.add('hidden');
         form.querySelector('.sf-input-figurant')?.classList.add('hidden');
-        if (sel.value === 'perso') {
-          form.querySelector('.sf-input-perso')?.classList.remove('hidden');
-          loadCharactersForSelect(form.querySelector('.sf-crew-perso'), ct);
-        } else if (sel.value === 'figurant') {
+        if (sel.value === 'figurant') {
           form.querySelector('.sf-input-figurant')?.classList.remove('hidden');
           loadFigurantsForSelect(form.querySelector('.sf-crew-figurant-tmpl'), ct);
-        } else {
+        } else if (sel.value === 'score') {
           form.querySelector('.sf-input-score')?.classList.remove('hidden');
+        } else {
+          // pj, premier_role, second_role
+          form.querySelector('.sf-input-perso')?.classList.remove('hidden');
+          populateCrewPersoSelect(form.querySelector('.sf-crew-perso'), sel.value, ct);
         }
       });
     });
@@ -3517,11 +3533,11 @@ function openShipFiche(ship) {
         if (!form) return;
         const typeVal = form.querySelector('.sf-crew-type').value;
         let entry;
-        if (typeVal === 'perso') {
+        if (typeVal === 'pj' || typeVal === 'premier_role' || typeVal === 'second_role') {
           const charId = form.querySelector('.sf-crew-perso').value;
           if (!charId) return;
           const char = cachedCharacters?.find(c => String(c.id) === charId);
-          entry = { poste: code, type: 'character', personnage_id: charId, nom: char?.name || `Perso ${charId}` };
+          entry = { poste: code, type: typeVal, personnage_id: charId, nom: char?.name || `Perso ${charId}` };
         } else if (typeVal === 'figurant') {
           const tmplId = form.querySelector('.sf-crew-figurant-tmpl').value;
           if (!tmplId) return;
@@ -3557,14 +3573,18 @@ function openShipFiche(ship) {
     });
   }
 
-  async function loadCharactersForSelect(selectEl, ct) {
-    if (cachedCharacters) { populateCharSelect(selectEl); return; }
-    ct.querySelector('#sf-char-loading')?.classList.remove('hidden');
+  async function ensureCharactersCached(ct) {
+    if (cachedCharacters) return;
+    ct?.querySelector('#sf-char-loading')?.classList.remove('hidden');
     try {
       const r = await fetchWithTable('/api/characters');
       if (r.ok) { const j = await r.json(); cachedCharacters = j.data ?? []; }
     } catch {}
-    ct.querySelector('#sf-char-loading')?.classList.add('hidden');
+    ct?.querySelector('#sf-char-loading')?.classList.add('hidden');
+  }
+
+  async function loadCharactersForSelect(selectEl, ct) {
+    await ensureCharactersCached(ct);
     populateCharSelect(selectEl);
   }
 
@@ -3573,6 +3593,38 @@ function openShipFiche(ship) {
     const chars = cachedCharacters || [];
     selectEl.innerHTML = `<option value="">— Choisir un personnage —</option>` +
       chars.map(c => `<option value="${esc(String(c.id))}">${esc(c.name)}${c.archetype ? ` (${esc(c.archetype)})` : ''}</option>`).join('');
+  }
+
+  async function populateCrewPersoSelect(selectEl, typeVal, ct) {
+    if (!selectEl) return;
+    await ensureCharactersCached(ct);
+    const all = cachedCharacters || [];
+    let filtered;
+    if (typeVal === 'pj') {
+      filtered = all.filter(c => c.type === 'pj');
+    } else {
+      // premier_role / second_role — PNJ nommés
+      filtered = all.filter(c => c.type === 'pnj' && _pnjNature(c.data || {}) === typeVal);
+    }
+    const label = { pj: 'PJ', premier_role: 'Premier Rôle', second_role: 'Second Rôle' }[typeVal] || typeVal;
+    selectEl.innerHTML = `<option value="">— Choisir ${esc(label)} —</option>` +
+      filtered.map(c => `<option value="${esc(String(c.id))}">${esc(c.name)}${c.archetype ? ` (${esc(c.archetype)})` : ''}</option>`).join('');
+  }
+
+  async function loadBoscoSelect(ct) {
+    const sel = ct.querySelector('#sf-bosco-select');
+    if (!sel) return;
+    await ensureCharactersCached(ct);
+    const all = cachedCharacters || [];
+    const nommes = all.filter(c => c.type === 'pnj' && ['premier_role','second_role'].includes(_pnjNature(c.data || {})));
+    sel.innerHTML = `<option value="">— Choisir un PNJ nommé —</option>` +
+      nommes.map(c => `<option value="${esc(String(c.id))}" ${String(crewState.bosco_id) === String(c.id) ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+    sel.addEventListener('change', async () => {
+      const charId = sel.value || null;
+      crewState.bosco_id  = charId;
+      crewState.bosco_nom = charId ? (all.find(c => String(c.id) === charId)?.name || '') : '';
+      await saveCrewState();
+    });
   }
 
   let cachedFigurants = null;
