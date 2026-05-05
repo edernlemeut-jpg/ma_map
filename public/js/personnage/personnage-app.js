@@ -893,7 +893,7 @@ function renderSheet(char) {
     { id: 'background',       label: '📖 Background' },
     { id: 'notes',            label: '📝 Notes' },
     { id: 'inventaire',       label: '🎒 Inventaire' },
-    ...(d.type === 'pj' ? [{ id: 'experience', label: '💎 Expérience' }] : []),
+    ...((['pj', 'pnj'].includes(d.type ?? char.type)) ? [{ id: 'experience', label: '💎 Expérience' }] : []),
     ...(Object.keys(competences).some(k => /^sorcellerie \(/i.test(k)) ? [{ id: 'sorcellerie', label: '✨ Sorcellerie' }] : []),
   ];
   const tabBar = `<div class="flex gap-1 flex-wrap border-b border-gray-700 mb-5 pb-1">
