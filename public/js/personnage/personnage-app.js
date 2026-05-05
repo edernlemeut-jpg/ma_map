@@ -864,6 +864,26 @@ function attachSheetEditListeners(container, char) {
   wire('sheet-notes',      'notes');
   wire('sheet-inventaire', 'inventaire');
   wire('sheet-credits',    'credits', true);
+
+  // Réputation select
+  const repSel = container.querySelector('#sheet-reputation-select');
+  if (repSel) {
+    repSel.addEventListener('change', () => {
+      char.data.reputation_type = repSel.value;
+      // Update desc block inline
+      const rep = REPUTATIONS.find(r => r.type === repSel.value);
+      const descDiv = container.querySelector('#reputation-desc');
+      if (descDiv) {
+        descDiv.innerHTML = rep
+          ? `<div class="mt-2 text-xs text-gray-400 space-y-0.5">
+              <p><span class="text-gray-500">Compétence :</span> <span class="text-cyan-300">${esc(rep.competence)}</span></p>
+              <p class="text-gray-400 leading-snug italic mt-1">${esc(rep.desc)}</p>
+             </div>`
+          : '';
+      }
+      patchSheet(char);
+    });
+  }
 }
 
 function renderSheet(char) {
@@ -937,7 +957,6 @@ function renderSheet(char) {
       <div class="flex gap-2 text-sm items-center flex-wrap shrink-0">
         <span id="sheet-save-indicator" class="text-xs text-green-400 opacity-0 transition-opacity duration-500">✓ Sauvegardé</span>
         ${ editable ? `<button onclick="editChar('${char.id}')" class="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 rounded">Modifier</button>` : '' }
-        <button onclick="showListView()" class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded">← Retour</button>
       </div>
     </div>
     ${tabBar}
@@ -1375,6 +1394,45 @@ function renderTraitsSheet(d) {
 }
 
 // ── Onglets de la fiche de consultation ──────────────────────────────────────
+// ── Réputations ───────────────────────────────────────────────────────────────
+const REPUTATIONS = [
+  { type: 'Aristocrate',         competence: 'Bureaucratie',  desc: "Le personnage est connu pour appartenir ou avoir appartenu à l'élite politique ou économique des nations stellaires. Non seulement il est respectueux des traditions et des lois, mais en plus, il les connaît probablement par cœur !" },
+  { type: 'Bon vivant',          competence: 'Séduction',     desc: "D'après la rumeur, le personnage aime bien les plaisirs de la vie. Sympathique, enjoué, on n'est pas censé s'ennuyer avec lui, ou redouter un coup tordu. La vie est belle !" },
+  { type: 'Crapule',             competence: 'Illégalités',   desc: "La réputation du personnage est suffisante pour l'envoyer en prison. La bonne nouvelle, c'est que pour certaines personnes, c'est le signe qu'on peut lui faire confiance et qu'il ne parlera pas..." },
+  { type: 'Danseur étoile',      competence: 'Danse',         desc: "Le personnage a tellement fait parler de lui sur les pistes de danse du Dernier Millénaire que personne n'ose remettre en cause sa grâce. Lorsqu'il fait un faux pas, tout le monde croit que c'est une nouvelle mode !" },
+  { type: 'Exubérant',           competence: 'Comédie',       desc: "Tout le monde sait que le personnage ne contrôle pas ses émotions. Colérique, émotif, excentrique, il gesticule tellement qu'on finit par ne plus trop faire attention." },
+  { type: 'Gentilhomme',         competence: 'Étiquette',     desc: "Cultivé, poli, séducteur mais pas trop, le personnage a tout du gendre idéal ! Toutes les portes lui sont ouvertes car il est connu qu'il sait se tenir." },
+  { type: 'Grand joueur',        competence: 'Jeux',          desc: "Le personnage est censé être redoutable autour d'une table de jeu. Il a si souvent gagné qu'il est difficile de croire qu'il bluffe et derrière chaque mouvement, on croit voir une nouvelle stratégie révolutionnaire." },
+  { type: 'Héros au grand cœur', competence: 'Éloquence',     desc: "À l'instar de Stella Bell, le personnage est un héros du Dernier Millénaire. Il vole aux riches pour donner aux pauvres et défend les faibles contre les forts. Tout le monde est prêt à le croire, car son cœur est pur !" },
+  { type: 'Honnête marchand',    competence: 'Commerce',      desc: "Le personnage est connu pour toujours pratiquer le juste prix et veiller à ce que ses opérations commerciales soient profitables pour tout le monde. Ainsi, lorsqu'il donne un prix, on ne le discute pas." },
+  { type: 'Impitoyable',         competence: 'Intimidation',  desc: "D'après la rumeur, le personnage ne fait pas de compromis, et parfois, même pas de prisonniers. Par sauvagerie ou par conviction, il est prêt à aller jusqu'au bout pour accomplir sa mission et mettre en œuvre ses menaces." },
+  { type: "Meneur d'homme",      competence: 'Commandement',  desc: "Tout le monde sait que le personnage ne donnerait que les ordres qu'il pourrait lui-même exécuter. Toujours en première ligne, n'abandonnant jamais personne, il est le chef dont le monde rêve." },
+  { type: 'Petit futé',          competence: 'Baratin',       desc: "Le personnage est connu pour toujours avoir un bon plan en réserve : arnaque, combine ou magouille, il n'est jamais à court. Ainsi, il devient difficile de savoir s'il ment ou si ce qu'il promet peut vraiment se produire." },
+  { type: 'Professionnel',       competence: 'Éloquence',     desc: "Avec le personnage, il n'y a pas de surprise, car il tient toujours ses engagements. Et lorsqu'il donne sa parole, il la tient. Ou au moins, il l'a tenue suffisamment pour que tout le monde le croie..." },
+  { type: 'Sorcier',             competence: 'Intimidation',  desc: "D'après la rumeur, le personnage est doté de pouvoirs incroyables ; on dit même que son regard peut tuer. Personne n'ose trop l'embêter, car qui sait vraiment ce dont il est capable..." },
+  { type: 'Tombeur / Femme Fatale', competence: 'Séduction',  desc: "Le personnage a l'habitude de promettre monts et merveilles à ses conquêtes... et de tenir parole. Véritable gladiateur du lit à baldaquin, il n'y a que des éloges qui circulent à son sujet." },
+];
+
+function renderReputationBlock(d, editable) {
+  const current = d.reputation_type || '';
+  const rep = REPUTATIONS.find(r => r.type === current);
+  const selectHtml = `<select id="sheet-reputation-select" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 w-full mt-1 ${editable ? '' : 'opacity-60 pointer-events-none'}">
+    <option value="">— Aucune réputation —</option>
+    ${REPUTATIONS.map(r => `<option value="${esc(r.type)}" ${r.type === current ? 'selected' : ''}>${esc(r.type)}</option>`).join('')}
+  </select>`;
+  const descHtml = rep
+    ? `<div class="mt-2 text-xs text-gray-400 space-y-0.5">
+        <p><span class="text-gray-500">Compétence :</span> <span class="text-cyan-300">${esc(rep.competence)}</span></p>
+        <p class="text-gray-400 leading-snug italic mt-1">${esc(rep.desc)}</p>
+       </div>`
+    : '';
+  return `<div id="reputation-block">
+    <p class="text-xs text-gray-500 mb-0.5">Réputation</p>
+    ${selectHtml}
+    <div id="reputation-desc">${descHtml}</div>
+  </div>`;
+}
+
 function renderSheetTabCaracteristiques(d, finalAttrs, attrBonus, attrs, sante, energieX, arch, domPriv) {
   const isMutant = d.is_mutant;
   return `
@@ -1414,9 +1472,12 @@ function renderSheetTabCaracteristiques(d, finalAttrs, attrBonus, attrs, sante, 
       <p class="text-xs text-gray-300 font-semibold mb-2">Panache <span class="text-yellow-400 font-mono">${d.panache ?? 3}</span></p>
       <div class="flex gap-1 flex-wrap">${trackerBoxes(d.panache ?? 3, 'panache')}</div>
     </div>
-    <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 flex flex-col justify-center">
-      <p class="text-xs text-gray-400 mb-1">Gloire</p>
-      <p class="font-bold text-3xl">${d.gloire ?? 0}</p>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+      <div class="flex items-baseline gap-3 mb-2">
+        <p class="text-xs text-gray-400">Gloire</p>
+        <p class="font-bold text-3xl">${d.gloire ?? 0}</p>
+      </div>
+      ${renderReputationBlock(d, editable)}
     </div>
   </div>
 
