@@ -2674,11 +2674,11 @@ function openShipFiche(ship) {
   const POSTE_COMP = { P: 'Techniques', V: 'Espionnage', C: 'Techniques', Me: 'Sciences', Mo: 'Survie', Fu: 'Techniques' };
   const parsedCrew = {};
   const equipageStr = String(statVal('equipage') || '');
-  const crewRegex = /(\d+)\s*(Fu|Me|Mo|P|V|C)\b/gi;
+  const crewRegex = /(\d+)\s*(Fu|Me|Mo|P|V|C|F)\b/gi;
   let cm;
+  const crewNormalizeMap = { fu: 'Fu', me: 'Me', mo: 'Mo', p: 'P', v: 'V', c: 'C', f: 'Fu' };
   while ((cm = crewRegex.exec(equipageStr)) !== null) {
-    const raw = cm[2];
-    const code = raw === 'fu' || raw === 'FU' ? 'Fu' : raw === 'me' || raw === 'ME' ? 'Me' : raw === 'mo' || raw === 'MO' ? 'Mo' : raw.toUpperCase();
+    const code = crewNormalizeMap[cm[2].toLowerCase()] || cm[2].toUpperCase();
     parsedCrew[code] = Number(cm[1]);
   }
 
