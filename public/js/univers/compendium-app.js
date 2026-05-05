@@ -312,11 +312,12 @@ function setupTabNav() {
   nav.querySelectorAll('.tab-btn').forEach(btn => {
     const tab = btn.dataset.tab;
     const isActive = tab === state.activeTab;
+    const wasHidden = btn.classList.contains('hidden');
     btn.className = `tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors ${
       isActive
         ? 'bg-gray-800 text-gray-100 border border-gray-700 border-b-transparent -mb-px'
         : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
-    }`;
+    }${wasHidden ? ' hidden' : ''}`;
 
     // Badge
     const badge = btn.querySelector(`[data-badge="${tab}"]`);
