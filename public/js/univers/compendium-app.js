@@ -1,4 +1,4 @@
-﻿import { initHeader } from '/js/shared/header.js';
+import { initHeader } from '/js/shared/header.js';
 import { getActiveTableId, fetchWithTable, isMJ, setActiveTable, renderTableSelector } from '/js/shared/table-selector.js';
 import { createPoller } from '/js/shared/poller.js';
 import { renderEntityLinksSection } from '/js/shared/entity-links.js';
@@ -2656,6 +2656,7 @@ function openShipFiche(ship) {
   let equipageDetail = [...(ship.equipage_detail || [])];
   let armementEtat   = [...(ship.armement_etat   || [])];
   let systemesEtat   = [...(ship.systemes_secondaires_etat || [])];
+  let crewState      = { ...(ship.crew_state || {}) };
 
   // Hull state: { I:[bool,...], L:[...], G:[...], D:[...], alerte:"verte|jaune|rouge|" }
   let hullState = {};
@@ -2683,19 +2684,7 @@ function openShipFiche(ship) {
 
   // Characters cache for crew assignment
   let cachedCharacters = null;
-
-  // Crew state (satisfaction, bosco, composition)
-  let crewState = { ...(ship.crew_state || {}) };
-  crewState.bosco_id        = crewState.bosco_id        ?? null;
-  crewState.bosco_nom       = crewState.bosco_nom       ?? '';
-  crewState.normaux         = crewState.normaux         ?? 0;
-  crewState.elite           = crewState.elite           ?? 0;
-  crewState.heros           = crewState.heros           ?? 0;
-  crewState.nommes_n        = crewState.nommes_n        ?? 0;
-  crewState.nommes_e        = crewState.nommes_e        ?? 0;
-  crewState.nommes_h        = crewState.nommes_h        ?? 0;
-  crewState.satisfaction     = crewState.satisfaction    ?? { S: [], L: [], G: [], M: [] };
-  crewState.satisfaction_max = crewState.satisfaction_max ?? 0;
+  let cachedFigurants  = null;
 
   // Overlay
   const overlay = document.createElement('div');
@@ -2760,6 +2749,9 @@ function openShipFiche(ship) {
   }
   async function saveHullState() {
     return savePatch({ hull_state_json: JSON.stringify(hullState) });
+  }
+  async function saveCrewState() {
+    return savePatch({ crew_state_json: JSON.stringify(crewState) });
   }
 
   // ---- Catalogue system helpers ----
@@ -2990,379 +2982,384 @@ function openShipFiche(ship) {
     }
   }
 
-  // ---- Tab 3 helpers ----
-
-  async function saveCrewState() {
-    return savePatch({ crew_state_json: JSON.stringify(crewState) });
-  }
-
-  function getSatisfactionMax() { return crewState.satisfaction_max || 0; }
-
-  function getSatisfactionLevel() {
-    // Highest level with at least 1 box checked = current threshold
-    // Filling all S boxes does NOT move to L — only checking an L box does.
-    const levels = ['S','L','G','M'];
-    let current = 'S';
-    for (const lvl of levels) {
-      if ((crewState.satisfaction[lvl] || []).some(Boolean)) current = lvl;
-    }
-    return current;
-  }
-
-  function getMutinerieCases() {
-    return (crewState.satisfaction['M'] || []).filter(Boolean).length;
-  }
-
-  function getNombreNommesTotal() {
-    return (crewState.nommes_n||0) + (crewState.nommes_e||0) + (crewState.nommes_h||0);
-  }
-
-  function applySatisfactionDelta(delta) {
-    const levels = ['S','L','G','M'];
-    const max = getSatisfactionMax();
-    if (max <= 0) return;
-    if (delta > 0) {
-      // Recover: un-fill the last filled box across all levels (bottom-up)
-      for (let i = levels.length - 1; i >= 0; i--) {
-        const lvl = levels[i];
-        const arr = Array(max).fill(false).map((_,j) => (crewState.satisfaction[lvl]||[])[j] ?? false);
-        const filled = arr.filter(Boolean).length;
-        if (filled > 0) {
-          crewState.satisfaction[lvl] = arr.map((_,j) => j < filled - 1);
-          return;
-        }
-      }
-    } else {
-      // Lose: fill the next empty box (top-down, S first)
-      for (let i = 0; i < levels.length; i++) {
-        const lvl = levels[i];
-        const arr = Array(max).fill(false).map((_,j) => (crewState.satisfaction[lvl]||[])[j] ?? false);
-        const filled = arr.filter(Boolean).length;
-        if (filled < max) {
-          crewState.satisfaction[lvl] = arr.map((_,j) => j < filled + 1);
-          return;
-        }
-      }
-    }
-  }
-
   // ---- Tab 3: Équipage ----
   function renderFicheEquipage(ct) {
     const currentAlerte = hullState.alerte || '';
-    const alerteDescriptions = {
-      verte: 'Un quart des matelots à chaque poste. Seul ¼ des armes peut tirer ; les autres postes subissent TD.',
-      jaune: 'La moitié de l\'équipage à chaque poste. Seule ½ des armes peut tirer ; les autres postes subissent D+1.',
-      rouge: 'Tous les hommes sur le pont. Le vaisseau fonctionne à plein régime.',
+    const satMax  = crewState.satisfaction_max || 0;
+    const SAT_ROWS   = ['S', 'L', 'G', 'M'];
+    const SAT_LABELS = { S: 'Satisfait', L: 'Légèrement insatisfaits', G: 'Gravement insatisfaits', M: 'Mutinerie ?' };
+    const SAT_COLORS = {
+      S: { active: 'bg-green-600', empty: 'bg-gray-700', border: 'border-green-800' },
+      L: { active: 'bg-yellow-500', empty: 'bg-gray-700', border: 'border-yellow-700' },
+      G: { active: 'bg-orange-600', empty: 'bg-gray-700', border: 'border-orange-800' },
+      M: { active: 'bg-red-700',    empty: 'bg-gray-700', border: 'border-red-900'   },
     };
-    const alertes = [
-      { value: 'verte',  label: 'Alerte Verte', desc: '¼ équipage',     activeClass: 'border-green-500  bg-green-900/30  text-green-300'  },
-      { value: 'jaune',  label: 'Alerte Jaune', desc: '½ équipage',     activeClass: 'border-yellow-500 bg-yellow-900/30 text-yellow-300' },
-      { value: 'rouge',  label: 'Alerte Rouge', desc: 'Équipage complet', activeClass: 'border-red-500    bg-red-900/30    text-red-300'    },
-    ];
+    const SAT_TEXT = { S: 'text-green-400', L: 'text-yellow-400', G: 'text-orange-400', M: 'text-red-400' };
 
-    const satMax = getSatisfactionMax();
-    const currentSatLevel = getSatisfactionLevel();
-    const mutCases = getMutinerieCases();
-    const satLevelInfos = [
-      { code: 'S', label: 'Satisfaits',             color: 'text-green-300',  bgFill: '#22c55e', effects: '' },
-      { code: 'L', label: 'Légèrement insatisfaits', color: 'text-yellow-300', bgFill: '#eab308', effects: 'Les tests des PNJ subissent D+1.' },
-      { code: 'G', label: 'Gravement insatisfaits',  color: 'text-orange-400', bgFill: '#f97316', effects: 'Les tests des PNJ subissent TD.' },
-      { code: 'M', label: 'Mutinerie ?',             color: 'text-red-400',    bgFill: '#ef4444', effects: 'Risque de mutinerie !' },
-    ];
-    const currentSatInfo = satLevelInfos.find(s => s.code === currentSatLevel) || satLevelInfos[0];
-
-    function renderSatRow(lvl) {
-      const arr = Array(satMax).fill(false).map((_,i) => (crewState.satisfaction[lvl.code]||[])[i] ?? false);
-      const filled = arr.filter(Boolean).length;
-      const boxes = arr.map((checked, i) =>
-        `<div class="sf-sat-box${canEdit ? ' cursor-pointer' : ''} flex-shrink-0"
-          data-level="${lvl.code}" data-index="${i}"
-          style="width:20px;height:20px;border-radius:3px;border:2px solid;transition:background 0.1s;${
-            checked
-              ? `background:${lvl.bgFill};border-color:${lvl.bgFill};`
-              : 'background:#1f2937;border-color:#374151;'
-          }">
-          ${checked ? '<span style="display:flex;align-items:center;justify-content:center;height:100%;font-size:9px;font-weight:bold;color:#fff">✕</span>' : ''}
-        </div>`
-      ).join('');
-      const isCurrent = lvl.code === currentSatLevel;
-      return `<div class="flex items-center gap-2 mb-1.5">
-        <span class="text-xs w-4 text-center font-bold ${lvl.color}" title="${esc(lvl.label)}">${lvl.code}</span>
-        <div class="flex gap-1 flex-wrap flex-1">${boxes}</div>
-        <span class="text-xs text-gray-500 w-10 text-right">${filled}/${satMax}</span>
-        ${isCurrent ? `<span class="text-xs bg-gray-600 text-white px-1.5 py-0.5 rounded ml-1 whitespace-nowrap">◀</span>` : ''}
-      </div>`;
+    function countSatTicks() {
+      if (!satMax) return 0;
+      return SAT_ROWS.reduce((acc, r) => acc + ((crewState.satisfaction?.[r] || []).filter(Boolean).length), 0);
+    }
+    function satCurrentLevel() {
+      const sat = crewState.satisfaction || {};
+      if ((sat.M || []).some(x => x)) return 'mutinerie';
+      if ((sat.G || []).some(x => x)) return 'gravement';
+      if ((sat.L || []).some(x => x)) return 'leger';
+      return 'satisfait';
     }
 
-    const crewData = crewCodes.map(code => ({
-      code,
-      label: crewLabels[code],
-      nb: parsedCrew[code] || 0,
-      assignments: equipageDetail.filter(e => e.poste === code),
-      competence: POSTE_COMP[code],
-    }));
+    const totalNommes = (crewState.nommes_n || 0) + (crewState.nommes_e || 0) + (crewState.nommes_h || 0);
+    const mTicks = satMax ? ((crewState.satisfaction?.M || []).filter(Boolean).length) : 0;
+    const mutinerieDiff = mTicks + totalNommes;
 
-    const tresor = ship.tresor || 0;
-    const totalPnj = (crewState.normaux||0) + (crewState.elite||0) + (crewState.heros||0);
-    const defaultParts = Math.max(1, totalPnj + equipageDetail.filter(e => e.personnage_id || e.type === 'character').length);
+    // Captain data
+    const capitaineId   = ship.capitaine_id || null;
+    const capitaineChar = cachedCharacters?.find(c => String(c.id) === String(capitaineId));
+    const capitaineNom  = capitaineChar?.name || (capitaineId ? '…' : '—');
+    const capitainePP    = capitaineChar?.pp    ?? 0;
+    const capitaineGloire = capitaineChar?.gloire ?? 0;
+
+    const alerteDefs = [
+      { value: 'verte',  label: 'Alerte Verte', activeClass: 'border-green-500 bg-green-900/30 text-green-300',
+        desc: '1/4 des matelots à chaque poste. 1/4 des armes, autres postes subissent TD.' },
+      { value: 'jaune',  label: 'Alerte Jaune', activeClass: 'border-yellow-500 bg-yellow-900/30 text-yellow-300',
+        desc: '1/2 de l\'équipage à chaque poste. 1/2 des armes, autres postes subissent D+1.' },
+      { value: 'rouge',  label: 'Alerte Rouge', activeClass: 'border-red-500 bg-red-900/30 text-red-300',
+        desc: 'Tous les hommes sur le pont. Fonctionnement à plein régime.' },
+    ];
+
+    // Crew posts
+    const ALERT_ICON  = { verte: '🟢', jaune: '🟡', rouge: '🔴' };
+    const ALERT_COLOR = { verte: 'text-green-400', jaune: 'text-yellow-400', rouge: 'text-red-400' };
+    const crewData = crewCodes.map(code => {
+      const nb = parsedCrew[code] || 0;
+      const members = equipageDetail.filter(e => e.poste === code);
+      const activeCount = members.reduce((acc, m) =>
+        acc + (m.type === 'figurant'
+          ? (Number(m.figurant_actif !== undefined ? m.figurant_actif : m.figurant_nb) || 0)
+          : (m.actif !== 0 ? 1 : 0)), 0);
+      let postAlerte = '';
+      if (nb > 0 && activeCount > 0) {
+        const alertVerte = Math.max(1, Math.ceil(nb / 4));
+        const alertJaune = Math.max(1, Math.ceil(nb / 2));
+        postAlerte = activeCount >= nb ? 'rouge' : activeCount >= alertJaune ? 'jaune' : 'verte';
+      }
+      return { code, label: crewLabels[code], nb, members, activeCount, postAlerte, competence: POSTE_COMP[code] };
+    });
+
+    const satLevel = satCurrentLevel();
+    const SAT_LEVEL_LABEL = { satisfait: '✅ Satisfait', leger: '😒 Légèrement insatisfaits', gravement: '😠 Gravement insatisfaits', mutinerie: '💀 Mutinerie !' };
+    const SAT_LEVEL_COLOR = { satisfait: 'text-green-400', leger: 'text-yellow-400', gravement: 'text-orange-400', mutinerie: 'text-red-400' };
 
     ct.innerHTML = `
-      <!-- ── Capitaine ── -->
-      <div class="mb-4 bg-gray-800/60 rounded-lg p-3 border border-gray-700">
-        <p class="text-xs text-gray-400 mb-2 font-semibold uppercase tracking-wide">⚓ Capitaine</p>
-        <div class="flex items-center gap-3 flex-wrap">
-          <div class="flex-1 min-w-0">
-            <p id="sf-cap-display" class="text-sm text-white">
-              ${ship.capitaine_id
-                ? `<span class="italic text-gray-400">Chargement…</span>`
-                : `<span class="italic text-gray-500">Aucun capitaine désigné</span>`}
-            </p>
-            <p id="sf-cap-stats" class="text-xs text-purple-300 mt-0.5"></p>
+      <!-- CAPITAINE -->
+      <div class="bg-gray-800 rounded-lg p-3 mb-3 border border-gray-700">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Capitaine</p>
+            <p class="text-sm font-bold text-white">${esc(capitaineNom)}</p>
+            ${capitaineChar ? `<p class="text-xs text-gray-500 mt-0.5">PP ${capitainePP} · Gloire ${capitaineGloire} → <span class="text-gray-300">${capitainePP + capitaineGloire} cases de satisfaction</span></p>` : ''}
           </div>
-          ${canEdit ? `<select id="sf-cap-select" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 min-h-[32px] flex-shrink-0">
-            <option value="">— Désigner —</option>
-          </select>` : ''}
+          ${canEdit ? `<button id="sf-cap-edit-btn" class="text-xs text-blue-400 hover:text-blue-200 underline">Changer</button>` : ''}
+        </div>
+        <div id="sf-cap-form" class="hidden mt-2 space-y-1.5">
+          <select id="sf-cap-sel" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 min-h-[32px]">
+            <option value="">— Choisir le capitaine —</option>
+          </select>
+          <div class="flex gap-2">
+            <button id="sf-cap-save" class="flex-1 bg-blue-700 hover:bg-blue-600 text-white text-xs px-3 py-1.5 rounded">Enregistrer</button>
+            <button id="sf-cap-cancel" class="flex-1 bg-gray-600 hover:bg-gray-500 text-white text-xs px-3 py-1.5 rounded">Annuler</button>
+          </div>
         </div>
       </div>
 
-      <!-- ── État d'alerte ── -->
-      <div class="mb-4">
-        <div class="flex items-center justify-between mb-2">
-          <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide">🚨 État d'alerte</p>
-          ${currentAlerte && canEdit ? `<button class="sf-alerte-reset text-xs text-gray-500 hover:text-gray-300 underline">• Désactiver</button>` : ''}
-        </div>
-        <div class="flex gap-2 flex-wrap mb-2">
-          ${alertes.map(a => `
-            <button class="sf-alerte-btn flex-1 min-w-[90px] rounded-lg border-2 p-2 text-center transition-colors
+      <!-- ÉTAT D'ALERTE -->
+      <div class="bg-gray-800 rounded-lg p-3 mb-3 border border-gray-700">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">État d'alerte</p>
+        <div class="flex gap-2 flex-wrap">
+          ${alerteDefs.map(a => `
+            <button class="sf-alerte-btn flex-1 min-w-[90px] rounded-lg border-2 p-2 text-left transition-colors
               ${currentAlerte === a.value ? a.activeClass : 'border-gray-600 text-gray-500 hover:border-gray-400 hover:text-gray-300'}"
               data-alerte="${a.value}">
               <p class="text-xs font-semibold">${a.label}</p>
-              <p class="text-xs opacity-70">${a.desc}</p>
+              <p class="text-xs opacity-60 mt-0.5 leading-tight">${a.desc}</p>
             </button>`).join('')}
         </div>
-        ${currentAlerte ? `<p class="text-xs text-gray-400 italic mb-1">${esc(alerteDescriptions[currentAlerte]||'')}</p>` : ''}
-        <p class="text-xs text-gray-500 mt-2">Effectif déclaré : <span class="text-white font-bold">${esc(statVal('equipage') || '—')}</span></p>
+        ${currentAlerte ? `<button class="sf-alerte-reset mt-2 text-xs text-gray-500 hover:text-gray-300 underline">• Désactiver l'alerte</button>` : ''}
+        <p class="text-xs text-gray-600 mt-2">3 tours pour changer d'alerte (réveil → équipement → poste).</p>
       </div>
 
-      <!-- ── Bosco & Composition ── -->
-      <div class="mb-4 bg-gray-800/60 rounded-lg p-3 border border-gray-700">
-        <p class="text-xs text-gray-400 mb-3 font-semibold uppercase tracking-wide">🏴‍☠️ Bosco & Composition</p>
-        <div class="flex items-center gap-2 mb-3 flex-wrap">
-          <span class="text-xs text-gray-400 w-12 flex-shrink-0">Bosco :</span>
-          ${canEdit
-            ? `<select id="sf-bosco-select" class="flex-1 min-w-[160px] bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 min-h-[28px]">
-                 <option value="">— Choisir un PNJ nommé —</option>
-               </select>`
-            : `<span class="text-sm text-white" id="sf-bosco-display">${crewState.bosco_nom ? esc(crewState.bosco_nom) : '<em class="text-gray-500">Non désigné</em>'}</span>`}
+      <!-- POSTES D'ÉQUIPAGE -->
+      <div class="mb-3">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Postes d'équipage</p>
+          ${canEdit ? `<button id="sf-veille-btn" class="bg-amber-900/60 hover:bg-amber-800 border border-amber-700 text-amber-300 text-xs px-3 py-1.5 rounded-lg transition-colors">⚓ Test de veille</button>` : ''}
         </div>
-        <table class="w-full text-xs border-collapse">
-          <thead><tr class="text-gray-500 border-b border-gray-700">
-            <th class="text-left pb-1 pr-2">Type</th>
-            <th class="text-center pb-1 pr-2">Total</th>
-            <th class="text-center pb-1">dont Nommés</th>
-          </tr></thead>
-          <tbody>
-            ${[['normaux','nommes_n','Normaux','text-gray-300'],['elite','nommes_e','Élite','text-blue-300'],['heros','nommes_h','Héros','text-yellow-300']].map(([k,kn,label,cls]) => `
-            <tr>
-              <td class="${cls} py-1 pr-2">${label}</td>
-              <td class="text-center pr-2 py-1">
-                ${canEdit
-                  ? `<input type="number" class="sf-crew-comp bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-xs text-gray-100 w-14 text-center" data-key="${k}" value="${crewState[k]||0}" min="0">`
-                  : `<span class="text-white">${crewState[k]||0}</span>`}
-              </td>
-              <td class="text-center py-1">
-                ${canEdit
-                  ? `<input type="number" class="sf-crew-comp bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-xs text-gray-100 w-14 text-center" data-key="${kn}" value="${crewState[kn]||0}" min="0">`
-                  : `<span class="text-white">${crewState[kn]||0}</span>`}
-              </td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- ── Postes ── -->
-      <p class="text-xs text-gray-400 mb-2 font-semibold uppercase tracking-wide">👥 Postes</p>
-      <div id="sf-crew-list" class="space-y-3 mb-4">
-        ${crewData.map(cd => renderCrewSlot(cd, currentAlerte)).join('')}
-      </div>
-      <div id="sf-char-loading" class="hidden text-xs text-gray-500 italic mt-2">Chargement des personnages…</div>
-
-      <!-- ── Satisfaction ── -->
-      <div class="mb-4 bg-gray-800/60 rounded-lg p-3 border border-gray-700">
-        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide">❤️ Satisfaction
-            ${satMax > 0 ? `<span class="normal-case text-gray-600 font-normal">(${satMax} case${satMax>1?'s':''}/niveau)</span>` : ''}
-          </p>
-          <span class="text-xs px-2 py-0.5 rounded font-semibold ${currentSatInfo.color} bg-gray-700">${esc(currentSatInfo.label)}</span>
+        <p class="text-xs text-gray-500 mb-2">Effectif modèle : <span class="text-white">${esc(statVal('equipage') || '—')}</span></p>
+        <div class="space-y-2" id="sf-crew-list">
+          ${crewData.map(cd => renderCrewSlot(cd)).join('')}
         </div>
-        ${satMax > 0
-          ? `<div class="mb-2">${satLevelInfos.map(lvl => renderSatRow(lvl)).join('')}</div>
-             <div class="flex flex-wrap gap-1 text-xs text-gray-500">
-               ${satLevelInfos.map(l => `<span class="px-1 ${l.color}">${l.code}=${esc(l.label)}</span>`).join('<span class="text-gray-700">·</span>')}
-             </div>`
-          : `<p class="text-xs text-gray-500 italic">Désignez un capitaine pour activer la jauge (PP + Gloire).</p>`}
-        ${currentSatInfo.effects ? `<p class="text-xs mt-2 italic ${currentSatInfo.color}">${esc(currentSatInfo.effects)}</p>` : ''}
-        ${mutCases > 0 ? `
-          <div class="mt-3 bg-red-900/30 border border-red-800/50 rounded p-2">
-            <p class="text-xs text-red-300 font-semibold mb-1">⚠️ Mutinerie ? — ${mutCases} case${mutCases>1?'s':''} cochée${mutCases>1?'s':''}</p>
-            <p class="text-xs text-gray-400 mb-2">Diff. Commandement : <strong class="text-white">${mutCases + getNombreNommesTotal()}</strong> (${mutCases} cases M + ${getNombreNommesTotal()} nommés)</p>
-            ${canEdit ? `<button id="sf-mutinerie-test" class="bg-red-800 hover:bg-red-700 text-white px-3 py-1.5 rounded text-xs transition-colors w-full">
-              🎲 Test Commandement (Mutinerie, diff ${mutCases + getNombreNommesTotal()})
-            </button>` : ''}
-          </div>` : ''}
-        ${canEdit && satMax > 0 ? `
-          <div class="mt-3 border-t border-gray-700 pt-3">
-            <p class="text-xs text-gray-500 mb-2">Événements :</p>
-            <div class="flex flex-wrap gap-1.5">
-              <button class="sf-sat-event bg-green-900/40 border border-green-800/50 hover:bg-green-900/60 text-green-300 px-2 py-1 rounded text-xs" data-delta="+1" title="Preuve d'amitié d'un PJ / Semaine sur Havana">+1 PS</button>
-              <button class="sf-sat-event bg-red-900/40 border border-red-800/50 hover:bg-red-900/60 text-red-300 px-2 py-1 rounded text-xs" data-delta="-1" title="Semaine hors Havana / Fuite / Maltraitance…">−1 PS</button>
-              <button class="sf-sat-event bg-green-900/40 border border-green-800/50 hover:bg-green-900/60 text-green-300 px-2 py-1 rounded text-xs" data-delta="+1" title="Une semaine s'écoule sur Havana">🏖 Havana</button>
-              <button class="sf-sat-event bg-red-900/40 border border-red-800/50 hover:bg-red-900/60 text-red-300 px-2 py-1 rounded text-xs" data-delta="-1" title="Une semaine hors Havana">📅 Semaine</button>
-              <button class="sf-sat-event bg-red-900/40 border border-red-800/50 hover:bg-red-900/60 text-red-300 px-2 py-1 rounded text-xs" data-delta="-1" title="PJ ou équipage fuit un combat">🏃 Fuite</button>
-            </div>
-          </div>` : ''}
       </div>
 
-      <!-- ── Trésor & Répartition ── -->
-      <div class="mb-4 bg-gray-800/60 rounded-lg p-3 border border-gray-700">
-        <p class="text-xs text-gray-400 mb-3 font-semibold uppercase tracking-wide">💰 Trésor</p>
-        ${canEdit
-          ? `<div class="flex items-center gap-2 mb-3 flex-wrap">
-              <input type="number" id="sf-tresor-input" value="${tresor}" min="0" step="100"
-                class="flex-1 min-w-[100px] bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 min-h-[32px]">
-              <span class="text-xs text-gray-400">¢</span>
-              <button id="sf-tresor-save" class="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded text-xs min-h-[32px]">✓ Enregistrer</button>
-            </div>
-            <div class="border-t border-gray-700 pt-3">
-              <p class="text-xs text-gray-400 mb-2 font-medium">Répartir le trésor :</p>
-              <div class="flex items-center gap-2 mb-2 flex-wrap">
-                <label class="text-xs text-gray-400 flex-shrink-0">Nombre de parts :</label>
-                <input type="number" id="sf-parts-input" value="${defaultParts}" min="1"
-                  class="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 min-h-[32px]">
+      <!-- SATISFACTION -->
+      <div class="bg-gray-800 rounded-lg p-3 mb-3 border border-gray-700">
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Satisfaction</p>
+          <span class="text-xs font-bold ${SAT_LEVEL_COLOR[satLevel]}">${SAT_LEVEL_LABEL[satLevel]}</span>
+        </div>
+        <!-- Composition -->
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <div class="col-span-2">
+            <p class="text-xs text-gray-500 mb-1">Bosco <span class="text-gray-600">(PNJ nommé obligatoire)</span></p>
+            <p class="text-xs text-white font-medium">${esc(crewState.bosco_nom || '—')}</p>
+            ${canEdit ? `<button id="sf-bosco-edit-btn" class="text-xs text-blue-400 hover:text-blue-200 underline mt-0.5">Changer</button>` : ''}
+            <div id="sf-bosco-form" class="hidden mt-1 space-y-1">
+              <select id="sf-bosco-sel" class="w-full bg-gray-700 border border-gray-600 rounded px-1.5 py-1 text-xs text-gray-100 min-h-[30px]">
+                <option value="">— Aucun Bosco —</option>
+              </select>
+              <div class="flex gap-1">
+                <button id="sf-bosco-save" class="flex-1 bg-blue-700 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded">OK</button>
+                <button id="sf-bosco-cancel" class="flex-1 bg-gray-600 text-white text-xs px-2 py-1 rounded">✕</button>
               </div>
-              <p id="sf-repartition-preview" class="text-xs text-gray-400 mb-2"></p>
-              <button id="sf-repartir-btn" class="bg-yellow-700 hover:bg-yellow-600 text-white px-4 py-2 rounded text-xs font-medium transition-colors w-full">
-                💰 Répartir le trésor
-              </button>
-              <div id="sf-repartition-result" class="mt-2 hidden text-xs text-gray-300 bg-gray-700/50 rounded p-2 leading-relaxed"></div>
-            </div>`
-          : `<p class="text-sm text-white font-semibold">${tresor.toLocaleString()} ¢</p>`}
-      </div>`;
+            </div>
+          </div>
+          ${[['Normaux', 'normaux', 'nommes_n'], ['Élite', 'elite', 'nommes_e'], ['Héros', 'heros', 'nommes_h']].map(([lbl, k, kn]) => `
+          <div class="bg-gray-700/40 rounded p-2">
+            <p class="text-xs text-gray-400 mb-1 font-medium">${lbl}</p>
+            ${canEdit
+              ? `<div class="flex gap-1 items-center flex-wrap">
+                  <input type="number" class="sf-crew-count bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-xs text-white w-14 min-h-[28px]" data-key="${k}" value="${crewState[k] || 0}" min="0">
+                  <span class="text-xs text-gray-600">dont nommés</span>
+                  <input type="number" class="sf-crew-count bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-xs text-white w-12 min-h-[28px]" data-key="${kn}" value="${crewState[kn] || 0}" min="0">
+                </div>`
+              : `<p class="text-xs text-white">${crewState[k] || 0} <span class="text-gray-500">(${crewState[kn] || 0} nommés)</span></p>`}
+          </div>`).join('')}
+        </div>
+        <!-- Jauge -->
+        ${satMax > 0 ? `
+        <div class="mb-3">
+          <p class="text-xs text-gray-500 mb-2">${satMax} case(s) / niveau · PP ${capitainePP} + Gloire ${capitaineGloire}</p>
+          <div class="space-y-1.5">
+            ${SAT_ROWS.map(row => {
+              const rowArr = (crewState.satisfaction?.[row] || []).slice(0, satMax);
+              const colors = SAT_COLORS[row];
+              return `<div class="flex items-center gap-2">
+                <span class="text-xs w-28 shrink-0 ${SAT_TEXT[row]}">${SAT_LABELS[row]}</span>
+                <div class="flex gap-1 flex-wrap">
+                  ${Array.from({ length: satMax }, (_, i) => {
+                    const ticked = rowArr[i] ?? false;
+                    return `<div class="sf-sat-box w-5 h-5 rounded border flex items-center justify-center text-xs leading-none
+                      ${canEdit ? 'cursor-pointer hover:opacity-80' : ''}
+                      ${ticked ? colors.active + ' border-transparent text-white' : colors.empty + ' ' + colors.border + ' text-transparent'}"
+                      data-sat-row="${row}" data-sat-idx="${i}" title="${SAT_LABELS[row]} ${i+1}">${ticked ? '×' : '·'}</div>`;
+                  }).join('')}
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>` : `
+        <div class="bg-gray-700/40 rounded p-3 mb-3 text-center">
+          <p class="text-xs text-gray-500 italic">Choisissez un capitaine pour activer la jauge.</p>
+        </div>`}
+        <!-- Mutinerie warning -->
+        ${mTicks > 0 ? `
+        <div class="bg-red-900/30 border border-red-800 rounded p-2">
+          <p class="text-xs text-red-300 font-semibold mb-1">⚠️ Risque de mutinerie</p>
+          <p class="text-xs text-red-200 mb-1">${mTicks} case(s) M + ${totalNommes} nommé(s) = diff ${mutinerieDiff}</p>
+          <p class="text-xs text-gray-500 mb-2">Échec : 1/2 équipage se mutine. Aucun succès : 2/3.</p>
+          ${canEdit ? `<button id="sf-mutinerie-btn" class="w-full bg-red-800 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded">🎲 Test Commandement (diff ${mutinerieDiff})</button>` : ''}
+        </div>` : ''}
+      </div>
 
-    // ── Wiring ──
+      <!-- TRÉSOR -->
+      <div class="bg-gray-800 rounded-lg p-3 border border-gray-700">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Trésor & Répartition</p>
+        <div class="flex gap-2 items-center mb-3 flex-wrap">
+          <span class="text-xs text-gray-400">Trésor :</span>
+          ${canEdit
+            ? `<input type="number" id="sf-tresor-input" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white w-28 min-h-[32px]" value="${ship.tresor || 0}" min="0" step="100">
+               <span class="text-xs text-gray-500">₡</span>
+               <button id="sf-tresor-save" class="bg-gray-600 hover:bg-gray-500 text-white text-xs px-3 py-1.5 rounded">Enregistrer</button>`
+            : `<span class="text-white font-bold text-sm">${(ship.tresor || 0).toLocaleString()} ₡</span>`}
+        </div>
+        ${canEdit ? `
+        <div class="border-t border-gray-700 pt-3">
+          <p class="text-xs text-gray-400 mb-2 font-medium">Répartir le trésor</p>
+          <div class="flex gap-2 items-center flex-wrap mb-2">
+            <span class="text-xs text-gray-500">Nombre de parts :</span>
+            <input type="number" id="sf-repartir-parts" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white w-20 min-h-[32px]" value="${(crewState.normaux || 0) + (crewState.elite || 0) + (crewState.heros || 0) || 1}" min="1">
+            <span id="sf-repartir-montant" class="text-xs text-amber-300 font-mono"></span>
+          </div>
+          <p id="sf-repartir-info" class="text-xs text-gray-500 mb-2"></p>
+          <button id="sf-repartir-btn" class="w-full bg-amber-800 hover:bg-amber-700 text-white text-xs px-3 py-2 rounded transition-colors">💰 Distribuer le trésor</button>
+        </div>` : ''}
+      </div>
+      <div id="sf-char-loading" class="hidden text-xs text-gray-500 italic mt-2">Chargement des personnages…</div>`;
 
-    loadCapitaineSection(ct);
-
+    // ── Alertes ──────────────────────────────────────────────────────────────
     ct.querySelectorAll('.sf-alerte-btn').forEach(btn => {
-      btn.addEventListener('click', async () => { hullState.alerte = btn.dataset.alerte; await saveHullState(); renderFicheEquipage(ct); });
-    });
-    ct.querySelector('.sf-alerte-reset')?.addEventListener('click', async () => { hullState.alerte = ''; await saveHullState(); renderFicheEquipage(ct); });
-
-    // Bosco select wired in loadBoscoSelect (called below)
-
-    ct.querySelectorAll('.sf-crew-comp').forEach(inp => {
-      inp.addEventListener('change', async () => {
-        crewState[inp.dataset.key] = Math.max(0, Number(inp.value) || 0);
-        await saveCrewState();
-      });
-    });
-
-    ct.querySelectorAll('.sf-sat-box').forEach(box => {
-      if (!canEdit) return;
-      box.addEventListener('click', async () => {
-        const clickedLvl = box.dataset.level;
-        const bi = Number(box.dataset.index);
-        const max = getSatisfactionMax();
-        const levels = ['S','L','G','M'];
-        const clickedIdx = levels.indexOf(clickedLvl);
-        const arr = Array(max).fill(false).map((_,j) => (crewState.satisfaction[clickedLvl]||[])[j] ?? false);
-        const prevFilled = arr.filter(Boolean).length;
-        const newFilled = (prevFilled === bi + 1) ? bi : bi + 1;
-        // Update clicked level
-        crewState.satisfaction[clickedLvl] = Array(max).fill(false).map((_,j) => j < newFilled);
-        if (newFilled > 0) {
-          // Cascade: fill all lower levels completely
-          for (let i = 0; i < clickedIdx; i++) {
-            crewState.satisfaction[levels[i]] = Array(max).fill(true);
-          }
-        }
-        if (newFilled < prevFilled) {
-          // Cascade: clear all higher levels
-          for (let i = clickedIdx + 1; i < levels.length; i++) {
-            crewState.satisfaction[levels[i]] = Array(max).fill(false);
-          }
-        }
-        await saveCrewState();
-        renderFicheEquipage(ct);
-      });
-    });
-
-    ct.querySelectorAll('.sf-sat-event').forEach(btn => {
       btn.addEventListener('click', async () => {
-        applySatisfactionDelta(btn.dataset.delta === '+1' ? 1 : -1);
-        await saveCrewState();
+        hullState.alerte = btn.dataset.alerte;
+        await saveHullState();
         renderFicheEquipage(ct);
       });
     });
-
-    ct.querySelector('#sf-mutinerie-test')?.addEventListener('click', () => {
-      const diff = mutCases + getNombreNommesTotal();
-      getCrewDiceRoller().open({ title: 'Test de Commandement — Mutinerie', context: 'Commandement', diff, lockDiff: true });
-    });
-
-    ct.querySelector('#sf-tresor-save')?.addEventListener('click', async () => {
-      const val = Math.max(0, Number(ct.querySelector('#sf-tresor-input')?.value) || 0);
-      ship.tresor = val;
-      await savePatch({ tresor: val });
-    });
-
-    function updateRepartitionPreview() {
-      const parts = Math.max(1, Number(ct.querySelector('#sf-parts-input')?.value) || 1);
-      const total = ship.tresor || 0;
-      const perPart = Math.floor(total / parts);
-      const tonnage = Number(statVal('tonnage') || 0);
-      const el = ct.querySelector('#sf-repartition-preview');
-      if (!el) return;
-      if (!tonnage) { el.textContent = 'Tonnage du vaisseau inconnu.'; return; }
-      const checks = [[crewState.heros||0, tonnage*3,'Héros'],[crewState.elite||0, tonnage*2,'Élite'],[crewState.normaux||0, tonnage,'Normaux']];
-      const condMet = checks.find(([n,req]) => n > 0 && perPart >= req);
-      el.innerHTML = `Part/PNJ : <strong class="text-white">${perPart.toLocaleString()} ¢</strong>
-        &nbsp;·&nbsp; Requis : N=${(tonnage).toLocaleString()}¢ · E=${(tonnage*2).toLocaleString()}¢ · H=${(tonnage*3).toLocaleString()}¢
-        &nbsp;·&nbsp; ${condMet ? `<span class="text-green-400">✓ Condition ${condMet[2]} remplie</span>` : '<span class="text-gray-500">Aucune condition remplie</span>'}`;
-    }
-    ct.querySelector('#sf-parts-input')?.addEventListener('input', updateRepartitionPreview);
-    ct.querySelector('#sf-tresor-input')?.addEventListener('input', () => {
-      ship.tresor = Math.max(0, Number(ct.querySelector('#sf-tresor-input')?.value) || 0);
-      updateRepartitionPreview();
-    });
-    updateRepartitionPreview();
-
-    ct.querySelector('#sf-repartir-btn')?.addEventListener('click', async () => {
-      const parts = Math.max(1, Number(ct.querySelector('#sf-parts-input')?.value) || 1);
-      const total = ship.tresor || 0;
-      const perPart = Math.floor(total / parts);
-      const tonnage = Number(statVal('tonnage') || 0);
-      const dépensé = parts * perPart;
-      ship.tresor = Math.max(0, total - dépensé);
-      await savePatch({ tresor: ship.tresor });
-      let gainPS = 0, typeMsg = '';
-      if (tonnage > 0) {
-        if ((crewState.heros||0) > 0 && perPart >= tonnage * 3)  { gainPS = 1; typeMsg = `Héros (${(tonnage*3).toLocaleString()}¢)`; }
-        else if ((crewState.elite||0) > 0 && perPart >= tonnage * 2) { gainPS = 1; typeMsg = `Élite (${(tonnage*2).toLocaleString()}¢)`; }
-        else if ((crewState.normaux||0) > 0 && perPart >= tonnage)   { gainPS = 1; typeMsg = `Normaux (${tonnage.toLocaleString()}¢)`; }
-      }
-      if (gainPS > 0) { applySatisfactionDelta(1); await saveCrewState(); }
-      const resultEl = ct.querySelector('#sf-repartition-result');
-      if (resultEl) {
-        resultEl.classList.remove('hidden');
-        resultEl.innerHTML = gainPS > 0
-          ? `✅ ${parts} parts × ${perPart.toLocaleString()}¢ = ${dépensé.toLocaleString()}¢ dépensés.<br>Condition <strong>${esc(typeMsg)}</strong> remplie → <span class="text-green-400 font-semibold">+1 PS récupéré</span>. Trésor restant : ${ship.tresor.toLocaleString()}¢`
-          : `${parts} parts × ${perPart.toLocaleString()}¢ = ${dépensé.toLocaleString()}¢ dépensés. Aucune condition PS remplie. Trésor restant : ${ship.tresor.toLocaleString()}¢`;
-      }
+    ct.querySelector('.sf-alerte-reset')?.addEventListener('click', async () => {
+      hullState.alerte = '';
+      await saveHullState();
       renderFicheEquipage(ct);
     });
 
-    // Crew roll/info
+    // ── Capitaine ─────────────────────────────────────────────────────────────
+    ct.querySelector('#sf-cap-edit-btn')?.addEventListener('click', async () => {
+      ct.querySelector('#sf-cap-form').classList.remove('hidden');
+      const sel = ct.querySelector('#sf-cap-sel');
+      await loadCrewSelect(sel, 'pj', ct);
+      sel.value = ship.capitaine_id || '';
+    });
+    ct.querySelector('#sf-cap-cancel')?.addEventListener('click', () => ct.querySelector('#sf-cap-form').classList.add('hidden'));
+    ct.querySelector('#sf-cap-save')?.addEventListener('click', async () => {
+      const sel = ct.querySelector('#sf-cap-sel');
+      const newCapId = sel.value || null;
+      const ok = await savePatch({ capitaine_id: newCapId });
+      if (ok !== false) {
+        ship.capitaine_id = newCapId;
+        const capChar = cachedCharacters?.find(c => String(c.id) === String(newCapId));
+        if (capChar) {
+          const newMax = (capChar.pp || 0) + (capChar.gloire || 0);
+          crewState.satisfaction_max = newMax;
+          if (!crewState.satisfaction) crewState.satisfaction = {};
+          for (const r of ['S', 'L', 'G', 'M']) {
+            const prev = crewState.satisfaction[r] || [];
+            crewState.satisfaction[r] = Array.from({ length: newMax }, (_, i) => prev[i] ?? false);
+          }
+          await saveCrewState();
+        }
+        renderFicheEquipage(ct);
+      }
+    });
+
+    // ── Test de veille ────────────────────────────────────────────────────────
+    ct.querySelector('#sf-veille-btn')?.addEventListener('click', () => {
+      getCrewDiceRoller().open({
+        title: 'Test de veille',
+        context: 'Commandement',
+        diff: 2,
+        lockDiff: true,
+        onResult: async () => { await incrementSatDamage(ct, 1); },
+      });
+    });
+
+    // ── Satisfaction boxes ────────────────────────────────────────────────────
+    if (canEdit) {
+      ct.querySelectorAll('.sf-sat-box').forEach(box => {
+        box.addEventListener('click', async () => {
+          const rowKey = box.dataset.satRow;
+          const idx    = Number(box.dataset.satIdx);
+          const rowIdx = SAT_ROWS.indexOf(rowKey);
+          if (rowIdx < 0 || !satMax) return;
+          const target  = rowIdx * satMax + idx + 1;
+          const current = countSatTicks();
+          applySatTicks(current === target ? target - 1 : target);
+          await saveCrewState();
+          renderFicheEquipage(ct);
+        });
+      });
+    }
+
+    // ── Composition équipage ─────────────────────────────────────────────────
+    if (canEdit) {
+      let compDebounce = null;
+      ct.querySelectorAll('.sf-crew-count').forEach(inp => {
+        inp.addEventListener('input', () => {
+          crewState[inp.dataset.key] = Math.max(0, Number(inp.value) || 0);
+          clearTimeout(compDebounce);
+          compDebounce = setTimeout(async () => { await saveCrewState(); renderFicheEquipage(ct); }, 700);
+        });
+      });
+    }
+
+    // ── Bosco ─────────────────────────────────────────────────────────────────
+    ct.querySelector('#sf-bosco-edit-btn')?.addEventListener('click', async () => {
+      ct.querySelector('#sf-bosco-form').classList.remove('hidden');
+      const sel = ct.querySelector('#sf-bosco-sel');
+      await loadCrewSelect(sel, 'pnj_named', ct);
+      sel.value = crewState.bosco_id || '';
+    });
+    ct.querySelector('#sf-bosco-cancel')?.addEventListener('click', () => ct.querySelector('#sf-bosco-form').classList.add('hidden'));
+    ct.querySelector('#sf-bosco-save')?.addEventListener('click', async () => {
+      const sel  = ct.querySelector('#sf-bosco-sel');
+      const id   = sel.value || null;
+      const char = cachedCharacters?.find(c => String(c.id) === String(id));
+      crewState.bosco_id  = id;
+      crewState.bosco_nom = char?.name || '';
+      await saveCrewState();
+      renderFicheEquipage(ct);
+    });
+
+    // ── Mutinerie ─────────────────────────────────────────────────────────────
+    ct.querySelector('#sf-mutinerie-btn')?.addEventListener('click', () => {
+      getCrewDiceRoller().open({
+        title: 'Commandement (Mutinerie)',
+        context: 'Commandement',
+        diff: mutinerieDiff,
+        lockDiff: true,
+      });
+    });
+
+    // ── Trésor ────────────────────────────────────────────────────────────────
+    const repartirParts   = ct.querySelector('#sf-repartir-parts');
+    const repartirMontant = ct.querySelector('#sf-repartir-montant');
+    const repartirInfo    = ct.querySelector('#sf-repartir-info');
+
+    function updateRepartirDisplay() {
+      if (!repartirParts || !repartirMontant) return;
+      const tresor  = ship.tresor || 0;
+      const parts   = Math.max(1, Number(repartirParts.value) || 1);
+      const parPart = Math.floor(tresor / parts);
+      repartirMontant.textContent = `→ ${parPart.toLocaleString()} ₡/part`;
+      const tonnage = Number(statVal('tonnage') || 0);
+      const normaux = crewState.normaux || 0, elite = crewState.elite || 0, heros = crewState.heros || 0;
+      const mult    = heros > normaux && heros > elite ? 3 : (elite > normaux ? 2 : 1);
+      if (repartirInfo) {
+        repartirInfo.textContent = tonnage > 0
+          ? `Seuil +1 PS : ${(tonnage * mult).toLocaleString()} ₡/PNJ (tonnage ${tonnage} × ${mult})`
+          : 'Tonnage non défini.';
+      }
+    }
+
+    repartirParts?.addEventListener('input', updateRepartirDisplay);
+    updateRepartirDisplay();
+
+    ct.querySelector('#sf-tresor-save')?.addEventListener('click', async () => {
+      const val = Math.max(0, Number(ct.querySelector('#sf-tresor-input').value) || 0);
+      const ok = await savePatch({ tresor: val });
+      if (ok !== false) { ship.tresor = val; updateRepartirDisplay(); }
+    });
+    ct.querySelector('#sf-repartir-btn')?.addEventListener('click', async () => {
+      const tresor  = ship.tresor || 0;
+      const parts   = Math.max(1, Number(repartirParts?.value) || 1);
+      const parPart = Math.floor(tresor / parts);
+      const tonnage = Number(statVal('tonnage') || 0);
+      if (tonnage <= 0) { alert('Définissez le tonnage du vaisseau.'); return; }
+      const normaux = crewState.normaux || 0, elite = crewState.elite || 0, heros = crewState.heros || 0;
+      const mult    = heros > normaux && heros > elite ? 3 : (elite > normaux ? 2 : 1);
+      const psThreshold = tonnage * mult;
+      const currentTicks = SAT_ROWS.reduce((acc, r) => acc + ((crewState.satisfaction?.[r] || []).filter(Boolean).length), 0);
+      let psGain = 0, spent = 0;
+      while (currentTicks - psGain > 0 && spent + psThreshold <= parPart) { psGain++; spent += psThreshold; }
+      if (psGain === 0) { alert(`Part insuffisante (${parPart.toLocaleString()} ₡). Seuil : ${psThreshold.toLocaleString()} ₡.`); return; }
+      applySatTicks(Math.max(0, currentTicks - psGain));
+      const newTresor = Math.max(0, tresor - spent * parts);
+      ship.tresor = newTresor;
+      await Promise.all([saveCrewState(), savePatch({ tresor: newTresor })]);
+      renderFicheEquipage(ct);
+    });
+
+    // ── Crew forms ────────────────────────────────────────────────────────────
+    if (canEdit) wireCrewForms(ct);
+
+    // ── Crew info / roll buttons ──────────────────────────────────────────────
     ct.querySelectorAll('.sf-crew-roll').forEach(btn => {
       btn.addEventListener('click', () => {
         const pool = parseInt(btn.dataset.crewPool);
@@ -3372,198 +3369,250 @@ function openShipFiche(ship) {
     });
     ct.querySelectorAll('.sf-crew-info').forEach(btn => {
       btn.addEventListener('click', () => {
-        const name = btn.dataset.crewName, comp = btn.dataset.crewComp, pool = parseInt(btn.dataset.crewPool) || 0;
+        const name = btn.dataset.crewName, comp = btn.dataset.crewComp;
+        const pool = parseInt(btn.dataset.crewPool) || 0;
         document.getElementById('dr-crew-info-overlay')?.remove();
-        const infoOverlay = document.createElement('div');
-        infoOverlay.id = 'dr-crew-info-overlay';
-        infoOverlay.className = 'fixed inset-0 bg-black/70 z-50 flex items-start justify-center p-4 pt-20 overflow-y-auto';
-        infoOverlay.innerHTML = `<div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md border border-gray-600 p-5">
+        const ov = document.createElement('div');
+        ov.id = 'dr-crew-info-overlay';
+        ov.className = 'fixed inset-0 bg-black/70 z-50 flex items-start justify-center p-4 pt-20 overflow-y-auto';
+        ov.innerHTML = `<div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md border border-gray-600 p-5">
           <div class="flex items-start justify-between mb-3">
-            <div><h3 class="font-semibold text-gray-100 text-base">${esc(name)}</h3><p class="text-xs text-indigo-300 mt-0.5">${esc(comp)}</p></div>
-            <button id="dr-crew-close" class="text-gray-400 hover:text-white text-xl leading-none ml-3 flex-shrink-0">&times;</button>
+            <div><h3 class="font-semibold text-gray-100">${esc(name)}</h3><p class="text-xs text-indigo-300 mt-0.5">${esc(comp)}</p></div>
+            <button id="dr-crew-close" class="text-gray-400 hover:text-white text-xl ml-3">&times;</button>
           </div>
           <p class="text-sm text-gray-400 mb-4">Score : <span class="font-mono text-white text-lg">${pool || '—'}</span>d</p>
-          ${pool > 0 ? `<button id="dr-crew-roll-btn" class="w-full py-2.5 rounded font-medium text-sm bg-red-800 hover:bg-red-700 text-white transition-colors">🎲 Lancer (${pool}d)</button>` : '<p class="text-xs text-gray-500 italic">Aucun score défini.</p>'}
+          ${pool > 0 ? `<button id="dr-crew-roll-btn" class="w-full py-2.5 rounded text-sm bg-red-800 hover:bg-red-700 text-white">🎲 Lancer (${pool}d)</button>` : '<p class="text-xs text-gray-500 italic">Aucun score.</p>'}
         </div>`;
-        document.body.appendChild(infoOverlay);
-        infoOverlay.querySelector('#dr-crew-close').addEventListener('click', () => infoOverlay.remove());
-        infoOverlay.addEventListener('click', e => { if (e.target === infoOverlay) infoOverlay.remove(); });
-        infoOverlay.querySelector('#dr-crew-roll-btn')?.addEventListener('click', () => { infoOverlay.remove(); getCrewDiceRoller().open({ title: name, context: comp, pool }); });
+        document.body.appendChild(ov);
+        ov.querySelector('#dr-crew-close').addEventListener('click', () => ov.remove());
+        ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+        ov.querySelector('#dr-crew-roll-btn')?.addEventListener('click', () => { ov.remove(); getCrewDiceRoller().open({ title: name, context: comp, pool }); });
       });
     });
-
-    // Test de veille per poste
-    ct.querySelectorAll('.sf-veille-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        getCrewDiceRoller().open({
-          title: `Test de Veille — ${crewLabels[btn.dataset.code] || btn.dataset.code}`,
-          context: 'Commandement',
-          diff: 2,
-          lockDiff: true,
-          onResult: async (_r) => {
-            applySatisfactionDelta(-1);
-            await saveCrewState();
-            renderFicheEquipage(ct);
-          },
-        });
-      });
-    });
-
-    loadBoscoSelect(ct);
-    if (canEdit) wireCrewForms(ct, crewData);
   }
 
-  function renderCrewSlot(cd, currentAlerte) {
-    // Compute active count based on alert level
-    let activeCount = cd.nb;
-    if (currentAlerte === 'verte') activeCount = Math.ceil(cd.nb / 4);
-    else if (currentAlerte === 'jaune') activeCount = Math.ceil(cd.nb / 2);
-    const reserveCount = Math.max(0, cd.nb - activeCount);
-
-    // Derive per-poste alerte from actual assignments vs required
-    const assigned = cd.assignments.length;
-    let posteAlerte = '';
-    if (cd.nb > 0 && currentAlerte) {
-      if (assigned >= cd.nb) posteAlerte = 'rouge';
-      else if (assigned >= Math.ceil(cd.nb / 2)) posteAlerte = 'jaune';
-      else if (assigned >= Math.ceil(cd.nb / 4)) posteAlerte = 'verte';
+  // ── Satisfaction helpers ──────────────────────────────────────────────────────
+  function applySatTicks(newTicks) {
+    const max = crewState.satisfaction_max || 0;
+    if (!max) return;
+    if (!crewState.satisfaction) crewState.satisfaction = {};
+    const rows = ['S', 'L', 'G', 'M'];
+    for (let r = 0; r < rows.length; r++) {
+      crewState.satisfaction[rows[r]] = Array.from({ length: max }, (_, i) => (r * max + i) < newTicks);
     }
-    const posteAlerteLabel = { rouge: '🔴', jaune: '🟡', verte: '🟢', '': '' };
+  }
 
-    const assignHtml = cd.assignments.length
-      ? cd.assignments.map((a, ai) => {
-          const isFigurant = a.type === 'figurant';
-          if (isFigurant) {
-            return `<div class="flex items-center gap-2 mb-1 bg-gray-700/50 rounded px-2 py-1">
-              <span class="text-xs text-purple-300 flex-1 truncate">
-                ${esc(a.nom || a.figurant_nom || 'Figurant')}
-                ${a.count > 1 ? `<span class="text-gray-500 ml-1">×${a.count}</span>` : ''}
-              </span>
-              ${canEdit ? `<button class="sf-crew-remove text-red-500 hover:text-red-300 px-1 text-xs min-w-[28px] min-h-[28px]" data-code="${esc(cd.code)}" data-ai="${ai}">✕</button>` : ''}
-            </div>`;
-          }
-          const charScore = a.personnage_id && cachedCharacters
-            ? (() => { const c = cachedCharacters.find(ch => String(ch.id) === String(a.personnage_id)); return c?.competences?.[cd.competence] ?? null; })()
+  async function incrementSatDamage(ct, amount) {
+    const max = crewState.satisfaction_max || 0;
+    if (!max) return;
+    const rows = ['S', 'L', 'G', 'M'];
+    const current = rows.reduce((acc, r) => acc + ((crewState.satisfaction?.[r] || []).filter(Boolean).length), 0);
+    applySatTicks(Math.min(4 * max, current + amount));
+    await saveCrewState();
+    renderFicheEquipage(ct);
+  }
+
+  // ── Crew slot renderer ────────────────────────────────────────────────────────
+  function renderCrewSlot(cd) {
+    const TYPE_TAG = {
+      pj:           '<span class="text-xs bg-blue-900/50 text-blue-300 px-1 rounded mr-1">PJ</span>',
+      premier_role: '<span class="text-xs bg-purple-900/50 text-purple-300 px-1 rounded mr-1">1er rôle</span>',
+      second_role:  '<span class="text-xs bg-indigo-900/50 text-indigo-300 px-1 rounded mr-1">2nd rôle</span>',
+      figurant:     '<span class="text-xs bg-gray-600 text-gray-300 px-1 rounded mr-1">Figurant</span>',
+      score_fixe:   '',
+    };
+    const ALERT_ICON  = { verte: '🟢', jaune: '🟡', rouge: '🔴' };
+    const ALERT_COLOR = { verte: 'text-green-400', jaune: 'text-yellow-400', rouge: 'text-red-400' };
+
+    const memberHtml = cd.members.length
+      ? cd.members.map((a, ai) => {
+          const charScore = (a.personnage_id && cachedCharacters)
+            ? (cachedCharacters.find(ch => String(ch.id) === String(a.personnage_id))?.competences?.[cd.competence] ?? null)
             : null;
-          const rollPool = a.score_fixe ?? charScore;
-          return `<div class="flex items-center gap-2 mb-1 bg-gray-700/50 rounded px-2 py-1">
-            <button class="sf-crew-info text-xs text-gray-200 flex-1 truncate text-left hover:text-white transition-colors"
-              data-crew-name="${esc(a.nom || cd.label)}" data-crew-comp="${esc(cd.competence)}" data-crew-pool="${rollPool ?? ''}">${esc(a.nom || `Poste ${cd.code}`)}</button>
-            ${a.score_fixe != null ? `<span class="text-xs text-amber-300 bg-amber-900/30 px-1.5 rounded font-mono">${a.score_fixe}</span>` : ''}
-            ${charScore != null ? `<span class="text-xs text-blue-300 bg-blue-900/30 px-1.5 rounded font-mono">${charScore}</span>` : ''}
-            ${rollPool != null ? `<button class="sf-crew-roll text-red-400 hover:text-red-200 text-base leading-none"
-              data-crew-name="${esc(a.nom||cd.label)}" data-crew-comp="${esc(cd.competence)}" data-crew-pool="${rollPool}">🎲</button>` : ''}
-            ${canEdit ? `<button class="sf-crew-remove text-red-500 hover:text-red-300 px-1 text-xs min-w-[28px] min-h-[28px]" data-code="${esc(cd.code)}" data-ai="${ai}">✕</button>` : ''}
+          const rollPool = a.type === 'score_fixe' ? a.score_fixe : charScore;
+          const typeTag  = TYPE_TAG[a.type || 'score_fixe'] || '';
+          const isActif  = a.type === 'figurant' ? true : (a.actif !== 0);
+          let nameHtml;
+          if (a.type === 'figurant') {
+            const nb     = Number(a.figurant_nb) || 0;
+            const actif  = Number(a.figurant_actif !== undefined ? a.figurant_actif : nb);
+            const reserveCount = nb - actif;
+            nameHtml = `<span class="text-xs text-gray-200 flex-1">${esc(a.nom || 'Figurant')}</span>
+              <span class="text-xs bg-green-900/40 text-green-300 px-1.5 rounded">${actif} actifs</span>
+              ${reserveCount > 0 ? `<span class="text-xs bg-gray-700 text-gray-400 px-1.5 rounded ml-0.5">${reserveCount} réserve</span>` : ''}`;
+          } else {
+            nameHtml = `<span class="text-xs flex-1 ${isActif ? 'text-gray-200' : 'text-gray-500 italic'}">${esc(a.nom || (a.personnage_id ? `#${String(a.personnage_id).substring(0,8)}` : 'Poste'))}</span>`;
+          }
+          return `<div class="flex items-center gap-1.5 mb-1 bg-gray-700/40 rounded px-2 py-1.5 flex-wrap">
+            ${typeTag}${nameHtml}
+            ${rollPool != null && a.type !== 'figurant'
+              ? `<span class="text-xs bg-amber-900/40 text-amber-300 px-1 rounded font-mono">${rollPool}d</span>
+                 <button class="sf-crew-info text-gray-500 hover:text-white text-sm" data-crew-name="${esc(a.nom || cd.label)}" data-crew-comp="${esc(cd.competence)}" data-crew-pool="${rollPool}">ℹ️</button>
+                 <button class="sf-crew-roll text-red-400 hover:text-red-200 text-sm" data-crew-name="${esc(a.nom || cd.label)}" data-crew-comp="${esc(cd.competence)}" data-crew-pool="${rollPool}">🎲</button>`
+              : ''}
+            ${canEdit
+              ? (a.type === 'figurant'
+                  ? `<div class="flex items-center gap-0.5 ml-auto">
+                      <input type="number" class="sf-fig-actif bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-xs text-white w-12 min-h-[24px]"
+                        value="${Number(a.figurant_actif !== undefined ? a.figurant_actif : a.figurant_nb) || 0}" min="0" max="${a.figurant_nb || 0}"
+                        data-code="${esc(cd.code)}" data-ai="${ai}">
+                      <span class="text-xs text-gray-500">/${a.figurant_nb || 0}</span>
+                    </div>`
+                  : `<button class="sf-crew-actif ml-auto text-xs px-1.5 py-0.5 rounded min-h-[24px] transition-colors
+                      ${isActif ? 'bg-green-900/50 text-green-400 hover:bg-gray-700' : 'bg-gray-700 text-gray-500 hover:bg-green-900/30'}"
+                      data-code="${esc(cd.code)}" data-ai="${ai}">${isActif ? 'Actif' : 'Réserve'}</button>`)
+              + `<button class="sf-crew-remove text-red-500 hover:text-red-300 text-xs px-1 min-w-[24px] min-h-[24px]" data-code="${esc(cd.code)}" data-ai="${ai}">✕</button>`
+              : ''}
           </div>`;
         }).join('')
-      : `<p class="text-xs text-gray-600 italic mb-2">Aucun membre affecté</p>`;
+      : `<p class="text-xs text-gray-600 italic mb-1">Aucun membre affecté</p>`;
 
     const addForm = canEdit ? `
-      <div class="sf-crew-add-form flex gap-1 mt-2 flex-wrap items-center" data-code="${esc(cd.code)}">
-        <select class="sf-crew-type bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 min-h-[32px]" data-code="${esc(cd.code)}">
-          <option value="score">Score fixe</option>
-          <option value="pj">PJ</option>
-          <option value="premier_role">Premier Rôle</option>
-          <option value="second_role">Second Rôle</option>
-          <option value="figurant">Figurant</option>
-        </select>
-        <div class="sf-input-score flex gap-1 flex-1 min-w-[140px]">
-          <input type="text" placeholder="Nom" class="sf-crew-nom bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 w-24 min-h-[32px]" data-code="${esc(cd.code)}">
-          <input type="number" placeholder="Score" class="sf-crew-score bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 w-16 min-h-[32px]" min="1" max="20" data-code="${esc(cd.code)}">
-        </div>
-        <div class="sf-input-perso hidden flex-1 min-w-[140px]">
-          <select class="sf-crew-perso w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 min-h-[32px]" data-code="${esc(cd.code)}">
-            <option value="">— Choisir —</option>
+      <div class="sf-crew-add-form mt-2 border-t border-gray-700/50 pt-2" data-code="${esc(cd.code)}">
+        <div class="flex gap-1 mb-1 flex-wrap">
+          <select class="sf-crew-type bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 min-h-[30px] flex-1" data-code="${esc(cd.code)}">
+            <option value="score_fixe">Score Fixe</option>
+            <option value="pj">PJ</option>
+            <option value="premier_role">Premier Rôle</option>
+            <option value="second_role">Second Rôle</option>
+            <option value="figurant">Figurant</option>
           </select>
+          <button class="sf-crew-add bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded text-xs min-h-[30px]" data-code="${esc(cd.code)}">+ Ajouter</button>
         </div>
-        <div class="sf-input-figurant hidden flex gap-1 flex-1 min-w-[200px]">
-          <select class="sf-crew-figurant-tmpl w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 min-h-[32px]" data-code="${esc(cd.code)}">
-            <option value="">— Figurant —</option>
-          </select>
-          <input type="number" placeholder="Nb" class="sf-crew-figurant-count bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 w-14 min-h-[32px]" min="1" value="1" data-code="${esc(cd.code)}">
+        <div class="sf-type-inputs" data-code="${esc(cd.code)}">
+          <div class="sf-input-score_fixe flex gap-1 flex-wrap">
+            <input type="text" placeholder="Nom" class="sf-crew-nom bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 flex-1 min-w-[70px] min-h-[30px]" data-code="${esc(cd.code)}">
+            <input type="number" placeholder="Score" class="sf-crew-score bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 w-16 min-h-[30px]" min="1" max="20" data-code="${esc(cd.code)}">
+          </div>
+          <div class="sf-input-pj hidden">
+            <select class="sf-crew-perso w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 min-h-[30px]" data-code="${esc(cd.code)}" data-ctype="pj">
+              <option value="">— Choisir un PJ —</option>
+            </select>
+          </div>
+          <div class="sf-input-premier_role hidden">
+            <select class="sf-crew-perso w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 min-h-[30px]" data-code="${esc(cd.code)}" data-ctype="premier_role">
+              <option value="">— Choisir Premier Rôle —</option>
+            </select>
+          </div>
+          <div class="sf-input-second_role hidden">
+            <select class="sf-crew-perso w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 min-h-[30px]" data-code="${esc(cd.code)}" data-ctype="second_role">
+              <option value="">— Choisir Second Rôle —</option>
+            </select>
+          </div>
+          <div class="sf-input-figurant hidden">
+            <div class="flex gap-1 flex-wrap">
+              <select class="sf-crew-fig-template flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 min-h-[30px]" data-code="${esc(cd.code)}">
+                <option value="">— Template figurant —</option>
+              </select>
+              <input type="number" placeholder="Nb" class="sf-crew-fig-nb bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 w-16 min-h-[30px]" min="1" value="1" data-code="${esc(cd.code)}">
+            </div>
+          </div>
         </div>
-        <button class="sf-crew-add bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded text-xs transition-colors min-h-[32px]" data-code="${esc(cd.code)}">+</button>
       </div>` : '';
 
-    return `
-      <div class="bg-gray-800 rounded-lg p-3 border border-gray-700" data-crew-code="${esc(cd.code)}">
-        <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
-          <div class="flex items-center gap-1.5 min-w-0">
-            <span class="text-sm font-semibold text-white">${esc(cd.label)}</span>
-            <span class="text-xs text-gray-500">(${esc(cd.competence)})</span>
-            ${posteAlerte ? `<span title="Alerte poste">${posteAlerteLabel[posteAlerte]}</span>` : ''}
-          </div>
-          <div class="flex items-center gap-2 flex-shrink-0">
-            ${cd.nb > 0 ? `<span class="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">${cd.assignments.length}/${cd.nb}</span>` : cd.assignments.length > 0 ? `<span class="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">${cd.assignments.length}</span>` : ''}
-            ${currentAlerte && cd.nb > 0 ? `<span class="text-xs text-gray-500">(actifs: ${activeCount}${reserveCount > 0 ? `, réserve: ${reserveCount}` : ''})</span>` : ''}
-            ${canEdit ? `<button class="sf-veille-btn bg-indigo-900/50 border border-indigo-700/50 hover:bg-indigo-900/80 text-indigo-300 px-2 py-0.5 rounded text-xs transition-colors whitespace-nowrap" data-code="${esc(cd.code)}" title="Test de Commandement diff 2 — coûte 1 PS">🔔 Veille</button>` : ''}
-          </div>
+    const alertBadge = cd.postAlerte
+      ? `<span class="${ALERT_COLOR[cd.postAlerte]} text-xs mr-1">${ALERT_ICON[cd.postAlerte]}</span>`
+      : '<span class="text-gray-600 text-xs mr-1">⬜</span>';
+
+    return `<div class="bg-gray-800 rounded-lg p-3 border border-gray-700" data-crew-code="${esc(cd.code)}">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-1.5">
+          ${alertBadge}
+          <span class="text-sm font-semibold text-white">${esc(cd.label)}</span>
+          <span class="text-xs text-gray-500">(${esc(cd.competence)})</span>
         </div>
-        ${assignHtml}
-        ${addForm}
-      </div>`;
+        <span class="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">
+          ${cd.nb > 0 ? `${cd.activeCount}/${cd.nb}` : (cd.activeCount > 0 ? cd.activeCount : '—')}
+        </span>
+      </div>
+      ${memberHtml}
+      ${addForm}
+    </div>`;
   }
 
-  function wireCrewForms(ct, crewData) {
+  // ── Crew forms wiring ─────────────────────────────────────────────────────────
+  function wireCrewForms(ct) {
+    // Type switch
     ct.querySelectorAll('.sf-crew-type').forEach(sel => {
       sel.addEventListener('change', () => {
         const code = sel.dataset.code;
         const form = ct.querySelector(`.sf-crew-add-form[data-code="${code}"]`);
         if (!form) return;
-        form.querySelector('.sf-input-score')?.classList.add('hidden');
-        form.querySelector('.sf-input-perso')?.classList.add('hidden');
-        form.querySelector('.sf-input-figurant')?.classList.add('hidden');
-        if (sel.value === 'figurant') {
-          form.querySelector('.sf-input-figurant')?.classList.remove('hidden');
-          loadFigurantsForSelect(form.querySelector('.sf-crew-figurant-tmpl'), ct);
-        } else if (sel.value === 'score') {
-          form.querySelector('.sf-input-score')?.classList.remove('hidden');
-        } else {
-          // pj, premier_role, second_role
-          form.querySelector('.sf-input-perso')?.classList.remove('hidden');
-          populateCrewPersoSelect(form.querySelector('.sf-crew-perso'), sel.value, ct);
+        form.querySelectorAll('[class*="sf-input-"]').forEach(d => d.classList.add('hidden'));
+        const typeDiv = form.querySelector(`.sf-input-${sel.value}`);
+        if (typeDiv) {
+          typeDiv.classList.remove('hidden');
+          const persoSel = typeDiv.querySelector('.sf-crew-perso');
+          if (persoSel) loadCrewSelect(persoSel, sel.value, ct);
+          const figSel = typeDiv.querySelector('.sf-crew-fig-template');
+          if (figSel) loadFigurantTemplates(figSel, ct);
         }
       });
     });
 
+    // Add
     ct.querySelectorAll('.sf-crew-add').forEach(btn => {
       btn.addEventListener('click', async () => {
         const code = btn.dataset.code;
         const form = ct.querySelector(`.sf-crew-add-form[data-code="${code}"]`);
         if (!form) return;
-        const typeVal = form.querySelector('.sf-crew-type').value;
+        const type = form.querySelector('.sf-crew-type').value;
         let entry;
-        if (typeVal === 'pj' || typeVal === 'premier_role' || typeVal === 'second_role') {
-          const charId = form.querySelector('.sf-crew-perso').value;
+        if (type === 'score_fixe') {
+          const nom   = form.querySelector('.sf-crew-nom')?.value.trim() || '';
+          const score = form.querySelector('.sf-crew-score')?.value.trim();
+          if (!nom && !score) return;
+          entry = { poste: code, type: 'score_fixe', nom: nom || `Poste ${code}`, score_fixe: score ? Number(score) : null, actif: 1 };
+        } else if (['pj', 'premier_role', 'second_role'].includes(type)) {
+          const persoSel = form.querySelector(`.sf-input-${type} .sf-crew-perso`);
+          const charId = persoSel?.value;
           if (!charId) return;
           const char = cachedCharacters?.find(c => String(c.id) === charId);
-          entry = { poste: code, type: typeVal, personnage_id: charId, nom: char?.name || `Perso ${charId}` };
-        } else if (typeVal === 'figurant') {
-          const tmplId = form.querySelector('.sf-crew-figurant-tmpl').value;
+          entry = { poste: code, type, personnage_id: charId, nom: char?.name || charId, actif: 1 };
+        } else if (type === 'figurant') {
+          const figSel  = form.querySelector('.sf-crew-fig-template');
+          const figNb   = Math.max(1, Number(form.querySelector('.sf-crew-fig-nb')?.value) || 1);
+          const tmplId  = figSel?.value ? Number(figSel.value) : null;
           if (!tmplId) return;
-          const count = Math.max(1, Number(form.querySelector('.sf-crew-figurant-count').value) || 1);
-          const tmpl = (cachedFigurants || []).find(f => String(f.id) === tmplId);
-          entry = { poste: code, type: 'figurant', figurant_template_id: Number(tmplId), figurant_nom: tmpl?.nom || 'Figurant', nom: tmpl?.nom || 'Figurant', count };
-        } else {
-          const nomVal   = form.querySelector('.sf-crew-nom').value.trim();
-          const scoreVal = form.querySelector('.sf-crew-score').value.trim();
-          if (!nomVal && !scoreVal) return;
-          entry = { poste: code, nom: nomVal || `Poste ${code}`, score_fixe: scoreVal !== '' ? Number(scoreVal) : null };
+          const tmplNom = figSel.options[figSel.selectedIndex]?.text || 'Figurant';
+          entry = { poste: code, type: 'figurant', figurant_template_id: tmplId, figurant_nb: figNb, figurant_actif: figNb, nom: tmplNom };
         }
+        if (!entry) return;
         equipageDetail.push(entry);
-        form.querySelector('.sf-crew-nom') && (form.querySelector('.sf-crew-nom').value = '');
-        form.querySelector('.sf-crew-score') && (form.querySelector('.sf-crew-score').value = '');
         await savePatch({ equipage_detail_json: JSON.stringify(equipageDetail) });
         renderFicheEquipage(ct);
       });
     });
 
+    // Toggle actif/réserve
+    ct.querySelectorAll('.sf-crew-actif').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const assigns = equipageDetail.filter(e => e.poste === btn.dataset.code);
+        const m = assigns[Number(btn.dataset.ai)];
+        if (!m) return;
+        m.actif = (m.actif !== 0) ? 0 : 1;
+        await savePatch({ equipage_detail_json: JSON.stringify(equipageDetail) });
+        renderFicheEquipage(ct);
+      });
+    });
+
+    // Figurant actif count
+    ct.querySelectorAll('.sf-fig-actif').forEach(inp => {
+      inp.addEventListener('change', async () => {
+        const assigns = equipageDetail.filter(e => e.poste === inp.dataset.code);
+        const m = assigns[Number(inp.dataset.ai)];
+        if (!m || m.type !== 'figurant') return;
+        m.figurant_actif = Math.min(Number(m.figurant_nb) || 0, Math.max(0, Number(inp.value) || 0));
+        await savePatch({ equipage_detail_json: JSON.stringify(equipageDetail) });
+        renderFicheEquipage(ct);
+      });
+    });
+
+    // Remove
     ct.querySelectorAll('.sf-crew-remove').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const code = btn.dataset.code;
-        const ai   = Number(btn.dataset.ai);
-        const postAssigns = equipageDetail.filter(e => e.poste === code);
-        const toRemove = postAssigns[ai];
+        const assigns  = equipageDetail.filter(e => e.poste === btn.dataset.code);
+        const toRemove = assigns[Number(btn.dataset.ai)];
         if (!toRemove) return;
         const gi = equipageDetail.indexOf(toRemove);
         if (gi !== -1) equipageDetail.splice(gi, 1);
@@ -3573,18 +3622,58 @@ function openShipFiche(ship) {
     });
   }
 
-  async function ensureCharactersCached(ct) {
-    if (cachedCharacters) return;
+  // ── Load helpers for crew selectors ──────────────────────────────────────────
+  async function loadCrewSelect(sel, filter, ct) {
+    if (!cachedCharacters) {
+      ct?.querySelector('#sf-char-loading')?.classList.remove('hidden');
+      try {
+        const r = await fetchWithTable('/api/characters');
+        if (r.ok) { const j = await r.json(); cachedCharacters = j.data ?? []; }
+      } catch {}
+      ct?.querySelector('#sf-char-loading')?.classList.add('hidden');
+    }
+    const chars = cachedCharacters || [];
+    let list;
+    if (filter === 'pj') {
+      list = chars.filter(c => c.type === 'pj');
+    } else if (filter === 'pnj_named' || filter === 'premier_role' || filter === 'second_role') {
+      const wantedNatures = filter === 'pnj_named' ? ['premier_role', 'second_role'] : [filter];
+      list = chars.filter(c => {
+        if (c.type !== 'pnj') return false;
+        const d = c.data || {};
+        const nature = d.pnj_nature || (d.pnj_is_named
+          ? (['heros','boss','big_boss'].includes(d.pnj_niveau) ? 'premier_role' : 'second_role')
+          : 'figurant');
+        return wantedNatures.includes(nature);
+      });
+    } else {
+      list = chars;
+    }
+    sel.innerHTML = `<option value="">— Choisir —</option>` +
+      list.map(c => `<option value="${esc(String(c.id))}">${esc(c.name)}${c.archetype ? ` (${esc(c.archetype)})` : ''}</option>`).join('');
+  }
+
+  async function loadFigurantTemplates(sel, ct) {
+    if (!cachedFigurants) {
+      try {
+        const r = await fetchWithTable('/api/figurants');
+        if (r.ok) { const j = await r.json(); cachedFigurants = j.data ?? []; }
+      } catch {}
+    }
+    const figs = cachedFigurants || [];
+    sel.innerHTML = `<option value="">— Choisir template —</option>` +
+      figs.map(f => `<option value="${f.id}">${esc(f.nom)}${f.categorie ? ` [${esc(f.categorie)}]` : ''}</option>`).join('');
+  }
+
+  // Legacy helpers (kept for compat)
+  async function loadCharactersForSelect(selectEl, ct) {
+    if (cachedCharacters) { populateCharSelect(selectEl); return; }
     ct?.querySelector('#sf-char-loading')?.classList.remove('hidden');
     try {
       const r = await fetchWithTable('/api/characters');
       if (r.ok) { const j = await r.json(); cachedCharacters = j.data ?? []; }
     } catch {}
     ct?.querySelector('#sf-char-loading')?.classList.add('hidden');
-  }
-
-  async function loadCharactersForSelect(selectEl, ct) {
-    await ensureCharactersCached(ct);
     populateCharSelect(selectEl);
   }
 
@@ -3595,104 +3684,6 @@ function openShipFiche(ship) {
       chars.map(c => `<option value="${esc(String(c.id))}">${esc(c.name)}${c.archetype ? ` (${esc(c.archetype)})` : ''}</option>`).join('');
   }
 
-  async function populateCrewPersoSelect(selectEl, typeVal, ct) {
-    if (!selectEl) return;
-    await ensureCharactersCached(ct);
-    const all = cachedCharacters || [];
-    let filtered;
-    if (typeVal === 'pj') {
-      filtered = all.filter(c => c.type === 'pj');
-    } else {
-      // premier_role / second_role — PNJ nommés
-      filtered = all.filter(c => c.type === 'pnj' && _pnjNature(c.data || {}) === typeVal);
-    }
-    const label = { pj: 'PJ', premier_role: 'Premier Rôle', second_role: 'Second Rôle' }[typeVal] || typeVal;
-    selectEl.innerHTML = `<option value="">— Choisir ${esc(label)} —</option>` +
-      filtered.map(c => `<option value="${esc(String(c.id))}">${esc(c.name)}${c.archetype ? ` (${esc(c.archetype)})` : ''}</option>`).join('');
-  }
-
-  async function loadBoscoSelect(ct) {
-    const sel = ct.querySelector('#sf-bosco-select');
-    if (!sel) return;
-    await ensureCharactersCached(ct);
-    const all = cachedCharacters || [];
-    const nommes = all.filter(c => c.type === 'pnj' && ['premier_role','second_role'].includes(_pnjNature(c.data || {})));
-    sel.innerHTML = `<option value="">— Choisir un PNJ nommé —</option>` +
-      nommes.map(c => `<option value="${esc(String(c.id))}" ${String(crewState.bosco_id) === String(c.id) ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
-    sel.addEventListener('change', async () => {
-      const charId = sel.value || null;
-      crewState.bosco_id  = charId;
-      crewState.bosco_nom = charId ? (all.find(c => String(c.id) === charId)?.name || '') : '';
-      await saveCrewState();
-    });
-  }
-
-  let cachedFigurants = null;
-  async function loadFigurantsForSelect(selectEl, ct) {
-    if (!selectEl) return;
-    if (!cachedFigurants) {
-      try {
-        const r = await fetchWithTable('/api/figurants');
-        if (r.ok) { const j = await r.json(); cachedFigurants = j.data ?? []; }
-      } catch {}
-    }
-    const figs = cachedFigurants || [];
-    selectEl.innerHTML = `<option value="">— Choisir un template —</option>` +
-      figs.map(f => `<option value="${f.id}">${esc(f.nom)}${f.categorie ? ` (${esc(f.categorie)})` : ''}</option>`).join('');
-  }
-
-  async function loadCapitaineSection(ct) {
-    const displayEl = ct.querySelector('#sf-cap-display');
-    const statsEl   = ct.querySelector('#sf-cap-stats');
-    const selectEl  = ct.querySelector('#sf-cap-select');
-    if (selectEl) {
-      if (!cachedCharacters) {
-        try {
-          const r = await fetchWithTable('/api/characters');
-          if (r.ok) { const j = await r.json(); cachedCharacters = j.data ?? []; }
-        } catch {}
-      }
-      const chars = cachedCharacters || [];
-      selectEl.innerHTML = `<option value="">— Désigner —</option>` +
-        chars.map(c => `<option value="${esc(String(c.id))}" ${ship.capitaine_id === String(c.id) ? 'selected' : ''}>${esc(c.name)}${c.archetype ? ` (${esc(c.archetype)})` : ''}</option>`).join('');
-      selectEl.addEventListener('change', async () => {
-        const charId = selectEl.value || null;
-        ship.capitaine_id = charId;
-        const ok = await savePatch({ capitaine_id: charId });
-        if (ok && charId) {
-          const char = chars.find(c => String(c.id) === charId);
-          if (char) {
-            const newMax = Math.max(1, (Number(char.pp)||0) + (Number(char.gloire)||0));
-            crewState.satisfaction_max = newMax;
-            ['S','L','G','M'].forEach(lvl => {
-              const arr = crewState.satisfaction[lvl] || [];
-              crewState.satisfaction[lvl] = Array(newMax).fill(false).map((_,i) => arr[i] ?? false);
-            });
-            await saveCrewState();
-          }
-        }
-        renderFicheEquipage(ct);
-      });
-    }
-    if (ship.capitaine_id) {
-      const chars = cachedCharacters || [];
-      const char = chars.find(c => String(c.id) === String(ship.capitaine_id));
-      if (char) {
-        if (displayEl) displayEl.textContent = char.name;
-        if (statsEl) {
-          const pp = Number(char.pp || 0), g = Number(char.gloire || 0);
-          statsEl.textContent = `PP ${pp} · Gloire ${g} → ${pp+g} case${(pp+g)!==1?'s':''}/niveau`;
-        }
-      } else if (displayEl) {
-        displayEl.innerHTML = `<span class="italic text-gray-400">Capitaine #${esc(String(ship.capitaine_id).slice(0,8))}…</span>`;
-      }
-    } else if (displayEl) {
-      displayEl.innerHTML = `<span class="italic text-gray-500">Aucun capitaine désigné</span>`;
-    }
-  }
-
-
-  // ---- Tab 4: Systèmes secondaires ----
   function renderFicheSystemes(ct) {
     const etatOptions = ['ok', 'endommage', 'detruit'];
     const etatLabels  = { ok: '✅ Opérationnel', endommage: '⚠️ Endommagé', detruit: '💥 Détruit' };
