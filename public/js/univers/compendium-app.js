@@ -152,13 +152,11 @@ async function loadAllData() {
     if (ssRes.ok) { const ssj = await ssRes.json(); state.secondary_systems = ssj.data ?? []; }
   } catch {}
 
-  // Load sorcelleries (MJ/admin only)
-  if (state.isMJ || state.isAdmin) {
-    try {
-      const sorcRes = await fetch('/api/rules?category=sorcelleries', { credentials: 'include' });
-      if (sorcRes.ok) { const sj = await sorcRes.json(); state.sorcelleries = sj.data ?? []; }
-    } catch {}
-  }
+  // Load sorcelleries (tous les utilisateurs — filtre côté client pour joueurs)
+  try {
+    const sorcRes = await fetch('/api/rules?category=sorcelleries', { credentials: 'include' });
+    if (sorcRes.ok) { const sj = await sorcRes.json(); state.sorcelleries = sj.data ?? []; }
+  } catch {}
 
   if (activeShipIdRes) {
     try {
@@ -248,10 +246,12 @@ function renderApp() {
     }
   }
 
-  // Sorcellerie tab: MJ/admin only
+  // Sorcellerie tab: MJ/admin toujours, joueurs si au moins un domaine visible
   const sorcBtn = $('tab-btn-sorcelleries');
   if (sorcBtn) {
-    if (!state.isMJ && !state.isAdmin) {
+    const isMJOrAdmin = state.isMJ || state.isAdmin;
+    const hasVisibleDomains = isMJOrAdmin || (state.sorcelleries || []).some(d => d.extra?.visible_to_players);
+    if (!hasVisibleDomains) {
       sorcBtn.classList.add('hidden');
       if (state.activeTab === 'sorcelleries') state.activeTab = 'systems';
     } else {
@@ -5263,7 +5263,9 @@ export {
 
 function renderSorcelleriesTab(panel) {
   const isMJUser = state.isMJ || state.isAdmin;
-  const domains = state.sorcelleries || [];
+  const allDomains = state.sorcelleries || [];
+  // Joueurs ne voient que les domaines visibles
+  const domains = isMJUser ? allDomains : allDomains.filter(d => d.extra?.visible_to_players);
 
   const renderDomainCard = (d) => {
     const ex = d.extra || {};
@@ -5311,7 +5313,11 @@ function renderSorcelleriesTab(panel) {
             ${d.description ? `<p class="text-xs text-gray-400 mt-0.5">${esc(d.description)}</p>` : ''}
           </div>
           ${isMJUser ? `
-          <div class="flex gap-1 shrink-0">
+          <div class="flex gap-1 shrink-0 items-center">
+            <button data-sorc-toggle-vis="${esc(String(d.id))}" title="Visibilité joueurs"
+              class="px-2 py-1 rounded text-xs transition-colors ${ex.visible_to_players ? 'bg-green-800/60 hover:bg-green-700/60 text-green-300 border border-green-700' : 'bg-gray-700 hover:bg-gray-600 text-gray-400 border border-gray-600'}">
+              ${ex.visible_to_players ? '👁 Visible' : '🔒 Masqué'}
+            </button>
             <button data-sorc-edit="${esc(String(d.id))}" class="px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded text-xs transition-colors">✏️ Modifier</button>
             <button data-sorc-delete="${esc(String(d.id))}" data-sorc-name="${esc(d.name)}" class="px-2 py-1 bg-red-900/60 hover:bg-red-700 rounded text-xs transition-colors">🗑</button>
           </div>` : ''}
@@ -5346,6 +5352,26 @@ function renderSorcelleriesTab(panel) {
         if (!confirm(`Supprimer le domaine "${btn.dataset.sorcName}" ? Cette action est irréversible.`)) return;
         try {
           const r = await fetch(`/api/rules/${btn.dataset.sorcDelete}`, { method: 'DELETE', credentials: 'include' });
+          if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error?.message || `Erreur ${r.status}`);
+          const sorcRes = await fetch('/api/rules?category=sorcelleries', { credentials: 'include' });
+          if (sorcRes.ok) { state.sorcelleries = (await sorcRes.json()).data ?? []; }
+          renderSorcelleriesTab(panel);
+        } catch (e) { alert(e.message); }
+      })
+    );
+    // Toggle visibilité joueurs
+    panel.querySelectorAll('[data-sorc-toggle-vis]').forEach(btn =>
+      btn.addEventListener('click', async () => {
+        const d = allDomains.find(x => String(x.id) === btn.dataset.sorcToggleVis);
+        if (!d) return;
+        const newVisible = !d.extra?.visible_to_players;
+        const newExtra = { ...(d.extra || {}), visible_to_players: newVisible };
+        try {
+          const r = await fetch(`/api/rules/${d.id}`, {
+            method: 'PUT', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: d.name, description: d.description, extra: newExtra }),
+          });
           if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error?.message || `Erreur ${r.status}`);
           const sorcRes = await fetch('/api/rules?category=sorcelleries', { credentials: 'include' });
           if (sorcRes.ok) { state.sorcelleries = (await sorcRes.json()).data ?? []; }

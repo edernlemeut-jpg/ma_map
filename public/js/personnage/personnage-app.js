@@ -313,13 +313,23 @@ const newState = () => ({
   domaines_libres: [],     // 3 domaines si PNJ non-pirate
   competences_pnj: {},     // { 'Navigation': 5 } — dés directs pour PNJ
   attributs_pnj: { agilite: null, carrure: null, perception: null, intelligence: null, presence: null, sang_froid: null },
+  // Sorcellerie
+  sorcellerie_quality: null,  // { domain_id: string, level: 1|3|5 } | null
+  sorcellerie_spells: [],     // noms des sorts choisis
 });
 
 let DRAFT = newState();
 let CURRENT_STEP = 0;
 let EDITING_ID = null;   // si on édite un personnage existant
-let TRAITS_TAB    = { section: 'd', filter: 'all' }; // UI-only : onglets de l'étape Traits
+let TRAITS_TAB    = { section: 'd', filter: 'all' }; // UI-only : onglets de l'étape Traits ('d'|'q'|'s')
 let LIST_TAB      = 'joueurs';   // UI-only : onglet actif de la liste MJ ('joueurs' | 'premier_role' | 'second_role' | 'figurant')
+
+/** Retourne les domaines de sorcellerie visibles pour l'utilisateur courant. */
+function visibleSorcelleries() {
+  const all = REF?.sorcelleries || [];
+  if (ROLE === 'mj') return all;
+  return all.filter(d => d.extra?.visible_to_players);
+}
 let CHARS_CACHE   = [];          // dernier fetch de la liste (pour changer d'onglet sans re-fetch)
 let MUTATION_TAB  = 'basique';               // UI-only : onglet actif de l'étape Mutations
 let SHEET_TAB     = 'caracteristiques';      // UI-only : onglet actif de la fiche
@@ -803,6 +813,8 @@ function renderAndAttachSheet(container, char) {
   });
   // Champs éditables (background, notes, inventaire, crédits)
   attachSheetEditListeners(container, char);
+  // Sorts sorcellerie
+  _attachSorcSpellListeners(container, char);
 
   // Compétences — info modal + lancer de dés
   container.querySelectorAll('.comp-info-btn').forEach(btn => {
@@ -881,6 +893,7 @@ function renderSheet(char) {
     { id: 'notes',            label: '📝 Notes' },
     { id: 'inventaire',       label: '🎒 Inventaire' },
     ...(d.type === 'pj' ? [{ id: 'experience', label: '💎 Expérience' }] : []),
+    ...(Object.keys(competences).some(k => /^sorcellerie \(/i.test(k)) ? [{ id: 'sorcellerie', label: '✨ Sorcellerie' }] : []),
   ];
   const tabBar = `<div class="flex gap-1 flex-wrap border-b border-gray-700 mb-5 pb-1">
     ${TABS.map(t => `<button data-sheet-tab="${t.id}"
@@ -898,6 +911,7 @@ function renderSheet(char) {
     case 'notes':       content = renderSheetTabNotes(d, editable); break;
     case 'inventaire':  content = renderSheetTabInventaire(d, editable); break;
     case 'experience':  content = renderSheetTabExperience(char, d, finalAttrs, domPriv); break;
+    case 'sorcellerie': content = renderSheetTabSorcellerie(char, d, competences); break;
     default:            content = renderSheetTabCaracteristiques(d, finalAttrs, attrBonus, attrs, sante, energieX, arch, domPriv);
   }
 
@@ -928,6 +942,94 @@ function renderSheet(char) {
     ${tabBar}
     ${content}
   </div>`;
+}
+
+function renderSheetTabSorcellerie(char, d, competences) {
+  const isMJUser = ROLE === 'mj';
+  // Trouver la compétence sorcellerie du personnage
+  const sorcEntry = Object.entries(competences).find(([k]) => /^sorcellerie \(/i.test(k));
+  if (!sorcEntry) return '<p class="text-gray-500 text-sm">Aucune compétence de sorcellerie.</p>';
+
+  const sorcSkName = sorcEntry[0]; // "Sorcellerie (Magie du Sang)"
+  const domainName = sorcSkName.replace(/^Sorcellerie\s*\(/i, '').replace(/\)$/, '').trim();
+  const allDomains = REF?.sorcelleries || [];
+  const domain = allDomains.find(x => x.name.toLowerCase() === domainName.toLowerCase());
+  const ex = domain?.extra || {};
+  const spells = ex.spells || [];
+
+  const qualityLevel = d.sorcellerie_quality?.domain_id === domain?.id
+    ? (d.sorcellerie_quality.level || 0) : 0;
+
+  // Quota de sorts par cercle selon le rang
+  const quota = { 3: 0, 2: 0, 1: 0 };
+  if (qualityLevel >= 1) quota[3] = 3;
+  if (qualityLevel >= 3) quota[2] = 2;
+  if (qualityLevel >= 5) quota[1] = 1;
+
+  const chosen = d.sorcellerie_spells || [];
+
+  const circleLabel = { 1: '1er Cercle', 2: '2e Cercle', 3: '3e Cercle' };
+  const canEdit = isMJUser || char.owner_id === USER_ID || char.type === 'pj';
+
+  const circleBlocks = [3, 2, 1].filter(c => quota[c] > 0).map(c => {
+    const available = spells.filter(s => s.circle === c);
+    const chosenHere = chosen.filter(s => available.some(a => a.name === s));
+    const remaining = quota[c] - chosenHere.length;
+    return `
+    <div class="mb-4">
+      <p class="text-xs font-semibold text-purple-300 mb-2">${circleLabel[c]} — choisir ${quota[c]} sort${quota[c] > 1 ? 's' : ''} <span class="text-gray-500 font-normal">(${chosenHere.length}/${quota[c]})</span></p>
+      ${!available.length ? `<p class="text-xs text-gray-600 italic">Aucun sort de ce cercle disponible.</p>` : `
+      <div class="space-y-1.5">
+        ${available.map(sp => {
+          const isChosen = chosen.includes(sp.name);
+          const isDisabled = !isChosen && remaining <= 0;
+          return `
+          <label class="flex items-start gap-2 cursor-pointer ${isDisabled ? 'opacity-40' : ''} bg-gray-800 border border-gray-700 rounded-lg px-3 py-2">
+            <input type="checkbox" data-sorc-spell="${esc(sp.name)}" ${isChosen ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}
+              class="mt-0.5 shrink-0">
+            <div class="min-w-0">
+              <p class="text-xs font-semibold text-gray-200">${esc(sp.name)}</p>
+              <div class="flex flex-wrap gap-x-3 gap-y-0 text-gray-500 text-xs mt-0.5">
+                ${sp.target     ? `<span>Cible : ${esc(sp.target)}</span>` : ''}
+                ${sp.range      ? `<span>Portée : ${esc(sp.range)} m</span>` : ''}
+                ${sp.difficulty ? `<span>Diff. : ${esc(sp.difficulty)}</span>` : ''}
+                ${sp.duration   ? `<span>Durée : ${esc(sp.duration)}</span>` : ''}
+              </div>
+              ${sp.effects ? `<p class="text-xs text-gray-400 mt-0.5">${esc(sp.effects)}</p>` : ''}
+            </div>
+          </label>`;
+        }).join('')}
+      </div>`}
+    </div>`;
+  }).join('');
+
+  const noSpellsBlock = !spells.length
+    ? `<p class="text-xs text-gray-500 italic">Ce domaine ne comporte pas de sorts formalisés.</p>` : '';
+  const noQualBlock = !qualityLevel && spells.length
+    ? `<div class="mb-4 px-3 py-2 bg-gray-800 border border-yellow-800/40 rounded-lg text-xs text-yellow-400">⚠ Vous n'avez pas encore la qualité associée à ce domaine. Ajoutez-la lors d'une progression pour débloquer des sorts.</div>` : '';
+
+  return `
+  <div>
+    <div class="mb-4 flex items-center gap-3 flex-wrap">
+      <div>
+        <p class="font-semibold text-purple-200">✨ ${esc(sorcSkName)}</p>
+        ${domain?.description ? `<p class="text-xs text-gray-500 mt-0.5">${esc(domain.description)}</p>` : ''}
+      </div>
+      ${qualityLevel ? `<span class="text-xs bg-purple-900/40 border border-purple-700 text-purple-300 px-2 py-0.5 rounded">Rang +${qualityLevel}${ex.quality?.level_names?.[qualityLevel] ? ' — ' + esc(ex.quality.level_names[qualityLevel]) : ''}</span>` : ''}
+    </div>
+    ${noQualBlock}
+    ${noSpellsBlock}
+    ${circleBlocks}
+    ${circleBlocks && canEdit ? `<button id="btn-save-sorc-spells" class="mt-2 px-4 py-1.5 bg-purple-700 hover:bg-purple-600 text-white text-sm rounded-lg">💾 Enregistrer les sorts</button>` : ''}
+  </div>`;
+}
+
+function _attachSorcSpellListeners(container, char) {
+  container.querySelector('#btn-save-sorc-spells')?.addEventListener('click', () => {
+    const spells = Array.from(container.querySelectorAll('[data-sorc-spell]:checked')).map(cb => cb.dataset.sorcSpell);
+    char.data.sorcellerie_spells = spells;
+    patchSheet(char);
+  });
 }
 
 function applyTraitEffects(d) {
@@ -2521,14 +2623,17 @@ function renderStepCompetences() {
         }).join('');
 
         const isSorcellerie = /^sorcellerie/i.test(base);
-        const sorcDomains   = isSorcellerie ? (REF?.sorcelleries || []) : null;
+        const sorcDomains   = isSorcellerie ? visibleSorcelleries() : null;
+        // Vulgaire par défaut si aucun domaine déjà choisi
+        const vulgaireDefault = isSorcellerie && !Object.keys(DRAFT.competences_libres).some(sk => /^sorcellerie \(/i.test(sk))
+          ? sorcDomains?.find(d => /vulgaire/i.test(d.name))?.name || '' : '';
         // Pour Sorcellerie : un seul domaine possible, vérifier si déjà présent
         const hasSorcellerie = isSorcellerie && Object.keys(DRAFT.competences_libres).some(sk => /^sorcellerie \(/i.test(sk));
 
         const selectOrInput = isSorcellerie
           ? `<select data-ac-type="${esc(acSk.name)}" class="ac-type-sel flex-1 min-w-0 text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5">
                <option value="">— choisir un domaine —</option>
-               ${(sorcDomains || []).map(d => `<option value="${esc(d.name)}">${esc(d.name)}${d.no_quality_required ? ' (sans compétence)' : ''}</option>`).join('')}
+               ${(sorcDomains || []).map(d => `<option value="${esc(d.name)}" ${d.name === vulgaireDefault ? 'selected' : ''}>${esc(d.name)}${d.extra?.no_quality_required ? ' (sans compétence)' : ''}</option>`).join('')}
              </select>`
           : opts
             ? `<select data-ac-type="${esc(acSk.name)}" class="ac-type-sel flex-1 min-w-0 text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5">
@@ -2585,7 +2690,6 @@ function renderStepTraits() {
 
   const isMutantOnly = t => String(t.restriction || '').toLowerCase().includes('mutant');
   const traitHasNation = t => t.nation && t.nation !== 'Aucune';
-  // Traits réservés aux pirates (PNJ)
   const PIRATE_ONLY_IDS = new Set(['defaut-fraternite-pirate', 'qualite-loup-de-mer']);
   const isPirateOnly = t =>
     PIRATE_ONLY_IDS.has(t.id) ||
@@ -2594,14 +2698,12 @@ function renderStepTraits() {
     if (DRAFT.type === 'pj' && t.pnj_only) return false;
     if (isMutantOnly(t) && !isMutant) return false;
     if (traitHasNation(t) && t.nation !== charNation) return false;
-    if (t.id === 'qualite-violent') return false; // auto-granté aux non-mutants
-    if (t.id === 'defaut-tete-de-mutant-') return false; // auto-accordé aux mutants
+    if (t.id === 'qualite-violent') return false;
+    if (t.id === 'defaut-tete-de-mutant-') return false;
     if (t.id === 'defaut-tete-de-mutant-maudit' && !isMutant) return false;
-    // Incompatibilités Tête de mutant ↔ Cicatrices / Sale gueule
     const hasTeteMutant = isMutant || DRAFT.defauts_ids.includes('defaut-tete-de-mutant-maudit');
     if (hasTeteMutant && (t.id === 'defaut-cicatrices' || t.id === 'defaut-sale-gueule')) return false;
     if (DRAFT.defauts_ids.some(d => d === 'defaut-cicatrices' || d === 'defaut-sale-gueule') && t.id === 'defaut-tete-de-mutant-maudit') return false;
-    // Traits pirates uniquement (PNJ non-pirate)
     if (DRAFT.type === 'pnj' && !DRAFT.pnj_is_pirate && isPirateOnly(t)) return false;
     return true;
   };
@@ -2617,14 +2719,19 @@ function renderStepTraits() {
   const qGroups = groupTraits(allQ);
   const dGroups = groupTraits(allD);
 
-  const isDefaut = TRAITS_TAB.section === 'd';
+  // Sorcellerie section : domaines visibles avec qualité
+  const sorcDomainsWithQual = visibleSorcelleries().filter(d => d.extra?.quality && !d.extra?.no_quality_required);
+
+  const isSorcSection = TRAITS_TAB.section === 's';
+  const isDefaut = !isSorcSection && TRAITS_TAB.section === 'd';
   const curGroups = isDefaut ? dGroups : qGroups;
   const curAll    = isDefaut ? allD    : allQ;
 
   const qPts   = traitPoints(DRAFT.qualites_ids, REF?.qualites, 'cost', DRAFT.traits_niveaux);
   const dPts   = traitPoints(DRAFT.defauts_ids,  REF?.defauts,  'cost', DRAFT.traits_niveaux);
+  const sorcQualPts = DRAFT.sorcellerie_quality?.level || 0;
   const dTotal = dPts;
-  const qTotal = qPts;
+  const qTotal = qPts + sorcQualPts;
   const FREE_PNJ_POINTS = { boss: 5, big_boss: 10 };
   const freePoints = DRAFT.type === 'pnj' ? (FREE_PNJ_POINTS[DRAFT.pnj_niveau] || 0) : 0;
   const balance = dTotal - qTotal + freePoints;
@@ -2639,10 +2746,10 @@ function renderStepTraits() {
   const hasMutant   = !!(isMutant   && curGroups.mutant.length);
   const hasMultiCat = (hasNation || hasMutant) && curGroups.general.length > 0;
 
-  const charNationObj  = charNation ? (REF?.nations?.find(n => n.id === charNation) || null) : null;
-  const nationLabel    = charNationObj?.nom || charNation || '';
-  const nationIconUrl  = charNationObj?.faction_icon_url || null;
-  const nationImgTag   = nationIconUrl
+  const charNationObj = charNation ? (REF?.nations?.find(n => n.id === charNation) || null) : null;
+  const nationLabel   = charNationObj?.nom || charNation || '';
+  const nationIconUrl = charNationObj?.faction_icon_url || null;
+  const nationImgTag  = nationIconUrl
     ? `<img src="${esc(nationIconUrl)}" alt="${esc(nationLabel)}" class="w-4 h-4 object-contain inline-block">`
     : '⚓';
 
@@ -2733,7 +2840,7 @@ function renderStepTraits() {
   </div>
   <div class="flex gap-4 text-xs mb-3 flex-wrap">
     <span>Défauts : <strong class="text-yellow-400">${dTotal} pts</strong> / max ${maxDef}</span>
-    <span>Qualités : <strong class="text-blue-400">${qTotal} pts</strong></span>
+    <span>Qualités : <strong class="text-blue-400">${qTotal} pts</strong>${sorcQualPts ? ` <span class="text-purple-400 text-xs">(dont ✨ ${sorcQualPts})</span>` : ''}</span>
     ${freePoints ? `<span>Gratuits : <strong class="text-green-400">+${freePoints}</strong></span>` : ''}
     <span>Solde : <strong class="${balance >= 0 ? 'text-green-400' : 'text-red-400'}">${balance} pts</strong></span>
   </div>
@@ -2741,8 +2848,43 @@ function renderStepTraits() {
   <div class="flex gap-0 border-b border-gray-700 mb-3">
     ${sectionTab('d', '① Désavantages', dTotal, DRAFT.defauts_ids.length  || '')}
     ${sectionTab('q', '② Avantages',    qTotal, DRAFT.qualites_ids.length || '')}
+    ${sorcDomainsWithQual.length ? sectionTab('s', '✨ Sorcellerie', sorcQualPts, DRAFT.sorcellerie_quality ? 1 : '') : ''}
   </div>
 
+  ${isSorcSection ? (() => {
+    const cur = DRAFT.sorcellerie_quality;
+    return `
+    <p class="text-xs text-gray-500 mb-3">Choisissez la qualité associée à votre domaine de sorcellerie. Le niveau détermine les sorts accessibles (+1 : 3 sorts cercle 3 · +3 : +2 cercle 2 · +5 : +1 cercle 1).</p>
+    <div class="space-y-3">
+      ${sorcDomainsWithQual.map(dom => {
+        const ex = dom.extra || {};
+        const qual = ex.quality || {};
+        const isChosen = cur?.domain_id === dom.id;
+        const chosenLevel = isChosen ? cur.level : 0;
+        const levelNames = qual.level_names || {};
+        return `
+        <div class="rounded-lg border ${isChosen ? 'border-purple-600 bg-purple-900/20' : 'border-gray-700 bg-gray-800/40'} p-3">
+          <div class="flex items-center justify-between gap-2 flex-wrap mb-2">
+            <p class="font-medium text-sm ${isChosen ? 'text-purple-200' : 'text-gray-200'}">
+              ✨ ${esc(dom.name)} — <span class="text-gray-400 font-normal">${esc(qual.name || '?')}</span>
+            </p>
+            <select data-sorc-qual-level="${esc(String(dom.id))}"
+              class="text-xs bg-gray-700 border border-gray-600 rounded px-2 py-1 shrink-0">
+              <option value="">— aucun rang —</option>
+              ${[1,3,5].map(lv => {
+                const curSorc = cur?.level || 0;
+                const balanceForThisLevel = balance + (isChosen ? curSorc : 0);
+                const disabled = balanceForThisLevel < lv && chosenLevel !== lv ? 'disabled' : '';
+                return `<option value="${lv}" ${chosenLevel === lv ? 'selected' : ''} ${disabled}>+${lv} pts — ${esc(levelNames[lv] || 'Rang ' + lv)}</option>`;
+              }).join('')}
+            </select>
+          </div>
+          ${dom.description ? `<p class="text-xs text-gray-500 mb-1">${esc(dom.description)}</p>` : ''}
+          ${ex.accessibility ? `<p class="text-xs text-gray-600">Accessibilité : ${esc(ex.accessibility)}</p>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  })() : `
   ${!isMutant && !isDefaut ? `
   <div class="mb-3 px-3 py-2 bg-gray-800/80 border border-gray-700 rounded-lg flex items-center gap-2 text-xs">
     <span class="text-green-400 font-semibold">✔ Violent</span>
@@ -2771,9 +2913,8 @@ function renderStepTraits() {
     ${displayList.length
       ? displayList.map(renderCard).join('')
       : '<p class="text-gray-600 text-xs py-4 text-center">Aucun trait disponible dans cette catégorie.</p>'}
-  </div>`;
+  </div>`}`;
 }
-
 // ── Étape Entraînement (attributionde points de compétence) ───────────────────
 function renderStepEntrainement() {
   const maxBonus = DRAFT.traits_niveaux?.['qualite-entraînement'] || 0;
@@ -3646,6 +3787,27 @@ function attachStepListeners() {
     btn.addEventListener('click', () => {
       TRAITS_TAB.section = btn.dataset.traitsTabSection;
       TRAITS_TAB.filter  = 'all';
+      document.getElementById('wizard-step').innerHTML = renderStepTraits();
+      attachStepListeners();
+    });
+  });
+
+  // Traits — sélecteur niveau qualité sorcellerie
+  step.querySelectorAll('[data-sorc-qual-level]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const domainId = sel.dataset.sorcQualLevel;
+      const lv = parseInt(sel.value) || 0;
+      if (!lv) {
+        DRAFT.sorcellerie_quality = null;
+      } else {
+        const dPtsNow = traitPoints(DRAFT.defauts_ids, REF?.defauts, 'cost', DRAFT.traits_niveaux);
+        const qPtsNow = traitPoints(DRAFT.qualites_ids, REF?.qualites, 'cost', DRAFT.traits_niveaux);
+        const freeP   = DRAFT.type === 'pnj' ? ({ boss: 5, big_boss: 10 }[DRAFT.pnj_niveau] || 0) : 0;
+        const curSorcQ = DRAFT.sorcellerie_quality?.domain_id === domainId ? (DRAFT.sorcellerie_quality.level || 0) : 0;
+        const balanceNow = dPtsNow - qPtsNow - (DRAFT.sorcellerie_quality?.level || 0) + freeP;
+        if (balanceNow < lv) { sel.value = DRAFT.sorcellerie_quality?.domain_id === domainId ? (DRAFT.sorcellerie_quality.level || '') : ''; return; }
+        DRAFT.sorcellerie_quality = { domain_id: domainId, level: lv };
+      }
       document.getElementById('wizard-step').innerHTML = renderStepTraits();
       attachStepListeners();
     });
