@@ -196,67 +196,73 @@ function renderApp() {
 
   $('search-bar').classList.remove('hidden');
 
-  // Hide Flotte tab if no table (admin without table)
-  const fleetBtn = $('tab-btn-ships');
-  if (fleetBtn) {
-    if (!state.tableId) {
-      fleetBtn.classList.add('hidden');
-      // If currently on flotte tab, switch to ship_models
-      if (state.activeTab === 'ships') state.activeTab = 'ship_models';
-    } else {
-      fleetBtn.classList.remove('hidden');
-    }
-  }
+  const isMJOrAdmin = state.isMJ || state.isAdmin;
 
-  // Hide PNJ tab if no table
-  const npcsBtn = $('tab-btn-named_npcs');
-  if (npcsBtn) {
-    if (!state.tableId) {
-      npcsBtn.classList.add('hidden');
-      if (state.activeTab === 'named_npcs') state.activeTab = 'systems';
-    } else {
-      npcsBtn.classList.remove('hidden');
-    }
-  }
-
-  // Hide Périls and Quadrants tabs for non-MJ players
-  const perilsBtn = document.querySelector('[data-tab="perils"]');
-  const quadrantsBtn = document.querySelector('[data-tab="quadrants"]');
-  if (!state.isMJ && !state.isAdmin) {
-    if (perilsBtn) perilsBtn.classList.add('hidden');
-    if (quadrantsBtn) quadrantsBtn.classList.add('hidden');
-    if (state.activeTab === 'perils' || state.activeTab === 'quadrants') state.activeTab = 'systems';
+  // Tabs always hidden when no table context
+  const requiresTable = ['ships', 'pj', 'named_npcs', 'perils', 'quadrants'];
+  if (!state.tableId) {
+    requiresTable.forEach(tab => {
+      const btn = document.querySelector(`[data-tab="${tab}"]`);
+      if (btn) btn.classList.add('hidden');
+    });
+    if (requiresTable.includes(state.activeTab)) state.activeTab = 'ship_models';
   } else {
-    if (perilsBtn) perilsBtn.classList.remove('hidden');
-    if (quadrantsBtn) quadrantsBtn.classList.remove('hidden');
+    requiresTable.forEach(tab => {
+      const btn = document.querySelector(`[data-tab="${tab}"]`);
+      if (btn) btn.classList.remove('hidden');
+    });
   }
 
-  // Systèmes secondaires tab: visible to all (it's a reference catalogue)
-  const secBtn = $('tab-btn-secondary_systems');
-  if (secBtn) secBtn.classList.remove('hidden');
-
-  // PJ tab: visible only when table is active
-  const pjBtn = $('tab-btn-pj');
-  if (pjBtn) {
-    if (!state.tableId) {
-      pjBtn.classList.add('hidden');
-      if (state.activeTab === 'pj') state.activeTab = 'systems';
-    } else {
-      pjBtn.classList.remove('hidden');
+  // Périls and Quadrants: MJ/admin only
+  ['perils', 'quadrants'].forEach(tab => {
+    const btn = document.querySelector(`[data-tab="${tab}"]`);
+    if (!btn) return;
+    if (!isMJOrAdmin) {
+      btn.classList.add('hidden');
+      if (state.activeTab === tab) state.activeTab = null;
+    } else if (state.tableId) {
+      btn.classList.remove('hidden');
     }
-  }
+  });
 
-  // Sorcellerie tab: MJ/admin toujours, joueurs si au moins un domaine visible
+  // Sorcellerie: MJ/admin toujours, joueurs si au moins un domaine visible
   const sorcBtn = $('tab-btn-sorcelleries');
   if (sorcBtn) {
-    const isMJOrAdmin = state.isMJ || state.isAdmin;
     const hasVisibleDomains = isMJOrAdmin || (state.sorcelleries || []).some(d => d.extra?.visible_to_players);
     if (!hasVisibleDomains) {
       sorcBtn.classList.add('hidden');
-      if (state.activeTab === 'sorcelleries') state.activeTab = 'systems';
+      if (state.activeTab === 'sorcelleries') state.activeTab = null;
     } else {
       sorcBtn.classList.remove('hidden');
     }
+  }
+
+  // For non-MJ players: hide tabs whose data is empty (except PJ and Flotte which are always shown)
+  if (!isMJOrAdmin && state.tableId) {
+    const dataTabMap = {
+      systems:           state.systems.length,
+      factions:          state.factions.length,
+      ship_models:       state.ship_models.length,
+      named_npcs:        state.named_npcs.length,
+      secondary_systems: state.secondary_systems.length,
+    };
+    for (const [tab, count] of Object.entries(dataTabMap)) {
+      const btn = document.querySelector(`[data-tab="${tab}"]`);
+      if (!btn) continue;
+      if (count === 0) {
+        btn.classList.add('hidden');
+        if (state.activeTab === tab) state.activeTab = null;
+      } else {
+        btn.classList.remove('hidden');
+      }
+    }
+  }
+
+  // Fallback: if activeTab was nulled out, find first visible tab
+  if (!state.activeTab) {
+    const firstVisible = Array.from(document.querySelectorAll('.tab-btn'))
+      .find(btn => !btn.classList.contains('hidden'));
+    state.activeTab = firstVisible?.dataset?.tab || (state.tableId ? 'pj' : 'ship_models');
   }
 
   if (totalCount === 0 && !state.isMJ && !state.isAdmin) {

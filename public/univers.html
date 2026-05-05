@@ -50,34 +50,24 @@
     <!-- Tab navigation -->
     <nav id="tab-nav" class="hidden flex flex-wrap items-center justify-between border-b border-gray-700 mb-6 gap-1">
       <div class="flex flex-wrap gap-1">
-      <button data-tab="systems"
-              class="tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors">
-        Systèmes solaires
-        <span data-badge="systems" class="hidden absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"></span>
-      </button>
-      <button data-tab="factions"
+      <button data-tab="factions" id="tab-btn-factions"
               class="tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors">
         Factions
         <span data-badge="factions" class="hidden absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"></span>
+      </button>
+      <button data-tab="ships" id="tab-btn-ships"
+              class="tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors">
+        Flotte
+      </button>
+      <button data-tab="ship_models" id="tab-btn-ship_models"
+              class="tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors">
+        Modèles de vaisseau
+        <span data-badge="ship_models" class="hidden absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"></span>
       </button>
       <button data-tab="perils"
               class="tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors">
         Périls
         <span data-badge="perils" class="hidden absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"></span>
-      </button>
-      <button data-tab="quadrants"
-              class="tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors">
-        Quadrants
-        <span data-badge="quadrants" class="hidden absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"></span>
-      </button>
-      <button data-tab="ship_models"
-              class="tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors">
-        Modèles de vaisseau
-        <span data-badge="ship_models" class="hidden absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"></span>
-      </button>
-      <button data-tab="ships" id="tab-btn-ships"
-              class="tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors">
-        Flotte
       </button>
       <button data-tab="pj" id="tab-btn-pj"
               class="tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors">
@@ -87,13 +77,23 @@
               class="tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors">
         PNJ
       </button>
-      <button data-tab="secondary_systems" id="tab-btn-secondary_systems"
+      <button data-tab="quadrants"
               class="tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors">
-        Systèmes secondaires
+        Quadrants
+        <span data-badge="quadrants" class="hidden absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"></span>
       </button>
       <button data-tab="sorcelleries" id="tab-btn-sorcelleries"
               class="tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors">
         ✨ Sorcellerie
+      </button>
+      <button data-tab="secondary_systems" id="tab-btn-secondary_systems"
+              class="tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors">
+        Systèmes secondaires
+      </button>
+      <button data-tab="systems" id="tab-btn-systems"
+              class="tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors">
+        Systèmes solaires
+        <span data-badge="systems" class="hidden absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"></span>
       </button>
       </div><!-- end tab buttons -->
       <button id="btn-switch-table" class="hidden shrink-0 px-3 py-1.5 mb-1 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm rounded-lg border border-gray-600 flex items-center gap-1.5">⇄ Campagne</button>
