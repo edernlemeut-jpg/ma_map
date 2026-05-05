@@ -3075,7 +3075,10 @@ function openShipFiche(ship) {
 
       <!-- ÉTAT D'ALERTE -->
       <div class="bg-gray-800 rounded-lg p-3 mb-3 border border-gray-700">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">État d'alerte</p>
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">État d'alerte</p>
+          ${currentAlerte ? `<button class="sf-alerte-reset text-xs text-gray-500 hover:text-gray-300 underline">• Désactiver</button>` : ''}
+        </div>
         <div class="flex gap-2 flex-wrap">
           ${alerteDefs.map(a => `
             <button class="sf-alerte-btn flex-1 min-w-[90px] rounded-lg border-2 p-2 text-left transition-colors
@@ -3085,7 +3088,6 @@ function openShipFiche(ship) {
               <p class="text-xs opacity-60 mt-0.5 leading-tight">${a.desc}</p>
             </button>`).join('')}
         </div>
-        ${currentAlerte ? `<button class="sf-alerte-reset mt-2 text-xs text-gray-500 hover:text-gray-300 underline">• Désactiver l'alerte</button>` : ''}
         <p class="text-xs text-gray-600 mt-2">3 tours pour changer d'alerte (réveil → équipement → poste).</p>
       </div>
 
@@ -3148,10 +3150,10 @@ function openShipFiche(ship) {
                 <div class="flex gap-1 flex-wrap">
                   ${Array.from({ length: satMax }, (_, i) => {
                     const ticked = rowArr[i] ?? false;
-                    return `<div class="sf-sat-box w-5 h-5 rounded border flex items-center justify-center text-xs leading-none
+                    return `<div class="sf-sat-box w-5 h-5 rounded border
                       ${canEdit ? 'cursor-pointer hover:opacity-80' : ''}
-                      ${ticked ? colors.active + ' border-transparent text-white' : colors.empty + ' ' + colors.border + ' text-transparent'}"
-                      data-sat-row="${row}" data-sat-idx="${i}" title="${SAT_LABELS[row]} ${i+1}">${ticked ? '×' : '·'}</div>`;
+                      ${ticked ? colors.active + ' border-transparent' : colors.empty + ' ' + colors.border}"
+                      data-sat-row="${row}" data-sat-idx="${i}" title="${SAT_LABELS[row]} ${i+1}"></div>`;
                   }).join('')}
                 </div>
               </div>`;
@@ -3570,12 +3572,12 @@ function openShipFiche(ship) {
           const char = cachedCharacters?.find(c => String(c.id) === charId);
           entry = { poste: code, type, personnage_id: charId, nom: char?.name || charId, actif: 1 };
         } else if (type === 'figurant') {
-          const figSel  = form.querySelector('.sf-crew-fig-template');
-          const figNb   = Math.max(1, Number(form.querySelector('.sf-crew-fig-nb')?.value) || 1);
-          const tmplId  = figSel?.value ? Number(figSel.value) : null;
-          if (!tmplId) return;
-          const tmplNom = figSel.options[figSel.selectedIndex]?.text || 'Figurant';
-          entry = { poste: code, type: 'figurant', figurant_template_id: tmplId, figurant_nb: figNb, figurant_actif: figNb, nom: tmplNom };
+          const figSel = form.querySelector('.sf-crew-fig-template');
+          const figNb  = Math.max(1, Number(form.querySelector('.sf-crew-fig-nb')?.value) || 1);
+          const charId = figSel?.value || null;
+          if (!charId) return;
+          const char   = cachedCharacters?.find(c => String(c.id) === charId);
+          entry = { poste: code, type: 'figurant', personnage_id: charId, figurant_nb: figNb, figurant_actif: figNb, nom: char?.name || 'Figurant' };
         }
         if (!entry) return;
         equipageDetail.push(entry);
@@ -3654,15 +3656,24 @@ function openShipFiche(ship) {
   }
 
   async function loadFigurantTemplates(sel, ct) {
-    if (!cachedFigurants) {
+    if (!cachedCharacters) {
+      ct?.querySelector('#sf-char-loading')?.classList.remove('hidden');
       try {
-        const r = await fetchWithTable('/api/figurants');
-        if (r.ok) { const j = await r.json(); cachedFigurants = j.data ?? []; }
+        const r = await fetchWithTable('/api/characters');
+        if (r.ok) { const j = await r.json(); cachedCharacters = j.data ?? []; }
       } catch {}
+      ct?.querySelector('#sf-char-loading')?.classList.add('hidden');
     }
-    const figs = cachedFigurants || [];
-    sel.innerHTML = `<option value="">— Choisir template —</option>` +
-      figs.map(f => `<option value="${f.id}">${esc(f.nom)}${f.categorie ? ` [${esc(f.categorie)}]` : ''}</option>`).join('');
+    const figs = (cachedCharacters || []).filter(c => {
+      if (c.type !== 'pnj') return false;
+      const d = c.data || {};
+      const nature = d.pnj_nature || (d.pnj_is_named
+        ? (['heros','boss','big_boss'].includes(d.pnj_niveau) ? 'premier_role' : 'second_role')
+        : 'figurant');
+      return nature === 'figurant';
+    });
+    sel.innerHTML = `<option value="">— Choisir figurant PNJ —</option>` +
+      figs.map(f => `<option value="${esc(String(f.id))}">${esc(f.name)}${f.archetype ? ` [${esc(f.archetype)}]` : ''}</option>`).join('');
   }
 
   // Legacy helpers (kept for compat)
