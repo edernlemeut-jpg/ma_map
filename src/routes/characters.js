@@ -178,12 +178,20 @@ router.post('/', (req, res) => {
   const niveaux = parseInt(sante_niveaux ?? 3, 10);
   const santeJson = JSON.stringify(computeHealthTemplate({ car, sf, niveaux }));
 
-  // Calcul energie_x_max pour les mutants
+  // Calcul energie_x_max pour les mutants et les personnages avec Potentiel X
   let energieXMax = 0;
-  if (is_mutant) {
+  let qualitesArr = [];
+  let mutationsArr = [];
+  try { qualitesArr = JSON.parse(qualites_json || '[]'); } catch { /* ignore */ }
+  const hasPotentielX = qualitesArr.includes('qualite-potentiel-x');
+  // Potentiel X n'est accessible qu'aux non-mutants
+  if (is_mutant || hasPotentielX) {
     const per  = parseInt(statsObj.per ?? 0, 10);
     const intel = parseInt(statsObj.int ?? 0, 10);
     energieXMax = computeEnergyXMax({ per, int: intel });
+    // Puissance Mystique double l'EX (mutation rare à la création, mais on la gère)
+    try { mutationsArr = JSON.parse(data?.mutations_ids ? JSON.stringify(data.mutations_ids) : '[]'); } catch { /* ignore */ }
+    if (mutationsArr.includes('mutation-puissance-mystique')) energieXMax *= 2;
   }
 
   const id  = 'chr_' + randomUUID();
@@ -228,8 +236,26 @@ router.put('/:id', (req, res) => {
   const newData = data !== undefined ? JSON.stringify(data) : row.data_json;
   const now = new Date().toISOString();
 
-  db.prepare('UPDATE characters SET name = ?, data_json = ?, updated_at = ? WHERE id = ?')
-    .run(newName, newData, now, row.id);
+  // Recalcul energie_x_max si les qualités/mutations changent
+  let energieXMax = row.energie_x_max ?? 0;
+  if (data !== undefined) {
+    const dataObj = typeof data === 'string' ? JSON.parse(data) : (data || {});
+    const hasPotentielX = (dataObj.qualites_ids || []).includes('qualite-potentiel-x');
+    const hasPuissanceMystique = (dataObj.mutations_ids || []).includes('mutation-puissance-mystique');
+    if (row.is_mutant || hasPotentielX) {
+      // Récupérer Per+Int depuis les attributs stockés dans data
+      const charAttrs = dataObj.attributs || dataObj.attributs_pnj || {};
+      const per   = parseInt(charAttrs.perception   ?? 0, 10);
+      const intel = parseInt(charAttrs.intelligence ?? 0, 10);
+      energieXMax = computeEnergyXMax({ per, int: intel });
+      if (hasPuissanceMystique) energieXMax *= 2;
+    } else {
+      energieXMax = 0;
+    }
+  }
+
+  db.prepare('UPDATE characters SET name = ?, data_json = ?, energie_x_max = ?, updated_at = ? WHERE id = ?')
+    .run(newName, newData, energieXMax, now, row.id);
 
   success(res, parseCharacter(db.prepare('SELECT * FROM characters WHERE id = ?').get(row.id)));
 });
@@ -246,7 +272,7 @@ router.patch('/:id/awards', (req, res) => {
 
   const { gloire_delta, panache_delta, px_spend, px_delta } = req.body;
   if (gloire_delta !== undefined)  d.gloire   = Math.max(0, (d.gloire  ?? 0) + parseInt(gloire_delta  ?? 0));
-  if (panache_delta !== undefined) d.panache  = Math.max(1, (d.panache ?? 3) + parseInt(panache_delta ?? 0));
+  if (panache_delta !== undefined) d.panache  = Math.max(0, (d.panache ?? 3) + parseInt(panache_delta ?? 0));
   if (px_spend !== undefined) {
     const spend = parseInt(px_spend ?? 0);
     if (spend < 0) return validationError(res, 'px_spend doit être positif');
