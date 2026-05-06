@@ -1646,7 +1646,7 @@
     {
       "id": "qualite-carac-exceptionnel",
       "type": "Qualité",
-      "name": "Carac exceptionnel",
+      "name": "Caractéristique exceptionnelle",
       "cost": "+5",
       "description": "Le personnage possède une caractéristique hors du commun (innée).",
       "effects": "Le personnage gagne +1 dans une caractéristique de son choix.",

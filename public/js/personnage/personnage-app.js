@@ -884,6 +884,15 @@ function attachSheetEditListeners(container, char) {
       patchSheet(char);
     });
   }
+
+  // Caractéristique exceptionnelle select
+  const caracSel = container.querySelector('#sheet-carac-exceptionnel');
+  if (caracSel) {
+    caracSel.addEventListener('change', () => {
+      char.data.carac_exceptionnel_attribut = caracSel.value;
+      patchSheet(char);
+    });
+  }
 }
 
 function renderSheet(char) {
@@ -1065,6 +1074,10 @@ function applyTraitEffects(d) {
         attr[k] = (attr[k] || 0) + Number(v);
       }
     }
+  }
+  // Qualité "Caractéristique exceptionnel" : +1 à l'attribut choisi par le joueur
+  if ((d.qualites_ids || []).includes('qualite-carac-exceptionnel') && d.carac_exceptionnel_attribut) {
+    attr[d.carac_exceptionnel_attribut] = (attr[d.carac_exceptionnel_attribut] || 0) + 1;
   }
   return { attr };
 }
@@ -1395,6 +1408,15 @@ function renderTraitsSheet(d) {
 
 // ── Onglets de la fiche de consultation ──────────────────────────────────────
 // ── Réputations ───────────────────────────────────────────────────────────────
+const CARAC_EXCEPTIONNEL_ATTRS = [
+  { id: 'carrure',      label: 'Carrure' },
+  { id: 'agilite',      label: 'Agilité' },
+  { id: 'intelligence', label: 'Intelligence' },
+  { id: 'perception',   label: 'Perception' },
+  { id: 'presence',     label: 'Présence' },
+  { id: 'sang_froid',   label: 'Trempe (Sang-froid)' },
+];
+
 const REPUTATIONS = [
   { type: 'Aristocrate',         competence: 'Bureaucratie',  desc: "Le personnage est connu pour appartenir ou avoir appartenu à l'élite politique ou économique des nations stellaires. Non seulement il est respectueux des traditions et des lois, mais en plus, il les connaît probablement par cœur !" },
   { type: 'Bon vivant',          competence: 'Séduction',     desc: "D'après la rumeur, le personnage aime bien les plaisirs de la vie. Sympathique, enjoué, on n'est pas censé s'ennuyer avec lui, ou redouter un coup tordu. La vie est belle !" },
@@ -1435,6 +1457,15 @@ function renderReputationBlock(d, editable) {
 
 function renderSheetTabCaracteristiques(d, finalAttrs, attrBonus, attrs, sante, energieX, arch, domPriv, editable = false) {
   const isMutant = d.is_mutant;
+  // Potentiel X : non-mutants avec la qualité bénéficient aussi de la jauge EX
+  const hasPotentielX = !isMutant && (d.qualites_ids || []).includes('qualite-potentiel-x');
+  const hasEX = isMutant || hasPotentielX;
+  // Puissance Mystique : double l'EX (Per+Int×2)
+  const hasPuissanceMystique = hasEX && (d.mutations_ids || []).includes('mutation-puissance-mystique');
+  const displayEnergieX = hasPuissanceMystique ? energieX * 2 : energieX;
+  // Caractéristique exceptionnelle
+  const hasCaracExceptionnel = (d.qualites_ids || []).includes('qualite-carac-exceptionnel');
+  const caracExceptChoix = d.carac_exceptionnel_attribut || '';
   return `
   <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
     ${(REF?.attributs || []).map(a => {
@@ -1451,6 +1482,17 @@ function renderSheetTabCaracteristiques(d, finalAttrs, attrBonus, attrs, sante, 
     }).join('')}
   </div>
 
+  ${ hasCaracExceptionnel ? `
+  <div class="bg-gray-800 border border-yellow-800/40 rounded-lg px-4 py-3 mb-3">
+    <p class="text-xs text-yellow-300 font-semibold mb-1">⭐ Caractéristique exceptionnelle</p>
+    <p class="text-xs text-gray-400 mb-2">Cette qualité accorde +1 à une caractéristique de votre choix.</p>
+    <select id="sheet-carac-exceptionnel"
+      class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200 ${editable ? '' : 'opacity-60 pointer-events-none'}">
+      <option value="">— Choisir une caractéristique —</option>
+      ${CARAC_EXCEPTIONNEL_ATTRS.map(c => `<option value="${c.id}" ${caracExceptChoix === c.id ? 'selected' : ''}>${c.label}</option>`).join('')}
+    </select>
+  </div>` : '' }
+
   <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-3">
     <p class="text-xs text-gray-300 font-semibold mb-3">Santé <span class="text-gray-500 font-normal">(Car.+SC = ${sante} cases/ligne)</span></p>
     <div class="space-y-2">
@@ -1463,10 +1505,10 @@ function renderSheetTabCaracteristiques(d, finalAttrs, attrBonus, attrs, sante, 
   </div>
 
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-    ${ isMutant ? `
+    ${ hasEX ? `
     <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
-      <p class="text-xs text-gray-300 font-semibold mb-2">Énergie X <span class="text-gray-500 font-normal">(Per.+Int. = ${energieX})</span></p>
-      <div class="flex gap-1 flex-wrap">${trackerBoxes(energieX, 'energie-x')}</div>
+      <p class="text-xs text-gray-300 font-semibold mb-2">Énergie X <span class="text-gray-500 font-normal">(Per.+Int. = ${energieX}${hasPuissanceMystique ? ` × 2 = ${displayEnergieX}` : ''})</span></p>
+      <div class="flex gap-1 flex-wrap">${trackerBoxes(displayEnergieX, 'energie-x')}</div>
     </div>` : '<div></div>' }
     <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
       <p class="text-xs text-gray-300 font-semibold mb-2">Panache <span class="text-yellow-400 font-mono">${d.panache ?? 3}</span></p>
@@ -2135,15 +2177,26 @@ function stepBack() {
 }
 
 function getValidationError() {
+  const steps = getSteps();
+  const stepLabel = steps[CURRENT_STEP]?.label;
+  // Étapes dynamiques : Mutations et Finitions peuvent être à des indices variables
+  if (stepLabel === 'Mutations') {
+    const all = REF?.mutations || [];
+    const basiques = all.filter(m => (m.mutation_type || '').toLowerCase() === 'basique');
+    const avancees = all.filter(m => (m.mutation_type || '').toLowerCase() !== 'basique');
+    const sel = DRAFT.mutations_ids;
+    const selB = sel.filter(id => basiques.some(m => m.id === id));
+    const selA = sel.filter(id => avancees.some(m => m.id === id));
+    return `Combinaison invalide (${selB.length} basique(s), ${selA.length} avancée(s)). Choisissez 2 basiques OU 1 avancée.`;
+  }
+  if (stepLabel === 'Finitions' && !DRAFT.nom_personnage?.trim()) return 'Le nom du personnage est requis.';
   if (DRAFT.type === 'pj') {
     if (CURRENT_STEP === 1 && !DRAFT.origine_id)    return 'Choisissez une origine.';
     if (CURRENT_STEP === 2 && !DRAFT.motivation_id) return 'Choisissez une motivation.';
     if (CURRENT_STEP === 3 && !DRAFT.archetype_id)  return 'Choisissez un archétype.';
     if (CURRENT_STEP === 4) return 'Assignez exactement les valeurs 4,3,3,3,3,2 aux caractéristiques.';
-    if (CURRENT_STEP === 7 && !DRAFT.nom_personnage?.trim()) return 'Le nom du personnage est requis.';
   } else {
     if (CURRENT_STEP === 1 && !DRAFT.pnj_niveau) return 'Choisissez un niveau de PNJ.';
-    if (CURRENT_STEP === 7 && !DRAFT.nom_personnage?.trim()) return 'Le nom du personnage est requis.';
   }
   return 'Veuillez compléter cette étape.';
 }
@@ -2873,7 +2926,7 @@ function renderStepTraits() {
     const sel = isDefaut ? DRAFT.defauts_ids.includes(t.id) : DRAFT.qualites_ids.includes(t.id);
     const pts = Math.abs(parseInt(t.cost) || 0);
     const wouldExceed = isDefaut ? (!sel && dTotal + pts > maxDef) : (!sel && balance < pts);
-    return `
+    const btnHtml = `
     <button data-trait="${t.id}" data-ttype="${isDefaut ? 'd' : 'q'}"
       class="trait-btn w-full text-left ${sel ? (isDefaut ? 'selected-d' : 'selected-q') : ''} ${wouldExceed && !sel ? 'opacity-40' : ''}">
       <div class="flex justify-between items-center gap-2 flex-wrap mb-1">
@@ -2889,6 +2942,19 @@ function renderStepTraits() {
       ${t.prerequisites ? `<p class="text-xs text-gray-600 mt-0.5">Prérequis : ${esc(t.prerequisites)}</p>` : ''}
       ${t.restriction ? `<p class="text-xs text-gray-600 mt-0.5">Restriction : ${esc(t.restriction)}</p>` : ''}
     </button>`;
+    // Qualité spéciale : dropdown de choix de caractéristique
+    if (t.id === 'qualite-carac-exceptionnel' && sel) {
+      const chosen = DRAFT.carac_exceptionnel_attribut || '';
+      return `<div>${btnHtml}
+      <div class="mt-1 px-1 pb-1">
+        <select id="trait-carac-exceptionnel-select"
+          class="bg-gray-700 border border-yellow-700/60 rounded px-2 py-1 text-xs text-gray-200 w-full">
+          <option value="">— Choisir la caractéristique —</option>
+          ${CARAC_EXCEPTIONNEL_ATTRS.map(c => `<option value="${c.id}" ${chosen === c.id ? 'selected' : ''}>${c.label}</option>`).join('')}
+        </select>
+      </div></div>`;
+    }
+    return btnHtml;
   };
 
   return `
@@ -3897,6 +3963,14 @@ function attachStepListeners() {
       attachStepListeners();
     });
   });
+
+  // Caractéristique exceptionnelle — dropdown de choix de carac dans le wizard
+  const caracExcWizSel = step.querySelector('#trait-carac-exceptionnel-select');
+  if (caracExcWizSel) {
+    caracExcWizSel.addEventListener('change', () => {
+      DRAFT.carac_exceptionnel_attribut = caracExcWizSel.value;
+    });
+  }
 
   // Traits — sélection du niveau pour traits à coût variable
   step.querySelectorAll('[data-trait-level]').forEach(sel => {
