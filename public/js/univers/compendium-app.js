@@ -72,6 +72,20 @@ async function init() {
     }
 
     renderApp();
+
+    const sp = new URLSearchParams(window.location.search);
+    const deepCoord = sp.get('quadrant');
+    if (deepCoord && (state.isMJ || state.isAdmin)) {
+      state.activeTab = 'systems';
+      renderApp();
+      const isNew = sp.get('new') === '1';
+      const sysId = sp.get('sysid');
+      const matched = isNew ? null
+        : sysId ? (state.systems || []).find(s => String(s.id) === sysId)
+        : (state.systems || []).find(s => s.quadrant === deepCoord);
+      openSystemModal(matched || { quadrant: deepCoord });
+    }
+
     if (tableId) startPoller();
   } catch {
     stopPoller();
@@ -4444,7 +4458,7 @@ function openFactionModal(faction) {
 
 // --- System edit modal (with solar data) ---
 function openSystemModal(system) {
-  const isNew = !system;
+  const isNew = !system?.id;
   let soleil = {}, corps = [], patrouilles = [];
   if (!isNew) {
     try { soleil = JSON.parse(system.soleil_json || 'null') || {}; } catch { soleil = {}; }

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * itineraire.js — Carte galactique & calcul d'itinéraire
  * ES module — remplace le script inline de itineraire_backup_20260419.html
  */
@@ -379,7 +379,10 @@ function initPanZoom() {
 
 function centerMap() {
   const z = document.getElementById('carte-zone'), r = z.getBoundingClientRect();
-  zoom = Math.min(r.width / 820, r.height / 820, 1);
+  const isDesktop = window.innerWidth >= 768;
+  zoom = isDesktop
+    ? r.width / 820
+    : Math.min(r.width / 820, r.height / 820, 1);
   panX = (r.width - 820 * zoom) / 2; panY = (r.height - 820 * zoom) / 2;
   applyT();
 }
@@ -401,11 +404,6 @@ function centerOnCoord(quadrantCoord) {
 
 // ── BOTTOM SHEET ──────────────────────────────────────────────────────────
 function onCellClick(coord) {
-  if (_pickingQuadrant) {
-    if (_editCoord === '__new__') finishPickQuadrant(coord);
-    else { _pickingQuadrant = false; document.getElementById('carte-zone').classList.remove('picking'); relocateSystem(coord); openModal('modal-edit-system'); }
-    return;
-  }
   const systems = donnees[coord] || [];
   const sheet = document.getElementById('bottom-sheet');
   document.getElementById('bs-title-text').textContent = `Quadrant ${coord}`;
@@ -418,6 +416,15 @@ function onCellClick(coord) {
   addBtn.textContent = '+ Quadrant';
   addBtn.addEventListener('click', () => { tripState.points.push({ ...qp }); refreshAll(); });
   qbContainer.appendChild(addBtn);
+  if (isMJ()) {
+    const sysLink = document.createElement('a');
+    sysLink.href = `/univers.html?quadrant=${encodeURIComponent(coord)}&new=1#systems`;
+    sysLink.target = '_blank';
+    sysLink.rel = 'noopener';
+    sysLink.textContent = '+ Système';
+    sysLink.style.cssText = 'padding:3px 9px;font-size:0.75rem;background:var(--gold);color:#111;border-radius:4px;font-weight:bold;text-decoration:none;line-height:1.6';
+    qbContainer.appendChild(sysLink);
+  }
   renderBSTripState();
   const content = document.getElementById('bottom-sheet-content');
   content.innerHTML = '';
@@ -431,8 +438,9 @@ function onCellClick(coord) {
   }
   if (systems.length === 0) {
     const empty = document.createElement('div');
-    empty.style.cssText = 'padding:20px;text-align:center;color:#888;font-style:italic';
-    empty.textContent = 'Quadrant vide.';
+    empty.style.cssText = 'padding:16px 20px;text-align:center;color:#888;font-style:italic;display:flex;flex-direction:column;align-items:center;gap:10px';
+    empty.innerHTML = '<span>Quadrant vide.</span>'
+      + (isMJ() ? `<a href="/univers.html?quadrant=${encodeURIComponent(coord)}&new=1#systems" target="_blank" rel="noopener" style="font-style:normal;padding:5px 14px;background:var(--gold);color:#111;border-radius:4px;font-size:0.8rem;font-weight:bold;text-decoration:none">➕ Créer un système</a>` : '');
     content.appendChild(empty);
   } else {
     systems.forEach((sys, si) => {
@@ -475,14 +483,24 @@ function getAstres(sys) {
 function updateDesktopQuadInfo(coord, systems) {
   const el = document.getElementById('dp-quad-info');
   if (!el) return;
+  // Retour à la vue quadrant quand on clique un nouveau quadrant
+  document.getElementById('dp-detail-section').style.display = 'none';
+  document.getElementById('dp-default-state').style.display = 'none';
+  document.getElementById('dp-quad-section').style.display = 'block';
+  switchDesktopTab('carte');
   const qp = JSON.stringify({ quadrant: coord, systemNom: null, astroNom: null, orbit: 0 });
-  const addQBtn = `<button onclick='APP.add(${JSON.stringify(qp)})' class="btn-point btn-eta" style="padding:2px 8px;font-size:0.7rem">+</button>`;
-  let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><strong style="color:var(--gold)">${coord}</strong>${addQBtn}</div>`;
+  const addQBtn = `<button onclick='APP.add(${JSON.stringify(qp)})' class="btn-point btn-eta" style="padding:2px 8px;font-size:0.7rem">+&nbsp;Quadrant</button>`
+    + (isMJ() ? `<a href="/univers.html?quadrant=${encodeURIComponent(coord)}&new=1#systems" target="_blank" rel="noopener" style="padding:2px 8px;font-size:0.7rem;background:var(--gold);color:#111;border-radius:4px;font-weight:bold;text-decoration:none;line-height:1.8">+&nbsp;Système</a>` : '');
+  let h = `<div style="display:flex;justify-content:space-between;align-items:center;gap:4px;margin-bottom:6px"><strong style="color:var(--gold)">${coord}</strong><div style="display:flex;gap:4px">${addQBtn}</div></div>`;
   if (isMJ()) {
     const _hsTid = perilAssignments.quadrants[coord] || '';
     h += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border)"><span style="font-size:0.72rem;color:#aaa;white-space:nowrap">⚠️ HS :</span>${_perilTableSelect('hyperspatial', coord, _hsTid)}</div>`;
   }
-  if (!systems.length) { el.innerHTML = h + `<span style="color:#888;font-size:0.8rem">Quadrant vide</span>`; return; }
+  if (!systems.length) {
+    const createLink = isMJ() ? `<a href="/univers.html?quadrant=${encodeURIComponent(coord)}&new=1#systems" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;padding:4px 12px;background:var(--gold);color:#111;border-radius:4px;font-size:0.78rem;font-weight:bold;text-decoration:none">➕ Créer un système</a>` : '';
+    el.innerHTML = h + `<span style="color:#888;font-size:0.8rem">Quadrant vide</span>` + createLink;
+    return;
+  }
   systems.forEach((sys, si) => {
     h += `<div style="margin-top:5px"><span style="font-weight:bold;cursor:pointer;text-decoration:underline dotted" onclick="showDetail('${coord}',${si})">${sys.nom}</span> <span style="color:#888;font-size:0.78rem">${_factionLabel(sys.faction)}</span>`;
     getAstres(sys).forEach(a => {
@@ -500,6 +518,15 @@ function refreshAll() {
   refreshCarte();
   updateDesktopPointsList();
   renderBSTripState();
+}
+
+function switchDesktopTab(tab) {
+  document.querySelectorAll('.dp-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.dp-tab-pane').forEach(p => {
+    const isActive = p.id === `dp-tab-${tab}`;
+    p.classList.toggle('active', isActive);
+    p.style.display = isActive ? '' : 'none';
+  });
 }
 
 function updateDesktopPointsList() {
@@ -523,7 +550,12 @@ function updateDesktopPointsList() {
 }
 
 window.APP = {
-  add(j) { tripState.points.push(JSON.parse(j)); refreshAll(); }
+  add(j) {
+    const wasEmpty = tripState.points.length === 0;
+    tripState.points.push(JSON.parse(j));
+    refreshAll();
+    if (wasEmpty && window.innerWidth >= 768) switchDesktopTab('itineraire');
+  }
 };
 window.removePt = function(idx) { tripState.points.splice(+idx, 1); refreshAll(); };
 window.movePt = function(idx, dir) {
@@ -646,17 +678,24 @@ function showSystemDetail(coord, si) {
   _ipBody += _perilTableSummary(_ipTid, 'interplanetaire');
   h += section('⚠️ Périls Interplanétaires', _ipBody, false);
   if (isMJ()) {
-    h += `<div style="margin-top:12px;text-align:center"><button style="padding:8px 20px;background:var(--primary);color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.85rem" onclick="closeModal('modal-detail');openEditSystem('${coord}',${si})">✏️ Éditer ce système</button></div>`;
+    h += `<div style="margin-top:12px;text-align:center"><a href="/univers.html?quadrant=${encodeURIComponent(coord)}${sys._id ? `&sysid=${sys._id}` : ''}#systems" target="_blank" style="display:inline-block;padding:8px 20px;background:var(--primary);color:white;border-radius:4px;font-size:0.85rem;text-decoration:none">✏️ Éditer dans Univers</a></div>`;
   } else {
     h += `<div style="margin-top:12px;text-align:center;font-size:0.75rem;color:#888">🔒 Lecture seule — seul le MJ peut modifier les systèmes</div>`;
   }
-  document.getElementById('modal-detail-title').textContent = `${coord} — ${sys.nom}`;
-  document.getElementById('detail-content').innerHTML = h;
-  openModal('modal-detail');
+  if (window.innerWidth >= 768) {
+    document.getElementById('dp-detail-title').textContent = `${coord} — ${sys.nom}`;
+    document.getElementById('dp-detail-content').innerHTML = h;
+    document.getElementById('dp-default-state').style.display = 'none';
+    document.getElementById('dp-quad-section').style.display = 'none';
+    document.getElementById('dp-detail-section').style.display = 'block';
+    switchDesktopTab('carte');
+  } else {
+    document.getElementById('modal-detail-title').textContent = `${coord} — ${sys.nom}`;
+    document.getElementById('detail-content').innerHTML = h;
+    openModal('modal-detail');
+  }
 }
 window.showDetail = showSystemDetail;
-window.openEditSystem = openEditSystem;
-window.renderEditSystem = renderEditSystem;
 
 // ── CALCUL ────────────────────────────────────────────────────────────────
 function roll2D6() { return Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1; }
@@ -1168,6 +1207,7 @@ function renderTrip(trip, isMob) {
     const dl = document.getElementById('dp-legs');
     dl.innerHTML = legsHTML(trip.legs, 'dsk');
     attachPerilEvents(dl, trip.legs);
+    if (!isMob) switchDesktopTab('itineraire');
   }
 
   // Show "Enregistrer le trajet" buttons for MJ
@@ -1260,101 +1300,11 @@ window.HIST = {
 // ── HELPERS UTILITAIRES ──────────────────────────────────────────────────────
 function escH(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
-
-
-function sysToPayload(sys, coord) {
-  return {
-    nom: sys.nom || '',
-    quadrant: coord,
-    faction: sys.faction || '',
-    is_frontiere: sys.isFrontiere ? 1 : 0,
-    route: sys.route || '',
-    gouvernement: sys.gouvernement || '',
-    description: sys.description || '',
-    peril_list_id: sys.peril_list_id || '',
-    soleil_json: JSON.stringify(sys.soleil || {}),
-    corps_celestes_json: JSON.stringify(sys.corpsCelestes || []),
-    patrouilles_json: JSON.stringify(sys.patrouilles || []),
-  };
-}
-
-async function sauvegarderDonnees() {
-  const s = _sys();
-  if (!s) return;
-  if (_editCoord === '__new__') {
-    alert('Ciblez d\'abord un quadrant sur la carte avant de sauvegarder.');
-    return;
-  }
-
-  const payload = sysToPayload(s, _editCoord);
-  const btn = document.getElementById('btn-save-system');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sauvegarde...'; }
-
-  try {
-    let res;
-    if (s._id) {
-      res = await fetchWithTable(`/api/systems/${s._id}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-    } else {
-      res = await fetchWithTable('/api/systems', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-    }
-
-    if (res.ok) {
-      const data = (await res.json()).data;
-      s._id = data.id;
-      if (btn) {
-        btn.textContent = '✅ Sauvegardé';
-        btn.style.background = 'var(--success)';
-        setTimeout(() => {
-          if (btn) { btn.textContent = '💾 Sauvegarder'; btn.disabled = false; }
-        }, 2500);
-      }
-      // Refresh badge "nouveau" if creation
-      const badge = document.getElementById('save-new-badge');
-      if (badge) badge.style.display = 'none';
-    } else if (res.status === 403) {
-      alert('Seul le MJ peut modifier ce système. Demandez-lui de sauvegarder.');
-      if (btn) { btn.disabled = false; btn.textContent = '💾 Sauvegarder'; }
-    } else {
-      let msg = `Erreur ${res.status}`;
-      try { const j = await res.json(); msg = j.message || j.error || msg; } catch {}
-      alert('Erreur de sauvegarde : ' + msg);
-      if (btn) { btn.disabled = false; btn.textContent = '💾 Sauvegarder'; }
-    }
-  } catch (e) {
-    alert('Erreur de connexion : ' + e.message);
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Sauvegarder'; }
-  }
-}
-window.sauvegarderDonnees = sauvegarderDonnees;
-
-// ── ÉDITEUR SYSTÈMES ──────────────────────────────────────────────────────
-let _editCoord = null, _editSysIdx = -1, _pickingQuadrant = false;
-const _openCards = new Set();
-
-function _esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-function _sel(opts, cur) { return opts.map(o => { const v = typeof o === 'string' ? o : o.v; const l = typeof o === 'string' ? o : o.l; return `<option value="${_esc(v)}"${v === cur ? ' selected' : ''}>${_esc(l)}</option>`; }).join(''); }
-
-function _factionPicker(cur) {
-  let h = `<span class="faction-chip ${cur === '' ? 'active' : ''}" onclick="SYSEDIT.hdr('faction','');renderEditSystem()">Aucune</span>`;
-  const sorted = [...factions].sort((a, b) => a.name.localeCompare(b.name));
-  sorted.forEach(f => {
-    const act = cur === f.name ? 'active' : '';
-    const img = f.icon ? `<img src="${f.icon}" alt="">` : '';
-    const lbl = f.short || f.name;
-    h += `<span class="faction-chip ${act}" onclick="SYSEDIT.hdr('faction','${_esc(f.name)}');renderEditSystem()" title="${_esc(f.name)}">${img}${_esc(lbl)}</span>`;
-  });
-  return h;
-}
+// ── MODALS ────────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+window.openModal = openModal;
+window.closeModal = closeModal;
 
 function _factionLabel(name, full) {
   if (!name) return '';
@@ -1370,199 +1320,6 @@ function _factionLabel(name, full) {
   return escH(name);
 }
 
-const ROUTES = ['', 'Route Galactique (+1d)', 'Route Commerciale', 'Hors des routes (D+1)', 'Mystérieux (TD)'];
-const GOUVERNEMENTS = ['', 'Anarchie', 'Aucun', 'Collectivisme', 'Corporatiste', 'Démocratie', 'Dictature', 'Monarchie'];
-const ATMOSPHERES = ['Respirable', 'Non respirable', 'Toxique', 'Dangereux'];
-const GRAVITES = ['Ecrasante (TD, 1S par heure)', 'Forte (Survie/Technique D+1)', 'Normale', 'Faible (Athlétisme, Acrobatie, Pilotage +1d)', 'Très faible (Dist. x5, Vitesses Véhicules x1.5. Porter : TF)', 'Aucune'];
-const TECHNOS = [{ v: 'A', l: 'A (Planète évoluée)' }, { v: 'B', l: 'B (Planète industrielle)' }, { v: 'C', l: 'C (Planète sauvage)' }];
-const COMMERCES = ['Carrefour galactique (TF)', 'Carrefour commercial (+1d)', 'Planète normale', 'Planète pauvre (D+1)', 'Planète primitive (TD)'];
-const ASTROPORT_TYPES = ['Rudimentaire D+1', 'Standard', 'Première classe +1d'];
-const SUN_CLASSES = ['Naine rouge', 'Naine jaune', 'Géante rouge', 'Etoile variable', 'Etoile binaire', 'Autre'];
-
-function openEditSystem(coord, sIdx) {
-  if (!isMJ()) { showSystemDetail(coord, sIdx); return; }
-  _editCoord = coord; _editSysIdx = sIdx;
-  donnees[coord] = donnees[coord] || [];
-  if (sIdx === -1) {
-    donnees[coord].push({ nom: 'Nouveau Système', faction: '', isFrontiere: false, route: '', gouvernement: '', description: '', patrouilles: [], soleil: { nom: 'Nouvelle Étoile', description: '', diametre: '', distanceSaut: '', classe: '', activiteSolaire: [] }, corpsCelestes: [] });
-    _editSysIdx = donnees[coord].length - 1;
-  }
-  _pickingQuadrant = false; renderEditSystem(); openModal('modal-edit-system');
-}
-
-function newSystem() { openEditSystem('__new__', -1); }
-
-function pickQuadrantForNew() {
-  closeModal('modal-edit-system'); _pickingQuadrant = true;
-  document.getElementById('carte-zone').classList.add('picking');
-}
-
-function finishPickQuadrant(coord) {
-  _pickingQuadrant = false; document.getElementById('carte-zone').classList.remove('picking');
-  const sys = donnees['__new__']?.[_editSysIdx]; if (!sys) return;
-  donnees[coord] = donnees[coord] || [];
-  donnees[coord].push(sys);
-  donnees['__new__'].splice(_editSysIdx, 1);
-  if (!donnees['__new__'].length) delete donnees['__new__'];
-  _editCoord = coord; _editSysIdx = donnees[coord].length - 1;
-  initCarte(); renderEditSystem(); openModal('modal-edit-system');
-}
-
-function relocateSystem(newCoord) {
-  if (newCoord === _editCoord) return;
-  const sys = donnees[_editCoord]?.[_editSysIdx]; if (!sys) return;
-  donnees[_editCoord].splice(_editSysIdx, 1);
-  if (!donnees[_editCoord].length && _editCoord !== '__new__') delete donnees[_editCoord];
-  donnees[newCoord] = donnees[newCoord] || [];
-  donnees[newCoord].push(sys);
-  _editCoord = newCoord; _editSysIdx = donnees[newCoord].length - 1;
-  initCarte(); renderEditSystem();
-}
-
-window.pickQuadrantForNew = pickQuadrantForNew;
-window.pickQuadrantRelocate = function() { closeModal('modal-edit-system'); _pickingQuadrant = true; document.getElementById('carte-zone').classList.add('picking'); };
-
-function _sys() { return donnees[_editCoord]?.[_editSysIdx]; }
-
-function renderEditSystem() {
-  document.querySelectorAll('#edit-sys-content .sys-edit-card[data-cid]').forEach(c => {
-    if (!c.classList.contains('collapsed')) _openCards.add(c.dataset.cid); else _openCards.delete(c.dataset.cid);
-  });
-  const s = _sys(); if (!s) return;
-  document.getElementById('edit-sys-title').textContent = `${_editCoord} — ${s.nom || 'Système'}`;
-  const el = document.getElementById('edit-sys-content');
-  const jl = parseFloat(s.soleil?.distanceSaut) || 0;
-  const isNew = _editCoord === '__new__';
-  const coordLabel = isNew ? '<span style="color:var(--danger)">Non défini</span>' : _editCoord;
-  let h = '';
-  h += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--bg3);border-radius:4px">
-    <span style="font-size:0.82rem;color:#aaa">Quadrant :</span>
-    <strong style="color:var(--gold);font-size:0.92rem">${coordLabel}</strong>
-    <button style="margin-left:auto;padding:4px 12px;background:var(--primary);color:white;border:none;border-radius:3px;cursor:pointer;font-size:0.78rem" onclick="${isNew ? 'pickQuadrantForNew()' : 'pickQuadrantRelocate()'}">🎯 ${isNew ? 'Cibler sur la carte' : 'Déplacer'}</button>
-  </div>`;
-  h += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-    <button id="btn-save-system" onclick="sauvegarderDonnees()"
-      style="flex:1;padding:9px;background:${s._id ? '#2d6a2d' : '#1a3a5c'};color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:0.88rem;border:1px solid ${s._id ? 'var(--success)' : 'var(--primary)'}">
-      💾 ${s._id ? 'Sauvegarder les modifications' : 'Sauvegarder sur le serveur'}
-    </button>
-    ${!s._id ? `<span id="save-new-badge" style="font-size:0.7rem;color:var(--warning);white-space:nowrap">⚠ Non sauvegardé</span>` : ''}
-  </div>`;
-  h += `<div class="sys-header-fields">
-    <div class="se-field"><label>Nom du système</label><input type="text" value="${_esc(s.nom)}" onchange="SYSEDIT.hdr('nom',this.value);document.getElementById('edit-sys-title').textContent=_editCoord+' — '+this.value"></div>
-    <div class="se-field full"><label>Faction</label><div class="faction-picker">${_factionPicker(s.faction || '')}</div></div>
-    <div class="se-field"><label>Route</label><select onchange="SYSEDIT.hdr('route',this.value)">${_sel(ROUTES, s.route || '')}</select></div>
-    <div class="se-field"><label>Gouvernement</label><select onchange="SYSEDIT.hdr('gouvernement',this.value)">${_sel(GOUVERNEMENTS, s.gouvernement || '')}</select></div>
-    <div class="se-field"><label>Péril IS</label><select onchange="SYSEDIT.hdr('peril_list_id',this.value)"><option value="">— aucune —</option>${customTables.filter(t => t.type === 'interplanetaire').map(t => `<option value="${_esc(t.id)}"${s.peril_list_id === t.id ? ' selected' : ''}>${_esc(t.name)}</option>`).join('')}</select></div>
-    <div class="se-field"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" ${s.isFrontiere ? 'checked' : ''} onchange="SYSEDIT.hdr('isFrontiere',this.checked)" style="width:auto"> Frontière</label></div>
-    <div class="se-field full"><label>Description</label><textarea onchange="SYSEDIT.hdr('description',this.value)">${_esc(s.description)}</textarea></div>
-  </div>`;
-  h += _cardSun(s.soleil || {});
-  (s.corpsCelestes || []).forEach((_, pi) => { h += _cardBody(s.corpsCelestes[pi], `corpsCelestes[${pi}]`, false, jl); });
-  h += `<div class="se-actions" style="margin-top:10px">
-    <button style="background:var(--primary);color:white" onclick="SYSEDIT.addPlanet()">+ Planète</button>
-    <button style="background:var(--danger);color:white" onclick="SYSEDIT.delSystem()">Supprimer système</button>
-  </div>`;
-  el.innerHTML = h;
-}
-
-function _coll(cid) { return _openCards.has(cid) ? '' : 'collapsed'; }
-
-function _cardSun(sun) {
-  const isCustom = sun.classe && !SUN_CLASSES.includes(sun.classe);
-  const clsSel = SUN_CLASSES.map(c => `<option value="${c}"${(c === 'Autre' && isCustom) || (c === sun.classe) ? 'selected' : ''}>${c}</option>`).join('');
-  let actH = '';
-  (sun.activiteSolaire || []).forEach((a, i) => {
-    actH += `<div class="se-list-row"><input type="text" placeholder="Distance" value="${_esc(a.distance)}" onchange="SYSEDIT.fld('soleil.activiteSolaire[${i}].distance',this.value)"><input type="text" placeholder="Conséquence" value="${_esc(a.consequence)}" onchange="SYSEDIT.fld('soleil.activiteSolaire[${i}].consequence',this.value)"><button class="se-btn-del" onclick="SYSEDIT.delSunAct(${i})">✕</button></div>`;
-  });
-  return `<div class="sys-edit-card card-sun ${_coll('sun')}" data-cid="sun"><div class="sys-card-hdr" onclick="this.closest('.sys-edit-card').classList.toggle('collapsed')"><h4>☀ ${_esc(sun.nom || 'Étoile')}</h4><span class="se-caret">▼</span></div><div class="sys-card-body"><div class="se-grid">
-    <div class="se-field"><label>Nom</label><input type="text" value="${_esc(sun.nom)}" onchange="SYSEDIT.fld('soleil.nom',this.value)"></div>
-    <div class="se-field"><label>Classe</label><select onchange="SYSEDIT.sunClass(this)">${clsSel}</select></div>
-    <div class="se-field" id="sun-cls-custom" style="display:${isCustom ? 'flex' : 'none'}"><label>Classe perso.</label><input type="text" value="${_esc(isCustom ? sun.classe : '')}" onchange="SYSEDIT.fld('soleil.classe',this.value)"></div>
-    <div class="se-field"><label>Diamètre (K)</label><input type="number" value="${sun.diametre || ''}" onchange="SYSEDIT.fld('soleil.diametre',this.value)"></div>
-    <div class="se-field"><label>Distance de saut (US)</label><input type="number" value="${sun.distanceSaut || ''}" onchange="SYSEDIT.fld('soleil.distanceSaut',this.value);renderEditSystem()"></div>
-    <div class="se-field full"><label>Description</label><textarea onchange="SYSEDIT.fld('soleil.description',this.value)">${_esc(sun.description)}</textarea></div>
-    <fieldset class="se-fieldset"><legend>Activité Solaire</legend>${actH}<button class="se-btn-add" onclick="SYSEDIT.addSunAct()">+ Activité</button></fieldset>
-  </div></div></div>`;
-}
-
-function _cardBody(body, path, isMoon, jl) {
-  const orb = parseFloat(body.orbite) || 0;
-  const jd = jl > 0 ? (jl - orb).toFixed(2) : 'N/A';
-  const showAtmo = body.atmosphere === 'Toxique' || body.atmosphere === 'Dangereux';
-  let astH = '';
-  (body.astroports || []).forEach((a, i) => { astH += `<div class="se-list-row"><input type="text" placeholder="Nom" value="${_esc(a.nom)}" onchange="SYSEDIT.fld('${path}.astroports[${i}].nom',this.value)"><select onchange="SYSEDIT.fld('${path}.astroports[${i}].type',this.value)">${_sel(ASTROPORT_TYPES, a.type || 'Standard')}</select><button class="se-btn-del" onclick="SYSEDIT.delSub('${path}.astroports',${i})">✕</button></div>`; });
-  let lieuxH = '';
-  (body.lieux || []).forEach((l, i) => { lieuxH += `<div class="se-list-row" style="flex-wrap:wrap"><input type="text" placeholder="Nom" value="${_esc(l.nom)}" onchange="SYSEDIT.fld('${path}.lieux[${i}].nom',this.value)"><button class="se-btn-del" onclick="SYSEDIT.delSub('${path}.lieux',${i})">✕</button><textarea style="width:100%" placeholder="Description" onchange="SYSEDIT.fld('${path}.lieux[${i}].description',this.value)">${_esc(l.description)}</textarea></div>`; });
-  const cls = isMoon ? 'card-moon' : 'card-planet';
-  const pathId = path.replace(/\W/g, '');
-  return `<div class="sys-edit-card ${cls} ${_coll(path)}" data-cid="${path}"><div class="sys-card-hdr" onclick="this.closest('.sys-edit-card').classList.toggle('collapsed')"><input type="text" value="${_esc(body.nom)}" onclick="event.stopPropagation()" onchange="SYSEDIT.fld('${path}.nom',this.value)"><span class="se-caret">▼</span><button class="se-btn-del" onclick="event.stopPropagation();SYSEDIT.delBody('${path}')" title="Supprimer">✕</button></div><div class="sys-card-body"><div class="se-grid">
-    <div class="se-field full"><label>Description</label><textarea onchange="SYSEDIT.fld('${path}.description',this.value)">${_esc(body.description)}</textarea></div>
-    <div class="se-field"><label>Atmosphère</label><select onchange="SYSEDIT.atmo(this,'${path}','${pathId}')">${_sel(ATMOSPHERES, body.atmosphere || 'Respirable')}</select></div>
-    <div class="se-field" id="atmo-${pathId}" style="display:${showAtmo ? 'flex' : 'none'}"><label>Détail atmo.</label><input type="text" value="${_esc(body.atmosphereDetail)}" onchange="SYSEDIT.fld('${path}.atmosphereDetail',this.value)"></div>
-    <div class="se-field"><label>Gravité</label><select onchange="SYSEDIT.fld('${path}.gravite',this.value)">${_sel(GRAVITES, body.gravite || 'Normale')}</select></div>
-    <div class="se-field"><label>Technologie</label><select onchange="SYSEDIT.fld('${path}.techno',this.value)">${_sel(TECHNOS, body.techno || 'B')}</select></div>
-    <div class="se-field"><label>Gouvernement</label><select onchange="SYSEDIT.fld('${path}.gouvernement',this.value)">${_sel(GOUVERNEMENTS, body.gouvernement || '')}</select></div>
-    <div class="se-field"><label>Commerce</label><select onchange="SYSEDIT.fld('${path}.commerce',this.value)">${_sel(COMMERCES, body.commerce || 'Planète normale')}</select></div>
-    <div class="se-field"><label>Orbite (US)</label><input type="number" step="0.01" value="${body.orbite || ''}" onchange="SYSEDIT.fld('${path}.orbite',this.value);renderEditSystem()"></div>
-    <div class="se-field"><label>Dist. saut (US)</label><input type="text" value="${jd}" disabled></div>
-    <div class="se-field"><label>Classe</label><input type="text" value="${_esc(body.classe)}" onchange="SYSEDIT.fld('${path}.classe',this.value)"></div>
-    <div class="se-field"><label>Diamètre (K)</label><input type="number" value="${body.diametre || ''}" onchange="SYSEDIT.fld('${path}.diametre',this.value)"></div>
-    <div class="se-field"><label>Population</label><input type="number" value="${body.population || ''}" onchange="SYSEDIT.fld('${path}.population',this.value)"></div>
-    <div class="se-field"><label>Sécurité (1-20)</label><input type="number" min="1" max="20" value="${body.securite || ''}" onchange="SYSEDIT.fld('${path}.securite',this.value)"></div>
-    <fieldset class="se-fieldset"><legend>Astroports</legend>${astH}<button class="se-btn-add" onclick="SYSEDIT.addSub('${path}.astroports',{nom:'',type:'Standard'})">+ Astroport</button></fieldset>
-    <fieldset class="se-fieldset"><legend>Lieux</legend>${lieuxH}<button class="se-btn-add" onclick="SYSEDIT.addSub('${path}.lieux',{nom:'',description:''})">+ Lieu</button></fieldset>
-    <fieldset class="se-fieldset"><legend>Marchandise</legend><div class="se-grid g3" style="margin-top:0">
-      <div class="se-field"><label>A</label><input type="number" step="0.1" value="${body.marchandiseA || ''}" onchange="SYSEDIT.fld('${path}.marchandiseA',this.value)"></div>
-      <div class="se-field"><label>B</label><input type="number" step="0.1" value="${body.marchandiseB || ''}" onchange="SYSEDIT.fld('${path}.marchandiseB',this.value)"></div>
-      <div class="se-field"><label>C</label><input type="number" step="0.1" value="${body.marchandiseC || ''}" onchange="SYSEDIT.fld('${path}.marchandiseC',this.value)"></div>
-      <div class="se-field full"><label>Illégale</label><input type="text" value="${_esc(body.illegal)}" onchange="SYSEDIT.fld('${path}.illegal',this.value)"></div>
-    </div></fieldset>
-  </div><div class="se-actions"><button style="background:var(--primary);color:white" onclick="SYSEDIT.addMoon('${path}')">+ Lune</button></div></div></div>`;
-}
-
-function _resolvePath(obj, path) {
-  const parts = path.replace(/\[(\w+)\]/g, '.$1').split('.');
-  for (let i = 0; i < parts.length - 1; i++) { if (!obj[parts[i]]) obj[parts[i]] = isNaN(parts[i + 1]) ? {} : []; obj = obj[parts[i]]; }
-  return { parent: obj, key: parts[parts.length - 1] };
-}
-
-window.SYSEDIT = {
-  hdr(k, v) { const s = _sys(); if (!s) return; s[k] = v; },
-  fld(path, v) { const s = _sys(); if (!s) return; const r = _resolvePath(s, path); r.parent[r.key] = v; },
-  sunClass(sel) { const w = document.getElementById('sun-cls-custom'); if (sel.value === 'Autre') { w.style.display = 'flex'; } else { w.style.display = 'none'; this.fld('soleil.classe', sel.value); } },
-  atmo(sel, path, pathId) { const w = document.getElementById('atmo-' + pathId); if (w) w.style.display = (sel.value === 'Toxique' || sel.value === 'Dangereux') ? 'flex' : 'none'; this.fld(path + '.atmosphere', sel.value); },
-  addItem(arrPath, obj) { const s = _sys(); if (!s) return; const r = _resolvePath(s, arrPath); if (!Array.isArray(r.parent[r.key])) r.parent[r.key] = []; r.parent[r.key].push(JSON.parse(JSON.stringify(obj))); renderEditSystem(); },
-  delItem(arrPath, idx) { const s = _sys(); if (!s) return; const r = _resolvePath(s, arrPath); if (Array.isArray(r.parent[r.key])) r.parent[r.key].splice(idx, 1); renderEditSystem(); },
-  addSunAct() { const s = _sys(); if (!s?.soleil) return; if (!s.soleil.activiteSolaire) s.soleil.activiteSolaire = []; s.soleil.activiteSolaire.push({ distance: '', consequence: '' }); renderEditSystem(); },
-  delSunAct(i) { const s = _sys(); if (!s?.soleil?.activiteSolaire) return; s.soleil.activiteSolaire.splice(i, 1); renderEditSystem(); },
-  addPlanet() { const s = _sys(); if (!s) return; if (!s.corpsCelestes) s.corpsCelestes = []; s.corpsCelestes.push({ nom: 'Nouvelle Planète', description: '', orbite: '', classe: '', diametre: '', atmosphere: 'Respirable', gravite: 'Normale', techno: 'B', gouvernement: '', commerce: 'Planète normale', securite: '', population: '', lunes: [], lieux: [], astroports: [], marchandiseA: '', marchandiseB: '', marchandiseC: '', illegal: '' }); renderEditSystem(); },
-  addMoon(bodyPath) { const s = _sys(); if (!s) return; const r = _resolvePath(s, bodyPath); const body = r.parent[r.key]; if (!body) return; if (!body.lunes) body.lunes = []; body.lunes.push({ nom: 'Nouvelle Lune', description: '', lunes: [], lieux: [], astroports: [] }); renderEditSystem(); },
-  addSub(arrPath, obj) { const s = _sys(); if (!s) return; const r = _resolvePath(s, arrPath); if (!Array.isArray(r.parent[r.key])) r.parent[r.key] = []; r.parent[r.key].push(JSON.parse(JSON.stringify(obj))); renderEditSystem(); },
-  delSub(arrPath, idx) { const s = _sys(); if (!s) return; const r = _resolvePath(s, arrPath); if (Array.isArray(r.parent[r.key])) r.parent[r.key].splice(idx, 1); renderEditSystem(); },
-  delBody(path) { if (!confirm('Supprimer cet astre ?')) return; const s = _sys(); if (!s) return; const parts = path.replace(/\[(\w+)\]/g, '.$1').split('.'); if (parts.length < 2) return; let p = s; for (let i = 0; i < parts.length - 2; i++) p = p[parts[i]]; p[parts[parts.length - 2]].splice(+parts[parts.length - 1], 1); renderEditSystem(); },
-  delSystem() {
-    if (_editCoord === '__new__') {
-      donnees['__new__'].splice(_editSysIdx, 1);
-      if (!donnees['__new__'].length) delete donnees['__new__'];
-      closeModal('modal-edit-system'); return;
-    }
-    const s = _sys();
-    const savedOnServer = !!s?._id;
-    const msg = savedOnServer
-      ? 'Supprimer ce système localement ? (La copie serveur reste — supprimez-la via le Compendium si nécessaire.)'
-      : 'Supprimer ce système ?';
-    if (!confirm(msg)) return;
-    donnees[_editCoord].splice(_editSysIdx, 1);
-    if (!donnees[_editCoord].length) delete donnees[_editCoord];
-    closeModal('modal-edit-system'); initCarte();
-  }
-};
-
-// ── MODALS ────────────────────────────────────────────────────────────────
-function openModal(id) { document.getElementById(id)?.classList.add('open'); }
-function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
-window.openModal = openModal;
-window.closeModal = closeModal;
 
 // ── EVENTS ────────────────────────────────────────────────────────────────
 function initEvents() {
@@ -1579,6 +1336,13 @@ function initEvents() {
   document.getElementById('btn-calc-desktop').addEventListener('click', () => doCalc(false));
   document.getElementById('btn-update-desktop').addEventListener('click', () => doUpdate('dsk', false));
   document.getElementById('btn-save-hist-desktop').addEventListener('click', saveCurrentTrip);
+  document.getElementById('dp-detail-back')?.addEventListener('click', () => {
+    document.getElementById('dp-detail-section').style.display = 'none';
+    document.getElementById('dp-quad-section').style.display = 'block';
+  });
+  document.querySelectorAll('.dp-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchDesktopTab(tab.dataset.tab));
+  });
   document.getElementById('bottom-sheet-handle').addEventListener('click', () => {
     document.getElementById('bottom-sheet').classList.remove('open');
     document.getElementById('fab-calculer').classList.remove('sheet-open');
@@ -1686,6 +1450,14 @@ async function init() {
     centerOnCoord(activeShip.position.quadrant);
   } else {
     centerMap();
+  }
+  // Onglet Carte actif par défaut + hint vaisseau dans l'état vide
+  switchDesktopTab('carte');
+  const hint = document.getElementById('dp-ship-hint');
+  if (hint && activeShip) {
+    const pos = activeShip.position?.quadrant;
+    hint.textContent = `🚀 ${activeShip.name || activeShip.nom}${pos ? ` · ${pos}` : ''}`;
+    hint.style.display = 'block';
   }
 }
 

@@ -11,7 +11,7 @@
   <!-- Header -->
   <header class="border-b border-gray-700 bg-gray-800">
     <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-      <h1 class="text-xl font-bold">⚙️ Metal Adventures</h1>
+      <h1><img src="/images/logo.png" alt="Metal Adventures" class="ma-logo-img"></h1>
       <nav class="flex items-center gap-4 text-sm">
         <!-- Table context (hidden until loaded) -->
         <span id="header-table-info" class="hidden flex items-center gap-2 text-gray-300 border-r border-gray-600 pr-4 mr-2">
@@ -48,65 +48,65 @@
           <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <a href="/itineraire.html"
                class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
-              <span class="text-2xl">&#128506;&#65039;</span>
-              <span class="font-medium">Carte Galactique</span>
+              <svg class="nav-card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5l6-2 6 4 6-2v14l-6 2-6-4-6 2V5z"/><path d="M9 3v14M15 7v14"/></svg>
+              <span class="nav-card-title">Carte Galactique</span>
               <span class="text-sm text-gray-400">Carte interactive, routes et navigation.</span>
             </a>
 
             <a href="/univers.html"
                class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
-              <span class="text-2xl">🌌</span>
-              <span class="font-medium">Univers</span>
+              <svg class="nav-card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><ellipse cx="12" cy="12" rx="11" ry="4.5" transform="rotate(-20 12 12)"/></svg>
+              <span class="nav-card-title">Univers</span>
               <span class="text-sm text-gray-400">Syst&egrave;mes, factions, vaisseaux et flotte de la table.</span>
             </a>
 
             <a href="/regles.html"
                class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
-              <span class="text-2xl">📖</span>
-              <span class="font-medium">Compendium</span>
+              <svg class="nav-card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              <span class="nav-card-title">Compendium</span>
               <span class="text-sm text-gray-400">Comp&eacute;tences, qualit&eacute;s, d&eacute;fauts, mutations et actions.</span>
             </a>
 
             <a id="home-admin-link" href="/admin.html" class="hidden bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
-              <span class="text-2xl">&#128737;&#65039;</span>
-              <span class="font-medium">Administration</span>
+              <svg class="nav-card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              <span class="nav-card-title">Administration</span>
               <span class="text-sm text-gray-400">Gestion des utilisateurs, campagnes et mod&egrave;les.</span>
             </a>
 
             <a id="home-campaign-link" href="/campagne.html" class="hidden bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
-              <span class="text-2xl">🎲</span>
-              <span class="font-medium">Ma Campagne</span>
+              <svg class="nav-card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span class="nav-card-title">Ma Campagne</span>
               <span class="text-sm text-gray-400">Lien d&apos;invitation, membres et gestion de la table.</span>
             </a>
 
             <a id="home-mf-spending-link" href="/mf-faktor.html" class="hidden bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
-              <span class="text-2xl">🎯</span>
-              <span class="font-medium">Dépenses Metal Faktor</span>
-              <span class="text-sm text-gray-400">Retours de flamme disponibles selon votre réserve MJ.</span>
+              <svg class="nav-card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span class="nav-card-title">D&eacute;penses Metal Faktor</span>
+              <span class="text-sm text-gray-400">Retours de flamme disponibles selon votre r&eacute;serve MJ.</span>
             </a>
 
             <a href="/calendrier.html" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
-              <span class="text-2xl">📅</span>
-              <span class="font-medium">Calendrier</span>
-              <span class="text-sm text-gray-400">Événements de campagne et date actuelle.</span>
+              <svg class="nav-card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span class="nav-card-title">Calendrier</span>
+              <span class="text-sm text-gray-400">&Eacute;v&eacute;nements de campagne et date actuelle.</span>
             </a>
 
             <a href="/revolte.html" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
-              <span class="text-2xl">⚔️</span>
-              <span class="font-medium">Révoltes</span>
-              <span class="text-sm text-gray-400">Gérer et sauvegarder les sessions de révolte.</span>
+              <svg class="nav-card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6 2 1-7 7"/><path d="M14.5 6.5L18 3h3v3L10 17l-1-1"/><path d="M5 19l2-2"/></svg>
+              <span class="nav-card-title">R&eacute;voltes</span>
+              <span class="text-sm text-gray-400">G&eacute;rer et sauvegarder les sessions de r&eacute;volte.</span>
             </a>
 
             <a id="home-tresors-link" href="/tresors.html" class="hidden bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
-              <span class="text-2xl">🗺️</span>
-              <span class="font-medium">Chasses au Trésor</span>
-              <span class="text-sm text-gray-400">Générez et gérez les chasses (supplément TdM).</span>
+              <svg class="nav-card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+              <span class="nav-card-title">Chasses au Tr&eacute;sor</span>
+              <span class="text-sm text-gray-400">G&eacute;n&eacute;rez et g&eacute;rez les chasses (suppl&eacute;ment TdM).</span>
             </a>
 
             <a id="home-combat-spatial-link" href="/combat-spatial.html" class="hidden bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-5 transition-colors flex flex-col gap-2 min-h-[10rem]">
-              <span class="text-2xl">🚀</span>
-              <span class="font-medium">Combat Spatial</span>
-              <span class="text-sm text-gray-400">Battlegrid interactive — phases et positions de combat.</span>
+              <svg class="nav-card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/></svg>
+              <span class="nav-card-title">Combat Spatial</span>
+              <span class="text-sm text-gray-400">Battlegrid interactive &mdash; phases et positions de combat.</span>
             </a>
           </div>
         </section>
@@ -116,5 +116,6 @@
 
   <script type="module" src="/js/shared/cold-start.js?v=2.0.2"></script>
   <script type="module" src="/js/hub.js?v=2.0.2"></script>
+  <script type="module" src="/js/shared/nav-bar.js"></script>
 </body>
 </html>

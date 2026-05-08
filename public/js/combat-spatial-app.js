@@ -275,10 +275,10 @@ class CombatSpatialApp {
         ${shipSidebarHtml}`;
     }
 
-    // Avantage banner — visible uniquement en Tournoyant
+    // Avantage banner — visible en Tournoyant et Abordage
     const banner = document.getElementById('avantage-banner');
     if (banner) {
-      banner.classList.toggle('hidden', phase !== 'tournoyant');
+      banner.classList.toggle('hidden', phase !== 'tournoyant' && phase !== 'abordage');
       this._renderAvantageBanner(ships);
     }
 
