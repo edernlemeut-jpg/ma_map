@@ -530,26 +530,26 @@ function renderSessionList(sessions) {
     return;
   }
 
-  container.innerHTML = sessions.map(s => {
+  container.innerHTML = '<div class="p-2 space-y-1.5">' + sessions.map(s => {
     const isActive = s.id === currentSessionId;
     const typeColor = TYPE_COLORS[s.type] || 'text-gray-400';
-    const location  = s.location_ref ? `<div class="text-xs text-gray-500 mt-0.5 font-mono truncate">${escHtml(s.location_ref)}</div>` : '';
+    const location  = s.location_ref ? `<div class="text-xs mt-0.5 font-mono truncate" style="color:var(--text-muted)">${escHtml(s.location_ref)}</div>` : '';
     const stepDots  = renderStepDots(s);
     return `
-      <div class="session-item p-2 rounded cursor-pointer select-none ${isActive ? 'active-session' : ''}"
+      <div class="session-item p-3 rounded-lg border cursor-pointer select-none transition-colors ${isActive ? 'border-amber-500 bg-amber-900/20' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'}"
            data-id="${s.id}">
         <div class="flex items-start justify-between gap-1">
-          <span class="font-medium text-gray-200 text-sm truncate flex-1">${escHtml(s.name)}</span>
-          <span class="text-xs ${typeColor} flex-shrink-0">${TYPE_LABELS[s.type] || s.type}</span>
+          <span class="font-medium text-sm truncate flex-1" style="color:var(--text)">${escHtml(s.name)}</span>
+          <span class="text-xs flex-shrink-0 ${typeColor}">${TYPE_LABELS[s.type] || s.type}</span>
         </div>
         ${location}
-        <div class="flex items-center justify-between mt-1">
+        <div class="flex items-center justify-between mt-1.5">
           <div class="text-xs badge-${s.status}">${STATUS_LABELS[s.status] || s.status}</div>
           ${stepDots}
         </div>
       </div>
     `;
-  }).join('');
+  }).join('') + '</div>';
 
   container.querySelectorAll('.session-item').forEach(el => {
     el.addEventListener('click', () => selectSession(el.dataset.id));
@@ -564,7 +564,7 @@ function renderStepDots(session) {
   const type = st.revolteType || 'emeute';
   const dots = [1, 2, 3].map(stepIdx => {
     const status = getStepStatus(st, type, stepIdx);
-    const colors = { done: '#4ade80', partial: '#5bc0de', empty: '#4b5563', fail: '#f87171' };
+    const colors = { done: '#4a9e58', partial: '#5baad0', empty: '#3a3e50', fail: '#c44040' };
     const titles = { done: `Étape ${stepIdx} réussie`, partial: `Étape ${stepIdx} en cours`, empty: `Étape ${stepIdx} non commencée`, fail: `Étape ${stepIdx} échouée` };
     return `<span title="${titles[status]}" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${colors[status]};margin-left:2px;"></span>`;
   }).join('');
