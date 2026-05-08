@@ -46,9 +46,20 @@ function getDefault(entityType) {
 export function isVisible(entityType, entityId, tableId, role) {
   if (role === 'mj') return true;
 
-  // For systems: explicit rule takes priority; default is hidden (systems: 0)
-  // Quadrant visibility affects map display only — systems require their own explicit rule
+  // For systems: quadrant visibility cascades — a hidden quadrant hides all its systems
+  // even if the system has an individual visible=true rule.
   if (entityType === 'systems') {
+    // Step 1: cascade — check the system's quadrant
+    const sys = db.prepare('SELECT quadrant FROM systems WHERE id = ?').get(entityId);
+    if (sys) {
+      const quadrantRule = db.prepare(
+        'SELECT visible FROM visibility_rules WHERE table_id = ? AND entity_type = ? AND entity_id = ?'
+      ).get(tableId, 'quadrants', String(sys.quadrant));
+      const quadrantVisible = quadrantRule !== undefined ? !!quadrantRule.visible : !!getDefault('quadrants');
+      if (!quadrantVisible) return false;
+    }
+
+    // Step 2: quadrant is visible — check system's own rule
     const explicitRule = db.prepare(
       'SELECT visible FROM visibility_rules WHERE table_id = ? AND entity_type = ? AND entity_id = ?'
     ).get(tableId, 'systems', String(entityId));

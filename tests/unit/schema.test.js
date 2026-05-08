@@ -12,7 +12,9 @@ const EXPECTED_TABLES = [
   'ship_models', 'ships', 'peril_data', 'custom_peril_tables',
   'peril_assignments', 'trip_history', 'table_state',
   'travel_routes', 'route_waypoints', 'route_perils',
-  'visibility_rules', 'table_visibility_overrides', 'npcs', 'notes'
+  'visibility_rules', 'table_visibility_overrides', 'npcs', 'notes',
+  'planets', 'admin_peril_tables', 'admin_quadrant_defaults', 'admin_systems',
+  'secondary_systems'
 ];
 
 describe('Database schema', () => {

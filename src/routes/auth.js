@@ -1,12 +1,23 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import * as authService from '../services/auth.js';
 import { success, error as errorResponse } from '../utils/response.js';
 import { NODE_ENV } from '../config/index.js';
 
 const router = Router();
 
+// Strict rate-limit for authentication endpoints (brute-force protection)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,                   // max 20 attempts per IP per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
+  skip: () => NODE_ENV === 'test',
+});
+
 // POST /api/auth/register
-router.post('/register', (req, res) => {
+router.post('/register', authLimiter, (req, res) => {
   const { username, password } = req.body || {};
   const result = authService.register(username, password);
 
@@ -27,7 +38,7 @@ router.post('/register', (req, res) => {
 });
 
 // POST /api/auth/login
-router.post('/login', (req, res) => {
+router.post('/login', authLimiter, (req, res) => {
   const { username, password } = req.body || {};
   const result = authService.login(username, password);
 
