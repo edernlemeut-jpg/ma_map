@@ -275,10 +275,10 @@ class CombatSpatialApp {
         ${shipSidebarHtml}`;
     }
 
-    // Avantage banner — visible uniquement en Tournoyant
+    // Avantage banner — visible en Tournoyant et Abordage
     const banner = document.getElementById('avantage-banner');
     if (banner) {
-      banner.classList.toggle('hidden', phase !== 'tournoyant');
+      banner.classList.toggle('hidden', phase !== 'tournoyant' && phase !== 'abordage');
       this._renderAvantageBanner(ships);
     }
 
@@ -298,18 +298,81 @@ class CombatSpatialApp {
   _renderAvantageBanner(ships) {
     const container = document.getElementById('avantage-banner-ships');
     if (!container) return;
-    const active = ships.filter(s => s.avantage != null && !s.destroyed);
-    if (active.length === 0) {
-      container.innerHTML = '<span class="text-xs italic" style="color:var(--text-muted)">Aucun avantage actif</span>';
-      return;
+    const combatId  = this._currentCombat?.id;
+    const canEdit   = this._mj && this._currentCombat?.statut === 'en_cours';
+    const active    = ships.filter(s => !s.destroyed);
+    const dotColor  = { joueurs: '#4ade80', ennemis: '#f87171', neutres: '#facc15' };
+
+    if (canEdit) {
+      // MJ : tous les vaisseaux avec contrôles inline +/−/×
+      if (active.length === 0) {
+        container.innerHTML = '<span class="text-xs italic" style="color:var(--text-muted)">Aucun vaisseau en combat</span>';
+        return;
+      }
+      container.innerHTML = active.map(s => {
+        const color  = dotColor[s.camp] ?? '#9ca3af';
+        const hasAVT = s.avantage != null;
+        return `
+          <div class="flex items-center gap-1 px-2 py-1 rounded transition-all" style="background:rgba(200,148,58,${hasAVT ? '0.12' : '0.04'});border:1px solid ${hasAVT ? 'var(--gold)' : 'var(--border)'}">
+            <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background:${color}"></span>
+            <span class="text-xs font-medium" style="color:var(--text);max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${this._esc(s.nom)}">${this._esc(s.nom)}</span>
+            ${hasAVT ? `
+              <button class="avt-dec text-sm w-5 h-5 rounded flex items-center justify-center hover:bg-gray-600 font-bold leading-none" data-ship-id="${s.id}" style="color:var(--text-muted)">−</button>
+              <span class="text-xs font-bold w-5 text-center tabular-nums" style="color:var(--gold)">${s.avantage}</span>
+              <button class="avt-inc text-sm w-5 h-5 rounded flex items-center justify-center hover:bg-gray-600 font-bold leading-none" data-ship-id="${s.id}" style="color:var(--gold)">+</button>
+              <button class="avt-clr text-xs w-4 h-4 rounded flex items-center justify-center hover:bg-red-900 leading-none" data-ship-id="${s.id}" style="color:var(--text-muted)" title="Retirer l'avantage">×</button>
+            ` : `
+              <button class="avt-give text-xs px-1.5 py-0.5 rounded border hover:bg-gray-700 leading-none" data-ship-id="${s.id}" style="color:var(--text-muted);border-color:var(--border)" title="Donner l'avantage">+AVT</button>
+            `}
+          </div>`;
+      }).join('');
+
+      container.querySelectorAll('.avt-give').forEach(btn => {
+        btn.addEventListener('click', () => this._patchAvantage(combatId, btn.dataset.shipId, 1));
+      });
+      container.querySelectorAll('.avt-inc').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const ship = ships.find(s => s.id === btn.dataset.shipId);
+          if (ship) this._patchAvantage(combatId, ship.id, (ship.avantage ?? 0) + 1);
+        });
+      });
+      container.querySelectorAll('.avt-dec').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const ship = ships.find(s => s.id === btn.dataset.shipId);
+          if (!ship) return;
+          const next = (ship.avantage ?? 1) - 1;
+          this._patchAvantage(combatId, ship.id, next < 1 ? null : next);
+        });
+      });
+      container.querySelectorAll('.avt-clr').forEach(btn => {
+        btn.addEventListener('click', () => this._patchAvantage(combatId, btn.dataset.shipId, null));
+      });
+    } else {
+      // Joueurs : lecture seule, seulement ceux avec avantage
+      const withAVT = active.filter(s => s.avantage != null);
+      if (withAVT.length === 0) {
+        container.innerHTML = '<span class="text-xs italic" style="color:var(--text-muted)">Aucun avantage actif</span>';
+        return;
+      }
+      container.innerHTML = withAVT.map(s => `
+        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded" style="background:rgba(200,148,58,0.1);border:1px solid var(--border)">
+          <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${dotColor[s.camp] ?? '#9ca3af'}"></span>
+          <span class="text-xs font-medium" style="color:var(--text)">${this._esc(s.nom)}</span>
+          <span class="text-xs font-bold ml-1" style="color:var(--gold)">AVT ${s.avantage}</span>
+        </div>`).join('');
     }
-    const dotColor = { joueurs: '#4ade80', ennemis: '#f87171', neutres: '#facc15' };
-    container.innerHTML = active.map(s => `
-      <div class="flex items-center gap-1.5 px-2.5 py-1 rounded" style="background:rgba(200,148,58,0.1);border:1px solid var(--border)">
-        <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${dotColor[s.camp] ?? '#9ca3af'}"></span>
-        <span class="text-xs font-medium" style="color:var(--text)">${this._esc(s.nom)}</span>
-        <span class="text-xs font-bold ml-1" style="color:var(--gold)">AVT ${s.avantage}</span>
-      </div>`).join('');
+  }
+
+  async _patchAvantage(combatId, shipId, value) {
+    try {
+      const res = await fetchWithTable(`/api/combat-spatial/${combatId}/ships/${shipId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avantage: value }),
+      });
+      if (!res.ok) return;
+      await this._loadCombat(combatId);
+    } catch { /* silently ignore */ }
   }
 
   _renderEcartCounter(ships) {
