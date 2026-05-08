@@ -512,7 +512,7 @@ export class CombatRadar {
       av.setAttribute('font-size', '9');
       av.setAttribute('fill', '#f59e0b');
       av.setAttribute('font-weight', 'bold');
-      av.textContent = `AVT${ship.avantage}`;
+      av.textContent = `${ship.avantage}`;
       g.appendChild(av);
     }
 
