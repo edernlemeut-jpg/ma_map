@@ -40,7 +40,7 @@ export class CombatRadar {
   constructor(container) {
     this._container = container;
     this._editable  = false;
-    this._isMJ      = false;
+    this._mj        = false;
     this._combat    = null;
     this._dragging  = null;
     this._svg       = null;
@@ -52,8 +52,8 @@ export class CombatRadar {
     if (this._svg) this._applyEditability();
   }
 
-  setSensorMode(isMJ) {
-    this._isMJ = Boolean(isMJ);
+  setMJ(val) {
+    this._mj = Boolean(val);
   }
 
   // ── Render principal ────────────────────────────────────────────────────────
@@ -75,15 +75,21 @@ export class CombatRadar {
     this._drawCenter(svg);
 
     if (combat && Array.isArray(combat.vaisseaux)) {
-      // Anneaux senseurs MJ (dessinés en dessous des tokens)
-      if (this._isMJ) {
+      // MJ: draw subtle sensor rings behind ship tokens
+      if (this._mj) {
         this._drawSensorRings(svg, combat.vaisseaux);
       }
 
-      const joueurShips = combat.vaisseaux.filter(s => s.camp === 'joueurs');
+      // Players: compute visibility map based on sensor range
+      const visMap = this._mj ? null : this._computeVisibility(combat.vaisseaux);
+
       combat.vaisseaux.forEach(ship => {
-        const ghost = !this._isMJ && !this._isShipVisible(ship, joueurShips);
-        this._drawShip(svg, ship, ghost);
+        const visible = visMap ? (visMap[ship.id] !== false) : true;
+        if (visible) {
+          this._drawShip(svg, ship);
+        } else {
+          this._drawBlip(svg, ship);
+        }
       });
       this._drawContactLines(svg, combat.vaisseaux);
     }
@@ -323,6 +329,126 @@ export class CombatRadar {
     svg.appendChild(el('line', { x1:300, y1:306, x2:300, y2:312, stroke:'#44bb00', 'stroke-width':'1.5', 'stroke-opacity':'0.8' }));
   }
 
+  // ── Visibilité joueurs (portée senseurs) ─────────────────────────────────────
+  // Retourne un map { shipId → boolean }. false = hors portée (blip seulement).
+  _computeVisibility(ships) {
+    const joueurs = ships.filter(s => s.camp === 'joueurs' && !s.destroyed);
+    // Si aucune donnée senseur disponible chez les joueurs, tout est visible
+    const joueursWithSenseurs = joueurs.filter(s => s.senseurs_k > 0);
+    if (joueursWithSenseurs.length === 0) return null;
+
+    const result = {};
+    for (const ship of ships) {
+      // Vaisseaux joueurs toujours visibles
+      if (ship.camp === 'joueurs') { result[ship.id] = true; continue; }
+      // Contact visuel établi → toujours visible
+      if (ship.contact_visuel)    { result[ship.id] = true; continue; }
+
+      const [sx, sy] = this._shipPx(ship);
+      let inRange = false;
+      for (const j of joueursWithSenseurs) {
+        const [jx, jy] = this._shipPx(j);
+        const distPx   = Math.sqrt((sx - jx) ** 2 + (sy - jy) ** 2);
+        const distK    = (distPx / CombatRadar.PX_PER_25K) * 25;
+        if (distK <= j.senseurs_k) { inRange = true; break; }
+      }
+      result[ship.id] = inRange;
+    }
+    return result;
+  }
+
+  // ── Cercles de portée senseurs (MJ uniquement) ───────────────────────────────
+  _drawSensorRings(svg, ships) {
+    const ns = CombatRadar.NS;
+    const g  = document.createElementNS(ns, 'g');
+    g.setAttribute('class',     'sensor-rings-group');
+    g.setAttribute('clip-path', 'url(#radarClip)');
+
+    for (const ship of ships) {
+      if (!ship.senseurs_k || ship.senseurs_k <= 0) continue;
+      const [cx, cy]  = this._shipPx(ship);
+      const radiusPx  = (ship.senseurs_k / 25) * CombatRadar.PX_PER_25K;
+      const color     = CombatRadar.CAMP_COLOR[ship.camp] ?? '#9ca3af';
+
+      const circle = document.createElementNS(ns, 'circle');
+      circle.setAttribute('cx', cx);
+      circle.setAttribute('cy', cy);
+      circle.setAttribute('r',  radiusPx);
+      circle.setAttribute('fill', 'none');
+      circle.setAttribute('stroke', color);
+      circle.setAttribute('stroke-width',   '1');
+      circle.setAttribute('stroke-dasharray', '3,5');
+      circle.setAttribute('stroke-opacity', '0.22');
+      g.appendChild(circle);
+
+      // Label portée discret
+      const lx = cx + radiusPx;
+      const ly = cy - 4;
+      const lbl = document.createElementNS(ns, 'text');
+      lbl.setAttribute('x', lx);
+      lbl.setAttribute('y', ly);
+      lbl.setAttribute('font-size',    '7');
+      lbl.setAttribute('fill',         color);
+      lbl.setAttribute('fill-opacity', '0.35');
+      lbl.setAttribute('font-family',  'monospace');
+      lbl.setAttribute('text-anchor',  'start');
+      lbl.textContent = `${ship.senseurs_k}K`;
+      g.appendChild(lbl);
+    }
+    svg.appendChild(g);
+  }
+
+  // ── Contact inconnu (blip) pour joueurs hors portée ──────────────────────────
+  _drawBlip(svg, ship) {
+    const [cx, cy] = this._shipPx(ship);
+    const ns = CombatRadar.NS;
+
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('class',     'ship-blip');
+    g.setAttribute('data-ship-id', ship.id);
+    g.setAttribute('transform', `translate(${cx},${cy})`);
+
+    // Pulsation externe
+    const outer = document.createElementNS(ns, 'circle');
+    outer.setAttribute('r', '9');
+    outer.setAttribute('fill', 'none');
+    outer.setAttribute('stroke', '#4b5563');
+    outer.setAttribute('stroke-width', '1');
+    outer.setAttribute('stroke-dasharray', '2,3');
+    g.appendChild(outer);
+
+    // Point central
+    const dot = document.createElementNS(ns, 'circle');
+    dot.setAttribute('r', '4');
+    dot.setAttribute('fill', '#374151');
+    dot.setAttribute('stroke', '#6b7280');
+    dot.setAttribute('stroke-width', '1');
+    g.appendChild(dot);
+
+    // "?"
+    const q = document.createElementNS(ns, 'text');
+    q.setAttribute('y', '4');
+    q.setAttribute('font-size',   '7');
+    q.setAttribute('fill',        '#6b7280');
+    q.setAttribute('text-anchor', 'middle');
+    q.setAttribute('font-family', 'monospace');
+    q.textContent = '?';
+    g.appendChild(q);
+
+    // Label sous le blip
+    const lbl = document.createElementNS(ns, 'text');
+    lbl.setAttribute('y',           '20');
+    lbl.setAttribute('font-size',   '8');
+    lbl.setAttribute('fill',        '#4b5563');
+    lbl.setAttribute('text-anchor', 'middle');
+    lbl.setAttribute('font-family', 'sans-serif');
+    lbl.textContent = 'Inconnu';
+    g.appendChild(lbl);
+
+    svg.appendChild(g);
+    this._shipEls[ship.id] = g;
+  }
+
   // ── Lignes de contact visuel ─────────────────────────────────────────────────
   _drawContactLines(svg, ships) {
     const g = document.createElementNS(CombatRadar.NS, 'g');
@@ -353,82 +479,23 @@ export class CombatRadar {
     svg.appendChild(g);
   }
 
-  // ── Helpers visibilité senseurs ────────────────────────────────────────────
-  _kSpacePos(ship) {
-    if (ship.trajectoire === 'attaque') return { x: ship.position_k, y: 0 };
-    return { x: 0, y: ship.position_k };
-  }
-
-  _distK(a, b) {
-    const pa = this._kSpacePos(a);
-    const pb = this._kSpacePos(b);
-    return Math.hypot(pa.x - pb.x, pa.y - pb.y);
-  }
-
-  /** Un vaisseau non-joueur est visible si au moins un joueur le détecte. */
-  _isShipVisible(ship, joueurShips) {
-    if (ship.camp === 'joueurs') return true;
-    const armed = joueurShips.filter(j => j.senseurs_k != null);
-    // Aucun joueur n'a de senseurs définis → visibilité totale (rétrocompat)
-    if (armed.length === 0) return true;
-    return armed.some(j => this._distK(j, ship) <= j.senseurs_k);
-  }
-
-  // ── Anneaux de portée senseurs (MJ uniquement) ────────────────────────────────
-  _drawSensorRings(svg, ships) {
-    const ns = CombatRadar.NS;
-    const g  = document.createElementNS(ns, 'g');
-    g.setAttribute('class',     'sensor-rings-group');
-    g.setAttribute('clip-path', 'url(#radarClip)');
-
-    for (const ship of ships) {
-      if (ship.senseurs_k == null || ship.destroyed) continue;
-      const [cx, cy] = this._shipPx(ship);
-      const r = (ship.senseurs_k / 25) * CombatRadar.PX_PER_25K;
-      const color = CombatRadar.CAMP_COLOR[ship.camp] ?? '#9ca3af';
-
-      const ring = document.createElementNS(ns, 'circle');
-      ring.setAttribute('cx', cx); ring.setAttribute('cy', cy); ring.setAttribute('r', r);
-      ring.setAttribute('fill',           'none');
-      ring.setAttribute('stroke',         color);
-      ring.setAttribute('stroke-width',   '1');
-      ring.setAttribute('stroke-opacity', '0.28');
-      ring.setAttribute('stroke-dasharray', '4,3');
-      g.appendChild(ring);
-
-      // Label portée discret
-      const label = document.createElementNS(ns, 'text');
-      label.setAttribute('x', cx + r + 3);
-      label.setAttribute('y', cy - 3);
-      label.setAttribute('font-size',   '7');
-      label.setAttribute('fill',        color);
-      label.setAttribute('fill-opacity', '0.5');
-      label.setAttribute('font-family', 'monospace');
-      label.textContent = `${ship.senseurs_k}K`;
-      g.appendChild(label);
-    }
-
-    svg.appendChild(g);
-  }
-
   // ── Token vaisseau ──────────────────────────────────────────────────────────
-  _drawShip(svg, ship, ghost = false) {
+  _drawShip(svg, ship) {
     const [cx, cy] = this._shipPx(ship);
     const color    = CombatRadar.CAMP_COLOR[ship.camp] ?? '#9ca3af';
 
     const g = document.createElementNS(CombatRadar.NS, 'g');
-    g.setAttribute('class', `ship-token camp-${ship.camp}${ghost ? ' ghost' : ''}`);
+    g.setAttribute('class', `ship-token camp-${ship.camp}`);
     g.setAttribute('data-ship-id', ship.id);
     g.setAttribute('transform', `translate(${cx},${cy})`);
-    g.style.cursor = this._editable && !ghost ? 'grab' : 'pointer';
-    if (ghost) g.setAttribute('opacity', '0.22');
+    g.style.cursor = this._editable ? 'grab' : 'pointer';
 
     // Forme selon classe (viewBox 20×20, centré sur 0,0)
-    const shape = this._shipShape(ghost ? 'inconnu' : ship.classe, ghost ? '#6b7280' : color);
+    const shape = this._shipShape(ship.classe, color);
     g.appendChild(shape);
 
-    // Arc de surbrillance si Avantage (non-ghost)
-    if (!ghost && ship.avantage != null) {
+    // Arc de surbrillance si Avantage
+    if (ship.avantage != null) {
       const arc = document.createElementNS(CombatRadar.NS, 'circle');
       arc.setAttribute('cx', 0); arc.setAttribute('cy', 0); arc.setAttribute('r', 16);
       arc.setAttribute('fill', 'none');
@@ -458,20 +525,13 @@ export class CombatRadar {
     const label = document.createElementNS(CombatRadar.NS, 'text');
     label.setAttribute('x', 0); label.setAttribute('y', 20);
     label.setAttribute('font-size', '9');
-    label.setAttribute('fill', ghost ? '#6b7280' : color);
+    label.setAttribute('fill', color);
     label.setAttribute('text-anchor', 'middle');
     label.setAttribute('font-family', 'sans-serif');
-    if (ghost) {
-      label.textContent = '?';
-      label.setAttribute('font-size', '14');
-      label.setAttribute('font-weight', 'bold');
-    } else {
-      label.textContent = ship.nom.length > 12 ? ship.nom.slice(0, 11) + '…' : ship.nom;
-    }
+    label.textContent = ship.nom.length > 12 ? ship.nom.slice(0, 11) + '…' : ship.nom;
     g.appendChild(label);
 
-    // Position K (masquée pour ghost)
-    if (!ghost) {
+    // Position K
     const posLabel = document.createElementNS(CombatRadar.NS, 'text');
     posLabel.setAttribute('x', 0); posLabel.setAttribute('y', 30);
     posLabel.setAttribute('font-size', '8');
@@ -480,7 +540,6 @@ export class CombatRadar {
     posLabel.setAttribute('font-family', 'monospace');
     posLabel.textContent = `${ship.position_k}K`;
     g.appendChild(posLabel);
-    }
 
     // Interactivité
     g.addEventListener('click', (e) => {

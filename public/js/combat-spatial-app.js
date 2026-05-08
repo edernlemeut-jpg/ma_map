@@ -226,9 +226,9 @@ class CombatSpatialApp {
 
     // Re-initialiser le radar avec le nouveau container (recréé dans le innerHTML)
     this._radar = new CombatRadar(document.getElementById('radar-container'));
-    this._radar.setEditable(this._mj && combat.statut === 'en_cours');
-    this._radar.setSensorMode(this._mj);
+    this._radar.setMJ(this._mj);
     this._radar.render(combat);
+    this._radar.setEditable(this._mj && combat.statut === 'en_cours');
 
     // Re-binder les événements radar sur le nouveau container
     this._bindRadarEvents();
@@ -368,27 +368,47 @@ class CombatSpatialApp {
     const container = document.getElementById('ship-list');
     container.innerHTML = '';
 
+    // Calculer la visibilité pour les joueurs (même logique que le radar)
+    const visMap = this._mj ? null : this._computePlayerVisibility(ships);
+
     ships.forEach(ship => {
+      const isVisible = !visMap || visMap[ship.id] !== false;
       const item = document.createElement('div');
-      item.className = 'flex items-center gap-2 px-3 py-2 rounded border border-gray-700 text-sm';
+      item.className = 'flex items-center gap-2 px-3 py-2 rounded border text-sm';
+      item.style.borderColor = isVisible ? '' : 'var(--border)';
+      item.style.opacity     = isVisible ? '' : '0.6';
       item.dataset.shipId = ship.id;
 
-      const campColor = { joueurs: 'bg-green-500', ennemis: 'bg-red-500', neutres: 'bg-yellow-500' };
-      const dot = `<span class="w-2 h-2 rounded-full flex-shrink-0 ${campColor[ship.camp] ?? 'bg-gray-400'}"></span>`;
-      const traj = ship.trajectoire === 'attaque' ? '↔' : '↕';
-      const pos  = `${ship.position_k}K`;
-      const av   = ship.avantage != null ? ` <span class="text-yellow-400 text-xs">AVT${ship.avantage}</span>` : '';
-      const cv   = ship.contact_visuel ? ' <span class="text-amber-400 text-[10px]">👁</span>' : '';
+      if (!isVisible) {
+        // Contact inconnu : position approximative visible, identité masquée
+        const traj  = ship.trajectoire === 'attaque' ? '↔' : '↕';
+        const posK  = ship.position_k;
+        const range = posK < 0   ? `< 0K`
+                    : posK < 100 ? `~${Math.round(posK/25)*25}K`
+                    : `~${Math.round(posK/100)*100}K`;
+        item.innerHTML = `
+          <span class="w-2 h-2 rounded-full flex-shrink-0 bg-gray-600"></span>
+          <span class="font-medium truncate flex-1 italic" style="color:var(--text-muted)">Contact inconnu</span>
+          <span class="text-xs font-mono" style="color:var(--text-muted)">${traj} ${range}</span>`;
+      } else {
+        item.classList.add('border-gray-700');
+        const campColor = { joueurs: 'bg-green-500', ennemis: 'bg-red-500', neutres: 'bg-yellow-500' };
+        const dot = `<span class="w-2 h-2 rounded-full flex-shrink-0 ${campColor[ship.camp] ?? 'bg-gray-400'}"></span>`;
+        const traj = ship.trajectoire === 'attaque' ? '↔' : '↕';
+        const pos  = `${ship.position_k}K`;
+        const av   = ship.avantage != null ? ` <span class="text-yellow-400 text-xs">AVT${ship.avantage}</span>` : '';
+        const cv   = ship.contact_visuel ? ' <span class="text-amber-400 text-[10px]">👁</span>' : '';
 
-      item.innerHTML = `
-        ${dot}
-        <span class="font-medium text-gray-200 truncate flex-1">${this._esc(ship.nom)}</span>
-        <span class="text-gray-500 text-xs font-mono">${traj} ${pos}</span>
-        ${av}${cv}
-        ${this._mj && this._currentCombat?.statut === 'en_cours' ? `
-          <button class="btn-edit-ship text-gray-500 hover:text-gray-200 text-xs ml-1" data-ship-id="${ship.id}">✎</button>
-          <button class="btn-remove-ship text-gray-600 hover:text-red-400 text-xs" data-ship-id="${ship.id}">✕</button>
-        ` : ''}`;
+        item.innerHTML = `
+          ${dot}
+          <span class="font-medium text-gray-200 truncate flex-1">${this._esc(ship.nom)}</span>
+          <span class="text-gray-500 text-xs font-mono">${traj} ${pos}</span>
+          ${av}${cv}
+          ${this._mj && this._currentCombat?.statut === 'en_cours' ? `
+            <button class="btn-edit-ship text-gray-500 hover:text-gray-200 text-xs ml-1" data-ship-id="${ship.id}">✎</button>
+            <button class="btn-remove-ship text-gray-600 hover:text-red-400 text-xs" data-ship-id="${ship.id}">✕</button>
+          ` : ''}`;
+      }
 
       container.appendChild(item);
     });
@@ -401,6 +421,34 @@ class CombatSpatialApp {
         btn.addEventListener('click', () => this._removeShip(btn.dataset.shipId));
       });
     }
+  }
+
+  // Calcul visibilité côté app (miroir de la logique radar, sans SVG)
+  _computePlayerVisibility(ships) {
+    const px25k = 15; // CombatRadar.PX_PER_25K
+    const shipPx = s => {
+      const d = (Math.abs(s.position_k) / 25) * px25k;
+      const sgn = s.position_k >= 0 ? 1 : -1;
+      return s.trajectoire === 'attaque' ? [300 + sgn * d, 300] : [300, 300 - sgn * d];
+    };
+
+    const joueurs = ships.filter(s => s.camp === 'joueurs' && !s.destroyed && s.senseurs_k > 0);
+    if (joueurs.length === 0) return null;
+
+    const result = {};
+    for (const ship of ships) {
+      if (ship.camp === 'joueurs')    { result[ship.id] = true; continue; }
+      if (ship.contact_visuel)        { result[ship.id] = true; continue; }
+      const [sx, sy] = shipPx(ship);
+      let inRange = false;
+      for (const j of joueurs) {
+        const [jx, jy] = shipPx(j);
+        const distK = (Math.sqrt((sx-jx)**2 + (sy-jy)**2) / px25k) * 25;
+        if (distK <= j.senseurs_k) { inRange = true; break; }
+      }
+      result[ship.id] = inRange;
+    }
+    return result;
   }
 
   // ── Binding événements ────────────────────────────────────────────────────────
@@ -602,7 +650,6 @@ class CombatSpatialApp {
     form.dataset.mode    = 'add';
     form.dataset.combatId = combatId;
     form.dataset.shipId   = '';
-    form.dataset.shipModelId = '';
 
     this._populateShipForm({});
     document.getElementById('modal-ship-title').textContent = 'Ajouter un vaisseau';
@@ -664,8 +711,6 @@ class CombatSpatialApp {
     const rawClasse = (s.model?.classe ?? '').toLowerCase();
     const classe = COMBAT_CLASSES.find(c => rawClasse.includes(c)) ?? 'inconnu';
     const coqueMax = s.model?.coque ?? 100;
-    // Stocker le model_id pour que le serveur puisse lire senseurs_k automatiquement
-    document.getElementById('form-ship').dataset.shipModelId = s.model_id ?? '';
     this._populateShipForm({
       nom:               s.name,
       classe,
@@ -700,7 +745,6 @@ class CombatSpatialApp {
       position_k:         Number(document.getElementById('ship-position').value),
       structure_max:      Number(document.getElementById('ship-structure-max').value),
       structure_actuelle: Number(document.getElementById('ship-structure-actuelle').value),
-      ship_model_id:      form.dataset.shipModelId || null,
       avantage:           document.getElementById('ship-avantage').value !== ''
                             ? Number(document.getElementById('ship-avantage').value)
                             : null,
