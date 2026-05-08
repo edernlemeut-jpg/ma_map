@@ -483,6 +483,7 @@ export class CombatRadar {
   _drawShip(svg, ship) {
     const [cx, cy] = this._shipPx(ship);
     const color    = CombatRadar.CAMP_COLOR[ship.camp] ?? '#9ca3af';
+    const angle    = this._shipAngle(ship);
 
     const g = document.createElementNS(CombatRadar.NS, 'g');
     g.setAttribute('class', `ship-token camp-${ship.camp}`);
@@ -490,11 +491,13 @@ export class CombatRadar {
     g.setAttribute('transform', `translate(${cx},${cy})`);
     g.style.cursor = this._editable ? 'grab' : 'pointer';
 
-    // Forme selon classe (viewBox 20×20, centré sur 0,0)
-    const shape = this._shipShape(ship.classe, color);
-    g.appendChild(shape);
+    // Sous-groupe rotatif — la forme seule tourne
+    const shapeG = document.createElementNS(CombatRadar.NS, 'g');
+    shapeG.setAttribute('transform', `rotate(${angle})`);
+    shapeG.appendChild(this._shipShape(ship.classe, color));
+    g.appendChild(shapeG);
 
-    // Arc de surbrillance si Avantage
+    // Arc de surbrillance si Avantage (non-rotatif)
     if (ship.avantage != null) {
       const arc = document.createElementNS(CombatRadar.NS, 'circle');
       arc.setAttribute('cx', 0); arc.setAttribute('cy', 0); arc.setAttribute('r', 16);
@@ -513,15 +516,13 @@ export class CombatRadar {
       g.appendChild(av);
     }
 
-    // Croix si immobile / détruit
+    // Croix si détruit (non-rotatif, symétrique)
     if (ship.destroyed) {
-      const cross1 = this._svgLine(-8, -8, 8, 8, '#ef4444', '2');
-      const cross2 = this._svgLine(8, -8, -8, 8, '#ef4444', '2');
-      g.appendChild(cross1);
-      g.appendChild(cross2);
+      g.appendChild(this._svgLine(-8, -8, 8, 8, '#ef4444', '2'));
+      g.appendChild(this._svgLine(8, -8, -8, 8, '#ef4444', '2'));
     }
 
-    // Label nom
+    // Label nom (non-rotatif)
     const label = document.createElementNS(CombatRadar.NS, 'text');
     label.setAttribute('x', 0); label.setAttribute('y', 20);
     label.setAttribute('font-size', '9');
@@ -531,7 +532,7 @@ export class CombatRadar {
     label.textContent = ship.nom.length > 12 ? ship.nom.slice(0, 11) + '…' : ship.nom;
     g.appendChild(label);
 
-    // Position K
+    // Position K (non-rotatif)
     const posLabel = document.createElementNS(CombatRadar.NS, 'text');
     posLabel.setAttribute('x', 0); posLabel.setAttribute('y', 30);
     posLabel.setAttribute('font-size', '8');
@@ -557,37 +558,48 @@ export class CombatRadar {
     this._shipEls[ship.id] = g;
   }
 
+  // ── Angle d'orientation du triangle ─────────────────────────────────────────
+  // Toutes les formes pointent vers +X (droite) par défaut → angle 0°
+  // vers500 = pointer vers le centre (0,0), vers0 = pointer vers l'extérieur
+  _shipAngle(ship) {
+    const sign     = ship.position_k >= 0 ? 1 : -1;
+    const toCenter = ship.orientation === 'vers500';
+    if (ship.trajectoire === 'attaque') {
+      // Axe horizontal : positif = droite, négatif = gauche
+      // Pointer vers le centre depuis la droite  → gauche → 180°
+      // Pointer vers le centre depuis la gauche  → droite → 0°
+      return (sign === 1) ? (toCenter ? 180 : 0) : (toCenter ? 0 : 180);
+    } else {
+      // Axe vertical : positif = haut (CY - px), négatif = bas
+      // Pointer vers le centre depuis le haut → bas (+Y SVG) → 90°
+      // Pointer vers le centre depuis le bas  → haut (-Y SVG) → -90°
+      return (sign === 1) ? (toCenter ? 90 : -90) : (toCenter ? -90 : 90);
+    }
+  }
+
+  // ── Forme triangulaire par classe — pointe vers +X (avant) ──────────────────
   _shipShape(classe, color) {
     const ns = CombatRadar.NS;
+    const p  = document.createElementNS(ns, 'polygon');
+    p.setAttribute('fill',         color);
+    p.setAttribute('stroke',       'rgba(255,255,255,0.6)');
+    p.setAttribute('stroke-width', '1');
     switch (classe) {
-      case 'chasseur': {
-        const p = document.createElementNS(ns, 'polygon');
-        p.setAttribute('points', '0,-10 9,8 -9,8');
-        p.setAttribute('fill', color);
-        p.setAttribute('stroke', '#ffffff');
-        p.setAttribute('stroke-width', '1');
-        return p;
-      }
-      case 'croiseur': {
-        const p = document.createElementNS(ns, 'polygon');
-        p.setAttribute('points', '0,-10 10,0 0,10 -10,0');
-        p.setAttribute('fill', color);
-        p.setAttribute('stroke', '#ffffff');
-        p.setAttribute('stroke-width', '1');
-        return p;
-      }
+      case 'chasseur':
+        // Triangle fin et élancé
+        p.setAttribute('points', '11,0 -7,-5 -4,0 -7,5');
+        break;
+      case 'croiseur':
+        // Flèche large avec encoche arrière
+        p.setAttribute('points', '13,0 -6,-10 -9,0 -6,10');
+        break;
       case 'frégate':
-      default: {
-        const r = document.createElementNS(ns, 'rect');
-        r.setAttribute('x', -9); r.setAttribute('y', -7);
-        r.setAttribute('width', 18); r.setAttribute('height', 14);
-        r.setAttribute('fill', color);
-        r.setAttribute('stroke', '#ffffff');
-        r.setAttribute('stroke-width', '1');
-        r.setAttribute('rx', '2');
-        return r;
-      }
+      default:
+        // Triangle équilibré
+        p.setAttribute('points', '10,0 -8,-7 -8,7');
+        break;
     }
+    return p;
   }
 
   _svgLine(x1, y1, x2, y2, stroke, width) {
