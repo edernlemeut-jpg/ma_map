@@ -332,6 +332,18 @@ router.patch('/:id', (req, res) => {
     `UPDATE combats_spatiaux SET ${setsWithJournal}, updated_at = datetime('now') WHERE id = ?`
   ).run(...Object.values(updates), existing.id);
 
+  // Réinitialiser l'Avantage de tous les vaisseaux lors d'une transition de phase
+  // hors du tournoyant (l'Avantage appartient au CT ; abordage = sous-phase du CT, donc on le garde)
+  if (updates.phase) {
+    const fromPhase = existing.phase;
+    const toPhase   = updates.phase;
+    const leavingCT = fromPhase === 'tournoyant' && toPhase !== 'abordage';
+    const enteringCT = toPhase === 'tournoyant';
+    if (leavingCT || enteringCT) {
+      db.prepare(`UPDATE combat_ships SET avantage = NULL WHERE combat_id = ?`).run(existing.id);
+    }
+  }
+
   const row = db.prepare('SELECT * FROM combats_spatiaux WHERE id = ?').get(existing.id);
   const ships = getShips(existing.id);
   success(res, parseCombat(row, ships));
