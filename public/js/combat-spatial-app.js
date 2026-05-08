@@ -41,7 +41,22 @@ const PHASE_ORDER = { approche: 0, tournoyant: 1, poursuite: 2, abordage: 3 };
 const CLASSES = ['chasseur', 'frégate', 'croiseur', 'inconnu'];
 const CAMPS   = ['joueurs', 'ennemis', 'neutres'];
 
-// ── App ────────────────────────────────────────────────────────────────────────
+// ── Helpers UI ────────────────────────────────────────────────────────────────
+
+const CAMP_COLORS = { joueurs: '#4a9e58', ennemis: '#c44040', neutres: '#c8943a' };
+
+function _setCamp(camp) {
+  document.getElementById('ship-camp').value = camp;
+  document.querySelectorAll('#ship-camp-buttons .camp-btn').forEach(btn => {
+    const active = btn.dataset.camp === camp;
+    const color  = CAMP_COLORS[btn.dataset.camp] ?? '#888';
+    btn.style.backgroundColor = active ? color : 'transparent';
+    btn.style.color            = active ? '#fff' : color;
+    btn.style.borderColor      = color;
+  });
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
 
 class CombatSpatialApp {
   constructor() {
@@ -480,7 +495,11 @@ class CombatSpatialApp {
       this._updateFleetPreview(e.target.options[e.target.selectedIndex]);
     });
 
-    // Note: radar events are bound in _bindRadarEvents() after each _renderPhaseBody()
+    // Boutons de camp
+    document.getElementById('ship-camp-buttons').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-camp]');
+      if (btn) _setCamp(btn.dataset.camp);
+    });
   }
 
   // Rebind radar drag/select events after phase-body re-render (container is recreated)
@@ -729,7 +748,7 @@ class CombatSpatialApp {
   }
 
   _populateShipForm(ship) {
-    document.getElementById('ship-camp').value               = ship.camp ?? 'joueurs';
+    _setCamp(ship.camp ?? 'joueurs');
     document.getElementById('ship-trajectoire').value        = ship.trajectoire ?? 'attaque';
     document.getElementById('ship-position').value           = ship.position_k ?? 200;
     document.getElementById('ship-structure-actuelle').value = ship.structure_actuelle ?? (ship.structure_max ?? 100);
@@ -753,7 +772,7 @@ class CombatSpatialApp {
     }
 
     const payload = {
-      camp:               document.getElementById('ship-camp').value,
+      camp:               document.getElementById('ship-camp').value || 'neutres',
       trajectoire:        document.getElementById('ship-trajectoire').value,
       position_k:         Number(document.getElementById('ship-position').value),
       structure_actuelle: Number(document.getElementById('ship-structure-actuelle').value),
