@@ -216,11 +216,12 @@ const RETOURS_TDM = [
 // ÉTAT DE L'APPLICATION
 // ═══════════════════════════════════════════════════════════════════════════════
 
-let chasses = [];
-let currentId = null;  // chasse sélectionnée
-let editBuf = null;    // buffer de la chasse en cours d'édition
-let activeSideTab = 'chasse';
-let mfPool = { pj_pool: 50, mj_pool: 0 };
+let chasses    = [];
+let currentId  = null;   // chasse sélectionnée
+let viewMode   = 'view'; // 'view' | 'wizard'
+let wizardStep = 0;      // 0=infos  1=carte  2=trésor  3=antre+récap
+let wizardBuf  = null;   // { _editId, nom, difficulte, nb_seances, statut, notes, carte, tresor, antre }
+let mfPool     = { pj_pool: 50, mj_pool: 0 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // UTILS
@@ -255,6 +256,15 @@ function equilibrageIndex(px_max) {
   if (px_max <= 35000) return 4;
   if (px_max <= 50000) return 5;
   return 6;
+}
+
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -477,71 +487,8 @@ function renderList() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// RENDER — PANNEAU DROIT (ONGLETS)
+// RENDER — PANNEAU DROIT
 // ═══════════════════════════════════════════════════════════════════════════════
-
-function renderRightPanel() {
-  const panel = document.getElementById('right-panel');
-  if (!panel) return;
-
-  if (!currentId) {
-    document.body.classList.remove('detail-open');
-    panel.innerHTML = `
-      <div class="flex flex-col items-center justify-center h-full text-gray-500 gap-4 py-20">
-        <span class="text-5xl">🗺️</span>
-        <p class="text-center">Sélectionnez une chasse dans la liste<br>ou créez-en une nouvelle.</p>
-        ${isMJ() ? `<button onclick="openNewModal()" class="btn-primary px-4 py-2 rounded-lg text-sm">+ Nouvelle chasse</button>` : ''}
-      </div>`;
-    return;
-  }
-
-  const c = chasses.find(x => x.id === currentId);
-  if (!c) return;
-
-  panel.innerHTML = `
-    <!-- Bouton retour mobile -->
-    <button class="mobile-back mb-3 text-sm text-blue-400 hover:text-blue-300" onclick="closeDetail()">&#8592; Mes chasses</button>
-
-    <!-- Titre + actions -->
-    <div class="flex items-start justify-between gap-2 mb-4">
-      <div>
-        <h2 class="text-xl font-bold">${c.nom}</h2>
-        <div class="flex items-center gap-2 mt-1">
-          ${statutBadge(c.statut)}
-          ${c.difficulte ? `<span class="text-xs text-gray-400">Diff. ${c.difficulte}</span>` : ''}
-          ${c.nb_seances ? `<span class="text-xs text-gray-400">${c.nb_seances} séance${c.nb_seances > 1 ? 's' : ''}</span>` : ''}
-        </div>
-      </div>
-      ${isMJ() ? `
-        <div class="flex gap-2">
-          <button onclick="openEditModal()" class="text-xs px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200">Éditer</button>
-          <button onclick="confirmDeleteChasse('${c.id}')" class="text-xs px-3 py-1.5 rounded bg-red-900/50 hover:bg-red-900 text-red-300">Supprimer</button>
-        </div>` : ''}
-    </div>
-
-    <!-- Onglets -->
-    <div class="tab-bar flex gap-1 mb-4 border-b border-gray-700 overflow-x-auto">
-      ${['chasse','carte','tresor','antre','gardiens','retours'].map(tab => `
-        <button onclick="setTab('${tab}')" class="tab-btn whitespace-nowrap ${activeSideTab === tab ? 'active' : ''}" data-tab="${tab}">
-          ${{ chasse:'📋 Chasse', carte:'🗺️ Carte', tresor:'💎 Trésor', antre:'🏛️ Antre', gardiens:'⚔️ Gardiens', retours:'🎲 Retours MF' }[tab]}
-        </button>`).join('')}
-    </div>
-
-    <!-- Contenu de l'onglet actif -->
-    <div id="tab-content">${renderTabContent(c)}</div>`;
-}
-
-function renderTabContent(c) {
-  switch (activeSideTab) {
-    case 'chasse':   return renderTabChasse(c);
-    case 'carte':    return renderTabCarte(c);
-    case 'tresor':   return renderTabTresor(c);
-    case 'antre':    return renderTabAntre(c);
-    case 'gardiens': return renderTabGardiens(c);
-    case 'retours':  return renderTabRetours(c);
-    default: return '';
-  }
-}
 
 function field(label, value, sub) {
   if (!value && value !== 0) return '';
@@ -551,82 +498,394 @@ function field(label, value, sub) {
   </div>`;
 }
 
-function renderTabChasse(c) {
-  return `
-    <dl class="grid grid-cols-2 gap-x-6">
-      ${field('Statut',     statutBadge(c.statut))}
-      ${field('Difficulté', c.difficulte)}
-      ${field('Séances',    c.nb_seances)}
-      ${field('Créée le',   c.created_at?.slice(0,10))}
-    </dl>
-    ${c.notes ? `<div class="mt-4 p-3 bg-gray-800 rounded-lg text-sm text-gray-300 whitespace-pre-wrap">${c.notes}</div>` : ''}`;
+function renderRightPanel() {
+  const panel = document.getElementById('right-panel');
+  if (!panel) return;
+
+  if (viewMode === 'wizard' && wizardBuf) {
+    document.body.classList.add('detail-open');
+    renderWizard();
+    return;
+  }
+
+  if (!currentId) {
+    document.body.classList.remove('detail-open');
+    panel.innerHTML = `
+      <div class="flex flex-col items-center justify-center h-full text-gray-500 gap-4 py-20">
+        <span class="text-5xl">🗺️</span>
+        <p class="text-center">Sélectionnez une chasse dans la liste<br>ou créez-en une nouvelle.</p>
+        ${isMJ() ? `<button onclick="startWizard(null)" class="btn-primary px-4 py-2 rounded-lg text-sm">+ Nouvelle chasse</button>` : ''}
+      </div>`;
+    return;
+  }
+
+  const c = chasses.find(x => x.id === currentId);
+  if (!c) return;
+  renderView(c);
 }
 
-function renderTabCarte(c) {
-  const cr = c.carte || {};
-  if (!Object.keys(cr).some(k => cr[k])) return emptyTab('Carte', 'carte');
-  return `
-    <dl class="grid grid-cols-2 gap-x-6">
-      ${field('Origine',              cr.origine)}
-      ${field('Langue',               cr.langue)}
-      ${field('Forme',                cr.forme, cr.forme_solidite ? `(${cr.forme_solidite})` : '')}
-      ${field('PdS / Diff. fouille',  `${cr.forme_pds ?? '—'} / ${cr.forme_diff_fouille ?? '—'}`)}
-      ${field('Fonction',             cr.fonction, cr.fonction_type ? `(${cr.fonction_type})` : '')}
-      ${field('Standard astro Diff.', cr.standard_diff)}
-      ${field('Présentation',         cr.presentation, cr.presentation_diff ? `(Diff. ${cr.presentation_diff})` : '')}
-      ${field('Exploit. total Diff.', (cr.fonction_diff_exploit || 0) + (cr.presentation_diff || 0))}
-      ${field('Localisation',         cr.localisation, cr.localisation_ref ? `(${cr.localisation_ref})` : '')}
-    </dl>
-    ${isMJ() ? `<div class="mt-4"><button onclick="regenerateSection('carte')" class="text-xs px-3 py-1 rounded bg-gray-700 hover:bg-gray-600">↺ Re-générer la carte</button></div>` : ''}`;
-}
+// ── Vue fiche (mode consultation) ────────────────────────────────────────────
+function renderView(c) {
+  const panel = document.getElementById('right-panel');
+  if (!panel) return;
 
-function emptyTab(name, section) {
-  return isMJ()
-    ? `<div class="text-center py-10 text-gray-500">
-         <p class="mb-3">La section ${name} n'a pas encore été générée.</p>
-         <button onclick="regenerateSection('${section}')" class="btn-primary px-4 py-2 rounded">🎲 Générer ${name}</button>
-       </div>`
-    : `<p class="text-center py-10 text-gray-500">Section non renseignée.</p>`;
-}
-
-function renderTabTresor(c) {
+  const cr = c.carte  || {};
   const tr = c.tresor || {};
-  if (!tr.valeur_label) return emptyTab('Trésor', 'tresor');
-  return `
-    <dl class="grid grid-cols-2 gap-x-6">
-      ${field('Origine',   tr.origine)}
-      ${field('Valeur',    tr.valeur_label)}
-      ${field('Crédits',   tr.credits_min ? `${formatCredits(tr.credits_min)} – ${formatCredits(tr.credits_max)}` : '—')}
-      ${field('Célébrité', tr.celebrite)}
-      ${field('Gloire',    tr.gloire > 0 ? `★ ${tr.gloire}` : 'Aucune')}
-      ${field('Traits',    tr.traits?.length ? tr.traits.join(', ') : 'Aucun')}
-      ${field('Propriétaire', tr.proprietaire || '—')}
-    </dl>
-    ${tr.secret ? `<div class="mt-3"><dt class="text-xs text-gray-400 uppercase tracking-wide">Secret du trésor</dt><dd class="text-sm text-gray-300 mt-1 whitespace-pre-wrap">${tr.secret}</dd></div>` : ''}
-    ${tr.contenu ? `<div class="mt-3"><dt class="text-xs text-gray-400 uppercase tracking-wide">Contenu</dt><dd class="text-sm text-gray-300 mt-1 whitespace-pre-wrap">${tr.contenu}</dd></div>` : ''}
-    ${isMJ() ? `<div class="mt-4"><button onclick="regenerateSection('tresor')" class="text-xs px-3 py-1 rounded bg-gray-700 hover:bg-gray-600">↺ Re-générer le trésor</button></div>` : ''}`;
+  const an = c.antre  || {};
+  const hasCarte  = Object.keys(cr).some(k => cr[k]);
+  const hasTresor = !!tr.valeur_label;
+  const hasAntre  = !!an.origine;
+  const idx = equilibrageIndex(tr.px_max);
+  const eq  = T_EQUILIBRAGE[idx];
+
+  panel.innerHTML = `
+    <button class="mobile-back mb-3 text-sm text-blue-400 hover:text-blue-300" onclick="closeDetail()">&#8592; Mes chasses</button>
+    <div class="flex items-start justify-between gap-2 mb-4">
+      <div>
+        <h2 class="text-xl font-bold">${escHtml(c.nom)}</h2>
+        <div class="flex flex-wrap items-center gap-2 mt-1">
+          ${statutBadge(c.statut)}
+          ${c.difficulte ? `<span class="text-xs text-gray-400">Diff. ${c.difficulte}</span>` : ''}
+          ${c.nb_seances  ? `<span class="text-xs text-gray-400">${c.nb_seances} séance${c.nb_seances > 1 ? 's' : ''}</span>` : ''}
+        </div>
+      </div>
+      ${isMJ() ? `
+        <div class="flex gap-2 flex-shrink-0">
+          <button onclick="startWizard(chasses.find(x=>x.id==='${c.id}'))" class="text-xs px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200">✏️ Modifier</button>
+          <button onclick="confirmDeleteChasse('${c.id}')" class="text-xs px-3 py-1.5 rounded bg-red-900/50 hover:bg-red-900 text-red-300">Supprimer</button>
+        </div>` : ''}
+    </div>
+    ${c.notes ? `<div class="mb-4 p-3 bg-gray-800 rounded-lg text-sm text-gray-300 whitespace-pre-wrap">${escHtml(c.notes)}</div>` : ''}
+
+    <div class="space-y-2">
+      <!-- CARTE -->
+      <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <div class="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-700/50" onclick="toggleSection('carte')">
+          <div class="flex items-center gap-2 min-w-0">
+            <span>🗺️</span><span class="font-semibold text-sm">La Carte</span>
+            <span class="text-xs text-gray-400 truncate">${hasCarte ? `${escHtml(cr.forme ?? '')} · ${escHtml(cr.origine ?? '')} · Diff. ${(cr.fonction_diff_exploit || 0) + (cr.presentation_diff || 0)}` : '<em class="text-gray-500 not-italic">Non générée</em>'}</span>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            ${isMJ() ? `<button onclick="regenViewSection('carte');event.stopPropagation()" class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600" title="Re-générer">↺</button>` : ''}
+            <span class="section-chevron text-gray-400 text-xs">▼</span>
+          </div>
+        </div>
+        <div id="sec-carte" class="px-4 pb-3 border-t border-gray-700/50">
+          ${hasCarte ? `<dl class="grid grid-cols-2 gap-x-6 mt-2">
+            ${field('Origine', cr.origine)}
+            ${field('Langue', cr.langue)}
+            ${field('Forme', cr.forme, cr.forme_solidite ? `(${cr.forme_solidite})` : '')}
+            ${field('PdS / Diff. fouille', `${cr.forme_pds ?? '—'} / ${cr.forme_diff_fouille ?? '—'}`)}
+            ${field('Fonction', cr.fonction, cr.fonction_type ? `(${cr.fonction_type})` : '')}
+            ${field('Standard astro Diff.', cr.standard_diff)}
+            ${field('Présentation', cr.presentation, cr.presentation_diff ? `(Diff. ${cr.presentation_diff})` : '')}
+            ${field('Diff. exploitation totale', (cr.fonction_diff_exploit || 0) + (cr.presentation_diff || 0))}
+            ${field('Localisation', cr.localisation, cr.localisation_ref ? `(${cr.localisation_ref})` : '')}
+          </dl>` : `<p class="text-sm text-gray-500 py-3">Section non générée.${isMJ() ? ` <button onclick="regenViewSection('carte')" class="text-amber-400 hover:underline">Générer</button>` : ''}</p>`}
+        </div>
+      </div>
+
+      <!-- TRÉSOR -->
+      <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <div class="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-700/50" onclick="toggleSection('tresor')">
+          <div class="flex items-center gap-2 min-w-0">
+            <span>💎</span><span class="font-semibold text-sm">Le Trésor</span>
+            <span class="text-xs text-gray-400 truncate">${hasTresor ? `${escHtml(tr.valeur_label ?? '')} · ${escHtml(tr.celebrite ?? '')}${tr.gloire > 0 ? ` ★${tr.gloire}` : ''}` : '<em class="text-gray-500 not-italic">Non généré</em>'}</span>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            ${isMJ() ? `<button onclick="regenViewSection('tresor');event.stopPropagation()" class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600" title="Re-générer">↺</button>` : ''}
+            <span class="section-chevron text-gray-400 text-xs">▼</span>
+          </div>
+        </div>
+        <div id="sec-tresor" class="px-4 pb-3 border-t border-gray-700/50">
+          ${hasTresor ? `<dl class="grid grid-cols-2 gap-x-6 mt-2">
+            ${field('Origine', tr.origine)}
+            ${field('Valeur', tr.valeur_label)}
+            ${field('Crédits', tr.credits_min ? `${formatCredits(tr.credits_min)} – ${formatCredits(tr.credits_max)}` : '—')}
+            ${field('Célébrité', tr.celebrite)}
+            ${field('Gloire', tr.gloire > 0 ? `★ ${tr.gloire}` : 'Aucune')}
+            ${field('Traits', tr.traits?.length ? tr.traits.join(', ') : 'Aucun')}
+            ${tr.proprietaire ? field('Propriétaire', escHtml(tr.proprietaire)) : ''}
+          </dl>
+          ${tr.secret ? `<div class="mt-2 pt-2 border-t border-gray-700"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Secret</p><p class="text-sm text-gray-300 whitespace-pre-wrap">${escHtml(tr.secret)}</p></div>` : ''}
+          ${tr.contenu ? `<div class="mt-2"><p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Contenu</p><p class="text-sm text-gray-300 whitespace-pre-wrap">${escHtml(tr.contenu)}</p></div>` : ''}` : `<p class="text-sm text-gray-500 py-3">Section non générée.${isMJ() ? ` <button onclick="regenViewSection('tresor')" class="text-amber-400 hover:underline">Générer</button>` : ''}</p>`}
+        </div>
+      </div>
+
+      <!-- ANTRE -->
+      <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <div class="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-700/50" onclick="toggleSection('antre')">
+          <div class="flex items-center gap-2 min-w-0">
+            <span>🏛️</span><span class="font-semibold text-sm">L'Antre</span>
+            <span class="text-xs text-gray-400 truncate">${hasAntre ? `${escHtml(an.taille ?? '')} · ${escHtml(an.nature ?? '')} (${escHtml(an.origine ?? '')})` : '<em class="text-gray-500 not-italic">Non générée</em>'}</span>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            ${isMJ() ? `<button onclick="regenViewSection('antre');event.stopPropagation()" class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600" title="Re-générer">↺</button>` : ''}
+            <span class="section-chevron text-gray-400 text-xs">▼</span>
+          </div>
+        </div>
+        <div id="sec-antre" class="px-4 pb-3 border-t border-gray-700/50">
+          ${hasAntre ? `<dl class="grid grid-cols-2 gap-x-6 mt-2">
+            ${field('Origine', an.origine, an.tech ? `(${an.tech})` : '')}
+            ${field('Nature', an.nature)}
+            ${field('Taille', an.taille, an.taille_desc ? `— ${an.taille_desc}` : '')}
+            ${field('Niveaux', an.nb_niveaux)}
+            ${field('Déplacement', an.deplacement)}
+            ${field('Énergie', an.energie, an.energie_lumino ? `— ${an.energie_lumino}` : '')}
+            ${field('Occupation', an.occupation, an.occupation_desc ? `(${an.occupation_desc})` : '')}
+            ${field('Usure', an.usure, an.usure_desc ? `(${an.usure_desc})` : '')}
+            ${an.salles_speciales?.length ? field('Salles spéciales', an.salles_speciales.join(', ')) : ''}
+            ${field('Porte Prot.', an.porte_protect)}
+            ${field('P. fortifiée Prot.', an.porte_fort_protect)}
+            ${field('Sas Prot.', an.sas_protect)}
+          </dl>
+          ${an.traits?.length ? `<p class="text-sm mt-2"><span class="text-gray-400">Traits : </span>${an.traits.join(', ')}</p>` : ''}` : `<p class="text-sm text-gray-500 py-3">Section non générée.${isMJ() ? ` <button onclick="regenViewSection('antre')" class="text-amber-400 hover:underline">Générer</button>` : ''}</p>`}
+        </div>
+      </div>
+
+      <!-- GARDIENS -->
+      ${hasTresor ? `
+      <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <div class="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-700/50" onclick="toggleSection('gardiens')">
+          <div class="flex items-center gap-2">
+            <span>⚔️</span><span class="font-semibold text-sm">Gardiens</span>
+            <span class="text-xs text-gray-400">${eq.label}</span>
+          </div>
+          <span class="section-chevron text-gray-400 text-xs">▼</span>
+        </div>
+        <div id="sec-gardiens" class="px-4 pb-3 border-t border-gray-700/50">
+          <div class="grid grid-cols-2 gap-2 mt-2">
+            ${[['🔩 Pièges', eq.pieges], ['👾 Adversaires', eq.adversaires], ['🏆 Salle trésor', eq.salle], ['🏴‍☠️ Concurrent', eq.concurrent]].map(([k, v]) => `
+              <div class="p-2 bg-gray-900/60 rounded border border-gray-700">
+                <p class="text-xs text-gray-400">${k}</p>
+                <p class="text-sm font-medium text-gray-100 mt-0.5">${v}</p>
+              </div>`).join('')}
+          </div>
+          <p class="mt-2 text-xs text-gray-500">NO=Normal · EL=Élite · HE=Héros · BO=Boss · BB=Big Boss</p>
+        </div>
+      </div>` : ''}
+
+      <!-- RETOURS MF -->
+      <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <div class="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-700/50" onclick="toggleSection('retours')">
+          <div class="flex items-center gap-2">
+            <span>🎲</span><span class="font-semibold text-sm">Retours MF</span>
+          </div>
+          <span class="section-chevron text-gray-400 text-xs">▼</span>
+        </div>
+        <div id="sec-retours" class="px-4 pb-3 border-t border-gray-700/50">
+          <div id="mf-bar" class="my-3 p-3 bg-gray-900 rounded-lg"></div>
+          ${renderTabRetours(c, false)}
+        </div>
+      </div>
+
+    </div>`;
+  renderMFPoolBar();
 }
 
-function renderTabAntre(c) {
-  const an = c.antre || {};
-  if (!an.origine) return emptyTab('Antre', 'antre');
+// ── Wizard de création / édition ─────────────────────────────────────────────
+function renderWizard() {
+  const panel = document.getElementById('right-panel');
+  if (!panel) return;
+
+  const labels = ['📝 Infos', '🗺️ Carte', '💎 Trésor', '🏛️ Antre'];
+  const dots = labels.map((lbl, i) => {
+    const done   = i < wizardStep;
+    const active = i === wizardStep;
+    const dotCls = done ? 'bg-amber-600 text-white' : active ? 'bg-amber-500 text-white' : 'bg-gray-700 text-gray-400';
+    const lineCls = i < wizardStep ? 'bg-amber-600' : 'bg-gray-700';
+    return `<div class="flex items-center ${i < labels.length - 1 ? 'flex-1' : ''}">
+      <div class="flex flex-col items-center gap-0.5 flex-shrink-0">
+        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${dotCls}">${done ? '✓' : i + 1}</div>
+        <span class="text-xs ${active ? 'text-amber-300' : 'text-gray-500'}">${lbl}</span>
+      </div>
+      ${i < labels.length - 1 ? `<div class="flex-1 h-px mx-1 mb-3 ${lineCls}"></div>` : ''}
+    </div>`;
+  }).join('');
+
+  const isEditing = !!wizardBuf._editId;
+  panel.innerHTML = `
+    <button class="mobile-back mb-3 text-sm text-blue-400 hover:text-blue-300" onclick="wizardCancel()">&#8592; Mes chasses</button>
+    <div class="mb-5">
+      <h2 class="text-lg font-bold mb-3">${isEditing ? '✏️ Modifier la chasse' : '✨ Nouvelle chasse'}</h2>
+      <div class="flex items-start">${dots}</div>
+    </div>
+    <div id="wiz-step-content">${renderWizardStep()}</div>`;
+}
+
+function renderWizardStep() {
+  switch (wizardStep) {
+    case 0: return renderWizardStep0();
+    case 1: return renderWizardStep1();
+    case 2: return renderWizardStep2();
+    case 3: return renderWizardStep3();
+    default: return '';
+  }
+}
+
+function renderWizardStep0() {
+  const b = wizardBuf;
   return `
-    <dl class="grid grid-cols-2 gap-x-6">
-      ${field('Origine',    an.origine, an.tech ? `(${an.tech})` : '')}
-      ${field('Nature',     an.nature)}
-      ${field('Taille',     an.taille, an.taille_desc ? `— ${an.taille_desc}` : '')}
-      ${field('Niveaux',    an.nb_niveaux)}
-      ${field('Déplacement', an.deplacement)}
-      ${field('Énergie',    an.energie, an.energie_lumino ? `— ${an.energie_lumino}` : '')}
-      ${field('Occupation', an.occupation, an.occupation_desc ? `(${an.occupation_desc})` : '')}
-      ${field('Usure',      an.usure, an.usure_desc ? `(${an.usure_desc})` : '')}
-      ${field('Salles spéciales', an.salles_speciales?.length ? an.salles_speciales.join(', ') : 'Aucune')}
-      ${field('Porte Prot.', an.porte_protect)}
-      ${field('P. fortifiée Prot.', an.porte_fort_protect)}
-      ${field('Sas Prot.',   an.sas_protect)}
-    </dl>
-    ${an.traits?.length ? `<p class="text-sm mt-2"><span class="text-gray-400">Traits : </span>${an.traits.join(', ')}</p>` : ''}
-    ${isMJ() ? `<div class="mt-4"><button onclick="regenerateSection('antre')" class="text-xs px-3 py-1 rounded bg-gray-700 hover:bg-gray-600">↺ Re-générer l'antre</button></div>` : ''}`;
+    <div class="space-y-4">
+      <div>
+        <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Nom de la chasse *</label>
+        <input id="wiz-nom" type="text" maxlength="120" value="${escHtml(b.nom)}"
+          class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+          placeholder="Ex : La carte du capitaine Ibañez">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Difficulté</label>
+          <input id="wiz-diff" type="number" min="1" max="10" value="${b.difficulte ?? ''}"
+            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+            placeholder="1–10">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Séances prévues</label>
+          <input id="wiz-seances" type="number" min="1" value="${b.nb_seances ?? ''}"
+            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
+            placeholder="Ex : 3">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Statut</label>
+        <select id="wiz-statut"
+          class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-500">
+          <option value="en_cours" ${b.statut === 'en_cours' ? 'selected' : ''}>En cours</option>
+          <option value="terminee" ${b.statut === 'terminee' ? 'selected' : ''}>Terminée</option>
+          <option value="abandonnee" ${b.statut === 'abandonnee' ? 'selected' : ''}>Abandonnée</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Notes MJ</label>
+        <textarea id="wiz-notes" rows="3"
+          class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-500 resize-none"
+          placeholder="Intrigues, PNJs, étapes clés…">${escHtml(b.notes)}</textarea>
+      </div>
+    </div>
+    <div class="flex justify-between mt-6">
+      <button onclick="wizardCancel()" class="px-4 py-2 text-sm rounded bg-gray-700 hover:bg-gray-600 text-gray-200">Annuler</button>
+      <button onclick="wizardNext()" class="px-4 py-2 text-sm rounded btn-primary font-medium">🗺️ La Carte →</button>
+    </div>`;
+}
+
+function renderWizardStep1() {
+  if (!wizardBuf.carte) wizardBuf.carte = generateCarte();
+  const cr = wizardBuf.carte;
+  return `
+    <div class="p-4 bg-gray-800 rounded-lg border border-gray-700">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-sm font-semibold text-amber-300">Carte générée</span>
+        <button onclick="wizardRollCarte()" class="text-xs px-3 py-1 rounded bg-gray-700 hover:bg-gray-600">🎲 Re-tirer</button>
+      </div>
+      <dl class="grid grid-cols-2 gap-x-6">
+        ${field('Origine', cr.origine)}
+        ${field('Langue', cr.langue)}
+        ${field('Forme', cr.forme, cr.forme_solidite ? `(${cr.forme_solidite})` : '')}
+        ${field('PdS / Diff. fouille', `${cr.forme_pds ?? '—'} / ${cr.forme_diff_fouille ?? '—'}`)}
+        ${field('Fonction', cr.fonction, cr.fonction_type ? `(${cr.fonction_type})` : '')}
+        ${field('Présentation', cr.presentation, cr.presentation_diff ? `(Diff. ${cr.presentation_diff})` : '')}
+        ${field('Diff. exploitation', (cr.fonction_diff_exploit || 0) + (cr.presentation_diff || 0))}
+        ${field('Standard astro Diff.', cr.standard_diff)}
+        ${field('Localisation', cr.localisation, cr.localisation_ref ? `(${cr.localisation_ref})` : '')}
+      </dl>
+    </div>
+    <div class="flex justify-between mt-6">
+      <button onclick="wizardPrev()" class="px-4 py-2 text-sm rounded bg-gray-700 hover:bg-gray-600 text-gray-200">← Retour</button>
+      <button onclick="wizardNext()" class="px-4 py-2 text-sm rounded btn-primary font-medium">💎 Le Trésor →</button>
+    </div>`;
+}
+
+function renderWizardStep2() {
+  if (!wizardBuf.tresor) wizardBuf.tresor = generateTresor();
+  const tr = wizardBuf.tresor;
+  return `
+    <div class="p-4 bg-gray-800 rounded-lg border border-gray-700">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-sm font-semibold text-amber-300">Trésor généré</span>
+        <button onclick="wizardRollTresor()" class="text-xs px-3 py-1 rounded bg-gray-700 hover:bg-gray-600">🎲 Re-tirer</button>
+      </div>
+      <dl class="grid grid-cols-2 gap-x-6">
+        ${field('Origine', tr.origine)}
+        ${field('Valeur', tr.valeur_label)}
+        ${field('Crédits', tr.credits_min ? `${formatCredits(tr.credits_min)} – ${formatCredits(tr.credits_max)}` : '—')}
+        ${field('Célébrité', tr.celebrite)}
+        ${field('Gloire', tr.gloire > 0 ? `★ ${tr.gloire}` : 'Aucune')}
+        ${field('Traits', tr.traits?.length ? tr.traits.join(', ') : 'Aucun')}
+      </dl>
+      <div class="mt-3 space-y-2 border-t border-gray-700 pt-3">
+        <div>
+          <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Propriétaire</label>
+          <input id="wiz-tresor-proprio" type="text" value="${escHtml(tr.proprietaire || '')}"
+            class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-amber-500"
+            placeholder="Qui possède ce trésor ?">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Secret du trésor</label>
+          <textarea id="wiz-tresor-secret" rows="2"
+            class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-amber-500 resize-none"
+            placeholder="Ce que les PJs ne savent pas encore…">${escHtml(tr.secret || '')}</textarea>
+        </div>
+      </div>
+    </div>
+    <div class="flex justify-between mt-6">
+      <button onclick="wizardPrev()" class="px-4 py-2 text-sm rounded bg-gray-700 hover:bg-gray-600 text-gray-200">← Retour</button>
+      <button onclick="wizardNext()" class="px-4 py-2 text-sm rounded btn-primary font-medium">🏛️ L'Antre →</button>
+    </div>`;
+}
+
+function renderWizardStep3() {
+  if (!wizardBuf.antre) wizardBuf.antre = generateAntre(wizardBuf.tresor?.origine || '');
+  const an = wizardBuf.antre;
+  const tr = wizardBuf.tresor || {};
+  const idx = equilibrageIndex(tr.px_max);
+  const eq  = T_EQUILIBRAGE[idx];
+  return `
+    <div class="space-y-3">
+      <div class="p-4 bg-gray-800 rounded-lg border border-gray-700">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-semibold text-amber-300">Antre générée</span>
+          <button onclick="wizardRollAntre()" class="text-xs px-3 py-1 rounded bg-gray-700 hover:bg-gray-600">🎲 Re-tirer</button>
+        </div>
+        <dl class="grid grid-cols-2 gap-x-6">
+          ${field('Origine', an.origine, an.tech ? `(${an.tech})` : '')}
+          ${field('Nature', an.nature)}
+          ${field('Taille', an.taille, an.taille_desc ? `— ${an.taille_desc}` : '')}
+          ${field('Niveaux', an.nb_niveaux)}
+          ${field('Énergie', an.energie, an.energie_lumino ? `— ${an.energie_lumino}` : '')}
+          ${field('Occupation', an.occupation, an.occupation_desc ? `(${an.occupation_desc})` : '')}
+          ${field('Usure', an.usure, an.usure_desc ? `(${an.usure_desc})` : '')}
+          ${an.salles_speciales?.length ? field('Salles spéciales', an.salles_speciales.join(', ')) : ''}
+        </dl>
+      </div>
+      <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
+        <p class="text-xs font-semibold text-amber-300 mb-2">⚔️ Gardiens (calculé)</p>
+        <div class="grid grid-cols-2 gap-2">
+          ${[['🔩 Pièges', eq.pieges], ['👾 Adversaires', eq.adversaires], ['🏆 Salle trésor', eq.salle], ['🏴‍☠️ Concurrent', eq.concurrent]].map(([k, v]) => `
+            <div class="bg-gray-900/60 rounded p-2 border border-gray-700">
+              <p class="text-xs text-gray-400">${k}</p>
+              <p class="text-xs font-medium text-gray-200 mt-0.5">${v}</p>
+            </div>`).join('')}
+        </div>
+      </div>
+      <div class="p-3 bg-amber-900/20 rounded-lg border border-amber-800/40">
+        <p class="text-xs font-semibold text-amber-300 mb-2">Récapitulatif</p>
+        <div class="text-sm text-gray-300 space-y-1">
+          <p><span class="text-gray-400">Nom :</span> ${escHtml(wizardBuf.nom)}</p>
+          <p><span class="text-gray-400">Carte :</span> ${escHtml(wizardBuf.carte?.forme ?? '—')} (${escHtml(wizardBuf.carte?.origine ?? '')}) → ${escHtml(wizardBuf.carte?.localisation ?? '—')}</p>
+          <p><span class="text-gray-400">Trésor :</span> ${escHtml(tr.valeur_label ?? '—')} · ${escHtml(tr.celebrite ?? '')}${tr.gloire > 0 ? ` ★${tr.gloire}` : ''}</p>
+          <p><span class="text-gray-400">Antre :</span> ${escHtml(an.taille ?? '—')} · ${escHtml(an.nature ?? '')} (${escHtml(an.origine ?? '')})</p>
+        </div>
+      </div>
+    </div>
+    <div class="flex justify-between mt-6">
+      <button onclick="wizardPrev()" class="px-4 py-2 text-sm rounded bg-gray-700 hover:bg-gray-600 text-gray-200">← Retour</button>
+      <button id="btn-wiz-save" onclick="wizardSave()" class="px-4 py-2 text-sm rounded btn-primary font-medium">✓ Enregistrer</button>
+    </div>`;
+}
+
+// keep renderTabGardiens for potential future use; it's now superseded by inline wizard/view rendering
+function renderTabGardiens_unused(c) {
 }
 
 function renderTabGardiens(c) {
@@ -670,10 +929,10 @@ function renderMFPoolBar() {
     </div>`;
 }
 
-function renderTabRetours(c) {
+function renderTabRetours(c, withBar = true) {
   const gloire = c.tresor?.gloire ?? 0;
   return `
-    <div id="mf-bar" class="mb-4 p-3 bg-gray-800 rounded-lg"></div>
+    ${withBar ? '<div id="mf-bar" class="mb-4 p-3 bg-gray-800 rounded-lg"></div>' : ''}
     ${RETOURS_TDM.map(r => renderRetourCard(r, gloire)).join('')}
     <p class="text-xs text-gray-500 mt-4">Ces retours de flamme sont spécifiques au supplément TdM et s'utilisent avec le pool MF de la table.</p>
   `;
@@ -716,44 +975,54 @@ function renderRetourCard(r, gloire) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 window.selectChasse = function(id) {
-  currentId = id;
-  activeSideTab = 'chasse';
+  currentId  = id;
+  viewMode   = 'view';
+  wizardBuf  = null;
   renderList();
   renderRightPanel();
-  renderMFPoolBar();
-  if (id) document.body.classList.add('detail-open'); // mobile
+  if (id) {
+    document.body.classList.add('detail-open');
+    renderMFPoolBar();
+  }
 };
 
 window.closeDetail = function() {
-  currentId = null;
+  currentId  = null;
+  viewMode   = 'view';
+  wizardBuf  = null;
+  wizardStep = 0;
   document.body.classList.remove('detail-open');
   renderList();
   renderRightPanel();
 };
 
-window.setTab = function(tab) {
-  activeSideTab = tab;
-  renderRightPanel();
-  if (tab === 'retours') {
-    renderMFPoolBar(); // mise à jour du bar MF
+window.toggleSection = function(name) {
+  const body    = document.getElementById(`sec-${name}`);
+  if (!body) return;
+  const chevron = body.previousElementSibling?.querySelector('.section-chevron');
+  if (body.style.display === 'none') {
+    body.style.display = '';
+    if (chevron) chevron.style.transform = '';
+    if (name === 'retours') renderMFPoolBar();
+  } else {
+    body.style.display = 'none';
+    if (chevron) chevron.style.transform = 'rotate(-90deg)';
   }
 };
 
-window.regenerateSection = async function(section) {
+window.regenViewSection = async function(section) {
   if (!currentId) return;
   const c = chasses.find(x => x.id === currentId);
   if (!c) return;
-
   let patch = {};
   if (section === 'carte')  patch.carte  = generateCarte();
   if (section === 'tresor') patch.tresor = generateTresor();
   if (section === 'antre')  patch.antre  = generateAntre(c.tresor?.origine || '');
-
   try {
     const updated = await apiUpdate(currentId, patch);
     Object.assign(c, updated);
-    document.getElementById('tab-content').innerHTML = renderTabContent(c);
-    if (activeSideTab === 'retours') renderMFPoolBar();
+    renderView(c);
+    renderMFPoolBar();
   } catch (e) {
     showError(e.message);
   }
@@ -768,7 +1037,12 @@ async function deleteChasse(id) {
   try {
     await apiDelete(id);
     chasses = chasses.filter(c => c.id !== id);
-    if (currentId === id) currentId = null;
+    if (currentId === id) {
+      currentId  = null;
+      viewMode   = 'view';
+      wizardBuf  = null;
+      wizardStep = 0;
+    }
     renderList();
     renderRightPanel();
   } catch (e) {
@@ -799,112 +1073,117 @@ window.triggerRetour = async function(retourId) {
   try {
     await doMFTransfer(total, 'mj_to_pj');
     renderMFPoolBar();
-    // refresh the bar in the retours tab
-    const bar = document.getElementById('mf-bar');
-    if (bar) renderMFPoolBar();
   } catch (e) {
     showError(e.message);
   }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// MODAL — NOUVELLE CHASSE
+// WIZARD — CRÉATION / ÉDITION DE CHASSE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-window.openNewModal = function() {
-  editBuf = null;
-  const gen = generateAll();
-  document.getElementById('modal-nom').value = '';
-  document.getElementById('modal-difficulte').value = '';
-  document.getElementById('modal-seances').value = '';
-  document.getElementById('modal-statut').value = 'en_cours';
-  document.getElementById('modal-notes').value = '';
-  document.getElementById('modal-generate-preview').textContent =
-    `Carte : ${gen.carte.forme} (${gen.carte.origine}) → ${gen.carte.localisation}\n`
-    + `Trésor : ${gen.tresor.valeur_label}, ${gen.tresor.celebrite} (Gloire ${gen.tresor.gloire})\n`
-    + `Antre : ${gen.antre.taille}, ${gen.antre.nature} (${gen.antre.origine})`;
-  document.getElementById('modal-gen-cache').dataset.gen = JSON.stringify(gen);
-  document.getElementById('new-chasse-modal').classList.remove('hidden');
-  document.getElementById('modal-nom').focus();
+window.startWizard = function(chasse) {
+  viewMode   = 'wizard';
+  wizardStep = 0;
+  if (chasse) {
+    wizardBuf = {
+      _editId:    chasse.id,
+      nom:        chasse.nom,
+      difficulte: chasse.difficulte,
+      nb_seances: chasse.nb_seances,
+      statut:     chasse.statut,
+      notes:      chasse.notes || '',
+      carte:      chasse.carte  ? { ...chasse.carte }  : null,
+      tresor:     chasse.tresor ? { ...chasse.tresor } : null,
+      antre:      chasse.antre  ? { ...chasse.antre }  : null,
+    };
+    currentId = chasse.id;
+  } else {
+    wizardBuf = {
+      _editId: null, nom: '', difficulte: null, nb_seances: null,
+      statut: 'en_cours', notes: '', carte: null, tresor: null, antre: null,
+    };
+  }
+  renderList();
+  renderRightPanel();
 };
 
-window.openEditModal = function() {
-  if (!currentId) return;
-  const c = chasses.find(x => x.id === currentId);
-  if (!c) return;
-  editBuf = c;
-  document.getElementById('modal-nom').value = c.nom;
-  document.getElementById('modal-difficulte').value = c.difficulte ?? '';
-  document.getElementById('modal-seances').value = c.nb_seances ?? '';
-  document.getElementById('modal-statut').value = c.statut;
-  document.getElementById('modal-notes').value = c.notes ?? '';
-  document.getElementById('modal-generate-preview').textContent = '(modification d\'une chasse existante — la génération ne s\'applique pas)';
-  document.getElementById('new-chasse-modal').classList.remove('hidden');
-  document.getElementById('modal-nom').focus();
+window.wizardCancel = function() {
+  viewMode   = 'view';
+  wizardBuf  = null;
+  wizardStep = 0;
+  if (!currentId) document.body.classList.remove('detail-open');
+  renderList();
+  renderRightPanel();
 };
 
-window.closeNewModal = function() {
-  document.getElementById('new-chasse-modal').classList.add('hidden');
-  editBuf = null;
+function wizardSaveStep() {
+  if (wizardStep === 0) {
+    wizardBuf.nom        = document.getElementById('wiz-nom')?.value.trim() || '';
+    wizardBuf.difficulte = document.getElementById('wiz-diff')?.value || null;
+    wizardBuf.nb_seances = document.getElementById('wiz-seances')?.value || null;
+    wizardBuf.statut     = document.getElementById('wiz-statut')?.value || 'en_cours';
+    wizardBuf.notes      = document.getElementById('wiz-notes')?.value || '';
+  }
+  if (wizardStep === 2 && wizardBuf.tresor) {
+    wizardBuf.tresor.proprietaire = document.getElementById('wiz-tresor-proprio')?.value || '';
+    wizardBuf.tresor.secret       = document.getElementById('wiz-tresor-secret')?.value || '';
+  }
+}
+
+window.wizardNext = function() {
+  wizardSaveStep();
+  if (wizardStep === 0 && !wizardBuf.nom) { alert('Le nom est requis.'); return; }
+  wizardStep++;
+  renderWizard();
 };
 
-window.rerollModal = function() {
-  const gen = generateAll();
-  document.getElementById('modal-generate-preview').textContent =
-    `Carte : ${gen.carte.forme} (${gen.carte.origine}) → ${gen.carte.localisation}\n`
-    + `Trésor : ${gen.tresor.valeur_label}, ${gen.tresor.celebrite} (Gloire ${gen.tresor.gloire})\n`
-    + `Antre : ${gen.antre.taille}, ${gen.antre.nature} (${gen.antre.origine})`;
-  document.getElementById('modal-gen-cache').dataset.gen = JSON.stringify(gen);
+window.wizardPrev = function() {
+  wizardSaveStep();
+  wizardStep--;
+  renderWizard();
 };
 
-window.saveNewChasse = async function() {
-  const nom = document.getElementById('modal-nom').value.trim();
-  if (!nom) { alert('Le nom est requis.'); return; }
+window.wizardRollCarte  = function() { wizardBuf.carte  = generateCarte();                              renderWizard(); };
+window.wizardRollTresor = function() { wizardBuf.tresor = generateTresor();                             renderWizard(); };
+window.wizardRollAntre  = function() { wizardBuf.antre  = generateAntre(wizardBuf.tresor?.origine || ''); renderWizard(); };
 
-  const btn = document.getElementById('btn-save-chasse');
-  btn.disabled = true;
-  btn.textContent = 'Enregistrement…';
-
+window.wizardSave = async function() {
+  wizardSaveStep();
+  const btn = document.getElementById('btn-wiz-save');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement…'; }
   try {
-    if (editBuf) {
-      // Mise à jour simple (pas de ré-génération)
-      const updated = await apiUpdate(editBuf.id, {
-        nom,
-        difficulte:  document.getElementById('modal-difficulte').value || null,
-        nb_seances:  document.getElementById('modal-seances').value || null,
-        statut:      document.getElementById('modal-statut').value,
-        notes:       document.getElementById('modal-notes').value || null,
-      });
+    const payload = {
+      nom:        wizardBuf.nom,
+      difficulte: wizardBuf.difficulte || null,
+      nb_seances: wizardBuf.nb_seances || null,
+      statut:     wizardBuf.statut,
+      notes:      wizardBuf.notes || null,
+      carte:      wizardBuf.carte,
+      tresor:     wizardBuf.tresor,
+      antre:      wizardBuf.antre,
+    };
+    if (wizardBuf._editId) {
+      const updated = await apiUpdate(wizardBuf._editId, payload);
       const idx = chasses.findIndex(x => x.id === updated.id);
       if (idx >= 0) chasses[idx] = updated;
+      currentId = updated.id;
     } else {
-      // Nouvelle chasse avec contenu généré
-      const raw = document.getElementById('modal-gen-cache').dataset.gen;
-      const gen = raw ? JSON.parse(raw) : generateAll();
-      const chasse = await apiCreate({
-        nom,
-        difficulte: document.getElementById('modal-difficulte').value || null,
-        nb_seances: document.getElementById('modal-seances').value || null,
-        statut:     document.getElementById('modal-statut').value,
-        notes:      document.getElementById('modal-notes').value || null,
-        carte:      gen.carte,
-        tresor:     gen.tresor,
-        antre:      gen.antre,
-      });
+      const chasse = await apiCreate(payload);
       chasses.unshift(chasse);
       currentId = chasse.id;
     }
-    closeNewModal();
+    viewMode   = 'view';
+    wizardBuf  = null;
+    wizardStep = 0;
     renderList();
     renderRightPanel();
+    renderMFPoolBar();
   } catch (e) {
     showError(e.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Enregistrer';
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Enregistrer'; }
   }
 };
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // TOASTS
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -924,18 +1203,7 @@ function showError(msg) {
 async function init() {
   initHeader();
 
-  // Bouton Nouvelle chasse (header hors-modal)
-  document.getElementById('btn-new-chasse')?.addEventListener('click', openNewModal);
-
-  // Modal keyboard
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeNewModal();
-  });
-
-  // Fermeture modal si clic sur overlay
-  document.getElementById('new-chasse-modal')?.addEventListener('click', e => {
-    if (e.target.id === 'new-chasse-modal') closeNewModal();
-  });
+  document.getElementById('btn-new-chasse')?.addEventListener('click', () => startWizard(null));
 
   const tableId = getActiveTableId();
   if (!tableId) {
@@ -944,7 +1212,6 @@ async function init() {
     return;
   }
 
-  // Charger données
   [chasses] = await Promise.all([apiList(), fetchMFPool()]);
   renderList();
   renderRightPanel();

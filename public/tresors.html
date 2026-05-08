@@ -7,19 +7,8 @@
   <link rel="stylesheet" href="/css/tailwind.css?v=2.0.0">
   <link rel="stylesheet" href="/css/ma-theme.css">
   <style>
-    .tab-btn {
-      padding: 0.5rem 1rem;
-      font-size: 0.8rem;
-      font-weight: 500;
-      border-bottom: 2px solid transparent;
-      transition: all 0.15s;
-      color: #9ca3af;
-    }
-    .tab-btn.active {
-      color: #c8a464;
-      border-bottom-color: #c8a464;
-    }
-    .tab-btn:hover:not(.active) { color: #d1d5db; }
+    /* Section-toggle chevron */
+    .section-chevron { transition: transform 0.2s; display: inline-block; }
 
     .btn-primary {
       background: #92400e;
@@ -61,9 +50,8 @@
 
       .mobile-back { display: inline-flex !important; align-items: center; gap: 0.4rem; }
 
-      /* Onglets scrollables sur mobile */
-      .tab-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap !important; }
-      .tab-btn { white-space: nowrap; flex-shrink: 0; }
+      /* Wizard steps scrollable */
+      #wiz-step-content { overflow-y: auto; }
     }
   </style>
 </head>
@@ -116,84 +104,6 @@
     </section>
 
   </main>
-
-  <!-- ════════════════════════════════════════════════════════════════════════
-       MODAL — Nouvelle chasse / Édition
-  ═══════════════════════════════════════════════════════════════════════════ -->
-  <div id="new-chasse-modal" class="fixed inset-0 bg-black/70 z-40 hidden flex items-center justify-center p-4">
-    <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg border border-gray-600">
-
-      <div class="p-5 border-b border-gray-700 flex items-center justify-between">
-        <h2 class="font-semibold text-lg">Nouvelle chasse au trésor</h2>
-        <button onclick="closeNewModal()" class="text-gray-400 hover:text-white text-xl leading-none">×</button>
-      </div>
-
-      <div class="p-5 space-y-4">
-
-        <!-- Nom -->
-        <div>
-          <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Nom de la chasse *</label>
-          <input id="modal-nom" type="text" maxlength="120"
-            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
-            placeholder="Ex : La carte du capitaine Ibañez">
-        </div>
-
-        <!-- Difficulté + Séances -->
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Difficulté</label>
-            <input id="modal-difficulte" type="number" min="1" max="10"
-              class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
-              placeholder="1–10">
-          </div>
-          <div>
-            <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Nb séances prévues</label>
-            <input id="modal-seances" type="number" min="1"
-              class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
-              placeholder="Ex : 3">
-          </div>
-        </div>
-
-        <!-- Statut -->
-        <div>
-          <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Statut</label>
-          <select id="modal-statut"
-            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-500">
-            <option value="en_cours">En cours</option>
-            <option value="terminee">Terminée</option>
-            <option value="abandonnee">Abandonnée</option>
-          </select>
-        </div>
-
-        <!-- Notes -->
-        <div>
-          <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Notes MJ</label>
-          <textarea id="modal-notes" rows="2"
-            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-amber-500 resize-none"
-            placeholder="Intrigues, PNJs, étapes clés…"></textarea>
-        </div>
-
-        <!-- Aperçu génération -->
-        <div class="bg-gray-750 border border-gray-600 rounded-lg p-3">
-          <div class="flex items-center justify-between mb-2">
-            <p class="text-xs font-semibold text-amber-300 uppercase tracking-wide">Contenu généré aléatoirement</p>
-            <button onclick="rerollModal()" class="text-xs px-2 py-0.5 rounded bg-gray-600 hover:bg-gray-500 text-gray-200">🎲 Re-tirer</button>
-          </div>
-          <pre id="modal-generate-preview" class="text-xs text-gray-300 whitespace-pre-wrap font-mono leading-relaxed"></pre>
-        </div>
-
-        <!-- Cache données générées -->
-        <div id="modal-gen-cache" class="hidden" data-gen="{}"></div>
-
-      </div>
-
-      <div class="p-5 border-t border-gray-700 flex justify-end gap-3">
-        <button onclick="closeNewModal()" class="px-4 py-2 text-sm rounded bg-gray-700 hover:bg-gray-600 text-gray-200">Annuler</button>
-        <button id="btn-save-chasse" onclick="saveNewChasse()"
-          class="px-4 py-2 text-sm rounded btn-primary font-medium">Enregistrer</button>
-      </div>
-    </div>
-  </div>
 
   <!-- Toast erreurs -->
   <div id="toast" class="hidden"></div>
