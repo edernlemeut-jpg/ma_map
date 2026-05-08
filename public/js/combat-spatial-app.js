@@ -80,6 +80,19 @@ function _setContactVisuel(val) {
   btn.style.backgroundColor  = active ? 'rgba(200,148,58,0.12)' : 'transparent';
 }
 
+const ORIENT_COLORS = { vers0: '#5baad0', vers500: '#c8943a' };
+
+function _setOrientation(orient) {
+  document.getElementById('ship-orientation').value = orient ?? 'vers500';
+  document.querySelectorAll('#ship-orientation-buttons .orient-btn').forEach(btn => {
+    const active = btn.dataset.orient === (orient ?? 'vers500');
+    const color  = ORIENT_COLORS[btn.dataset.orient] ?? '#888';
+    btn.style.backgroundColor = active ? color : 'transparent';
+    btn.style.color            = active ? '#fff' : color;
+    btn.style.borderColor      = color;
+  });
+}
+
 function _setStructMax(max) {
   const hint = document.getElementById('struct-max-hint');
   hint.textContent = max ? `/ ${max}` : '';
@@ -536,6 +549,12 @@ class CombatSpatialApp {
       _setTrajectoire(current === 'attaque' ? 'interception' : 'attaque');
     });
 
+    // Boutons d'orientation
+    document.getElementById('ship-orientation-buttons').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-orient]');
+      if (btn) _setOrientation(btn.dataset.orient);
+    });
+
     // Toggle contact visuel
     document.getElementById('ship-cv-toggle').addEventListener('click', () => {
       const current = document.getElementById('ship-contact-visuel').value;
@@ -712,6 +731,7 @@ class CombatSpatialApp {
     document.getElementById('fleet-select-section').classList.remove('hidden');
     document.getElementById('fleet-ship-preview').classList.add('hidden');
     document.getElementById('ship-info-section').classList.add('hidden');
+    document.getElementById('ship-fleet-select').disabled = false;
     this._populateShipForm({});
 
     await this._loadFleetSelect();
@@ -729,6 +749,7 @@ class CombatSpatialApp {
     form.dataset.shipId   = shipId;
 
     document.getElementById('fleet-select-section').classList.add('hidden');
+    document.getElementById('ship-fleet-select').disabled = true;
     // Afficher les infos du vaisseau en mode édition
     const infoEl = document.getElementById('ship-info-section');
     infoEl.classList.remove('hidden');
@@ -792,6 +813,7 @@ class CombatSpatialApp {
   _populateShipForm(ship) {
     _setCamp(ship.camp ?? 'joueurs');
     _setTrajectoire(ship.trajectoire ?? 'attaque');
+    _setOrientation(ship.orientation ?? 'vers500');
     _setContactVisuel(ship.contact_visuel);
     _setStructMax(ship.structure_max ?? null);
     document.getElementById('ship-position').value           = ship.position_k ?? 200;
@@ -817,6 +839,7 @@ class CombatSpatialApp {
     const payload = {
       camp:               document.getElementById('ship-camp').value || 'neutres',
       trajectoire:        document.getElementById('ship-trajectoire').value,
+      orientation:        document.getElementById('ship-orientation').value,
       position_k:         Number(document.getElementById('ship-position').value),
       structure_actuelle: Number(document.getElementById('ship-structure-actuelle').value),
       avantage:           document.getElementById('ship-avantage').value !== ''

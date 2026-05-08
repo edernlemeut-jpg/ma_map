@@ -232,7 +232,7 @@
         <!-- Sélection depuis la flotte (mode ajout uniquement) -->
         <div id="fleet-select-section" class="hidden">
           <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Vaisseau *</label>
-          <select id="ship-fleet-select" required
+          <select id="ship-fleet-select" required disabled
             class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-gray-200">
             <option value="">— Sélectionner un vaisseau —</option>
           </select>
@@ -274,6 +274,18 @@
               <span id="traj-label">Attaque</span>
               <span class="text-xs opacity-60" id="traj-hint">axe horizontal</span>
             </button>
+          </div>
+          <div class="col-span-2">
+            <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Orientation</label>
+            <input type="hidden" id="ship-orientation" value="vers500">
+            <div id="ship-orientation-buttons" class="flex gap-2">
+              <button type="button" data-orient="vers0"
+                class="orient-btn flex-1 py-2 rounded text-sm font-medium border-2 transition-all"
+                style="border-color:#5baad0;color:#5baad0">↙ En approche</button>
+              <button type="button" data-orient="vers500"
+                class="orient-btn flex-1 py-2 rounded text-sm font-medium border-2 transition-all"
+                style="border-color:#c8943a;color:#c8943a">En fuite ↗</button>
+            </div>
           </div>
           <div>
             <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Position (K)</label>
