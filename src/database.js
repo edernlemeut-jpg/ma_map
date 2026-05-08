@@ -582,6 +582,9 @@ function ensureCombatSpatial() {
     CREATE INDEX IF NOT EXISTS idx_combat_ships_combat
       ON combat_ships(combat_id);
   `);
+
+  // Migrations incrémentales
+  try { db.exec(`ALTER TABLE combat_ships ADD COLUMN fleet_ship_id TEXT`); } catch { /* colonne existe déjà */ }
 }
 ensureCombatSpatial();
 

@@ -475,12 +475,9 @@ class CombatSpatialApp {
       }
     });
 
-    // Pré-remplissage depuis la flotte
+    // Aperçu du vaisseau sélectionné depuis la flotte
     document.getElementById('ship-fleet-select').addEventListener('change', (e) => {
-      const selected = e.target.options[e.target.selectedIndex];
-      if (selected.value && selected.dataset.ship) {
-        this._prefillFromFleet(selected.dataset.ship);
-      }
+      this._updateFleetPreview(e.target.options[e.target.selectedIndex]);
     });
 
     // Note: radar events are bound in _bindRadarEvents() after each _renderPhaseBody()
@@ -647,18 +644,17 @@ class CombatSpatialApp {
   async _openAddShipModal(combatId) {
     const form = document.getElementById('form-ship');
     form.reset();
-    form.dataset.mode    = 'add';
+    form.dataset.mode     = 'add';
     form.dataset.combatId = combatId;
     form.dataset.shipId   = '';
 
-    this._populateShipForm({});
     document.getElementById('modal-ship-title').textContent = 'Ajouter un vaisseau';
+    document.getElementById('fleet-select-section').classList.remove('hidden');
+    document.getElementById('fleet-ship-preview').classList.add('hidden');
+    document.getElementById('ship-info-section').classList.add('hidden');
+    this._populateShipForm({});
 
-    // Afficher + charger la flotte
-    const section = document.getElementById('fleet-select-section');
-    section.classList.remove('hidden');
     await this._loadFleetSelect();
-
     this._openModal('ship-modal');
   }
 
@@ -672,8 +668,15 @@ class CombatSpatialApp {
     form.dataset.combatId = this._currentCombat.id;
     form.dataset.shipId   = shipId;
 
-    // Masquer la section flotte en mode édition
     document.getElementById('fleet-select-section').classList.add('hidden');
+    // Afficher les infos du vaisseau en mode édition
+    const infoEl = document.getElementById('ship-info-section');
+    infoEl.classList.remove('hidden');
+    document.getElementById('ship-info-nom').textContent = ship.nom;
+    const classeLabel = ship.classe ? ship.classe.charAt(0).toUpperCase() + ship.classe.slice(1) : '';
+    const sensLabel = ship.senseurs_k ? ` · Senseurs ${ship.senseurs_k} K` : '';
+    document.getElementById('ship-info-details').textContent =
+      `${classeLabel} · Coque ${ship.structure_max}${sensLabel}`;
 
     this._populateShipForm(ship);
     document.getElementById('modal-ship-title').textContent = `Modifier : ${ship.nom}`;
@@ -687,7 +690,7 @@ class CombatSpatialApp {
       const res = await fetchWithTable('/api/ships');
       const json = await res.json();
       const ships = json.data ?? json ?? [];
-      sel.innerHTML = '<option value="">— Saisie manuelle —</option>';
+      sel.innerHTML = '<option value="">— Sélectionner un vaisseau —</option>';
       ships.forEach(s => {
         const opt = document.createElement('option');
         opt.value = s.id;
@@ -697,38 +700,41 @@ class CombatSpatialApp {
         sel.appendChild(opt);
       });
       if (ships.length === 0) {
-        sel.innerHTML += '<option value="" disabled>Aucun vaisseau dans la flotte</option>';
+        sel.innerHTML = '<option value="" disabled>Aucun vaisseau dans la flotte</option>';
       }
     } catch {
       sel.innerHTML = '<option value="">— Erreur chargement flotte —</option>';
     }
   }
 
-  _prefillFromFleet(fleetShipJson) {
+  _updateFleetPreview(opt) {
+    const preview = document.getElementById('fleet-ship-preview');
+    if (!opt?.value || !opt.dataset.ship) {
+      preview.classList.add('hidden');
+      return;
+    }
     let s;
-    try { s = JSON.parse(fleetShipJson); } catch { return; }
-    const COMBAT_CLASSES = ['chasseur', 'frégate', 'croiseur'];
-    const rawClasse = (s.model?.classe ?? '').toLowerCase();
-    const classe = COMBAT_CLASSES.find(c => rawClasse.includes(c)) ?? 'inconnu';
+    try { s = JSON.parse(opt.dataset.ship); } catch { preview.classList.add('hidden'); return; }
+    const classeIcons = { chasseur: '▲', frégate: '▬', croiseur: '◆' };
+    const classeRaw = (s.model?.classe ?? '').toLowerCase();
+    const classeIcon = classeIcons[classeRaw] ?? '●';
+    document.getElementById('preview-classe').textContent = `${classeIcon} ${s.model?.classe ?? 'Inconnu'}`;
+    document.getElementById('preview-coque').textContent  = `Coque ${s.model?.coque ?? '?'}`;
+    document.getElementById('preview-senseurs').textContent =
+      s.model?.senseurs_k ? `Senseurs ${s.model.senseurs_k} K` : '';
+    preview.classList.remove('hidden');
+    // Pré-remplir structure_actuelle avec la coque max par défaut
     const coqueMax = s.model?.coque ?? 100;
-    this._populateShipForm({
-      nom:               s.name,
-      classe,
-      structure_max:     coqueMax,
-      structure_actuelle: coqueMax,
-    });
+    document.getElementById('ship-structure-actuelle').value = coqueMax;
   }
 
   _populateShipForm(ship) {
-    document.getElementById('ship-nom').value         = ship.nom ?? '';
-    document.getElementById('ship-camp').value        = ship.camp ?? 'joueurs';
-    document.getElementById('ship-classe').value      = ship.classe ?? 'inconnu';
-    document.getElementById('ship-trajectoire').value = ship.trajectoire ?? 'attaque';
-    document.getElementById('ship-position').value    = ship.position_k ?? 200;
-    document.getElementById('ship-structure-max').value   = ship.structure_max ?? 100;
-    document.getElementById('ship-structure-actuelle').value = ship.structure_actuelle ?? 100;
-    document.getElementById('ship-avantage').value    = ship.avantage ?? '';
-    document.getElementById('ship-contact-visuel').checked = Boolean(ship.contact_visuel);
+    document.getElementById('ship-camp').value               = ship.camp ?? 'joueurs';
+    document.getElementById('ship-trajectoire').value        = ship.trajectoire ?? 'attaque';
+    document.getElementById('ship-position').value           = ship.position_k ?? 200;
+    document.getElementById('ship-structure-actuelle').value = ship.structure_actuelle ?? (ship.structure_max ?? 100);
+    document.getElementById('ship-avantage').value           = ship.avantage ?? '';
+    document.getElementById('ship-contact-visuel').checked   = Boolean(ship.contact_visuel);
   }
 
   async _submitShipForm() {
@@ -737,13 +743,19 @@ class CombatSpatialApp {
     const combatId = form.dataset.combatId;
     const shipId   = form.dataset.shipId;
 
+    const fleet_ship_id = mode === 'add'
+      ? (document.getElementById('ship-fleet-select').value || null)
+      : null;
+
+    if (mode === 'add' && !fleet_ship_id) {
+      this._showError('Veuillez sélectionner un vaisseau depuis la flotte.');
+      return;
+    }
+
     const payload = {
-      nom:                document.getElementById('ship-nom').value.trim(),
       camp:               document.getElementById('ship-camp').value,
-      classe:             document.getElementById('ship-classe').value,
       trajectoire:        document.getElementById('ship-trajectoire').value,
       position_k:         Number(document.getElementById('ship-position').value),
-      structure_max:      Number(document.getElementById('ship-structure-max').value),
       structure_actuelle: Number(document.getElementById('ship-structure-actuelle').value),
       avantage:           document.getElementById('ship-avantage').value !== ''
                             ? Number(document.getElementById('ship-avantage').value)
@@ -751,7 +763,7 @@ class CombatSpatialApp {
       contact_visuel:     document.getElementById('ship-contact-visuel').checked,
     };
 
-    if (!payload.nom) return;
+    if (mode === 'add') payload.fleet_ship_id = fleet_ship_id;
 
     try {
       let res;

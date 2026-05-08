@@ -229,23 +229,26 @@
 
       <form id="form-ship" class="p-5 space-y-4">
 
-        <!-- Pré-remplissage depuis la flotte (mode add uniquement) -->
+        <!-- Sélection depuis la flotte (mode ajout uniquement) -->
         <div id="fleet-select-section" class="hidden">
-          <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Depuis la flotte</label>
-          <select id="ship-fleet-select"
+          <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Vaisseau *</label>
+          <select id="ship-fleet-select" required
             class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-gray-200">
-            <option value="">— Saisie manuelle —</option>
+            <option value="">— Sélectionner un vaisseau —</option>
           </select>
-          <p class="text-xs text-gray-500 mt-1">Sélectionner un vaisseau pré-remplit les champs ci-dessous.</p>
+          <!-- Aperçu stats du vaisseau sélectionné -->
+          <div id="fleet-ship-preview" class="hidden mt-2 px-3 py-2 rounded text-xs" style="background:var(--bg2);border:1px solid var(--border)">
+            <span id="preview-classe" class="font-medium mr-3"></span><span id="preview-coque" class="text-gray-400 mr-3"></span><span id="preview-senseurs" class="text-gray-400"></span>
+          </div>
+        </div>
+
+        <!-- Info vaisseau fixe (mode édition) -->
+        <div id="ship-info-section" class="hidden px-3 py-2 rounded text-sm" style="background:var(--bg2);border:1px solid var(--border)">
+          <p id="ship-info-nom" class="font-medium"></p>
+          <p id="ship-info-details" class="text-xs mt-0.5" style="color:var(--text-muted)"></p>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
-          <div class="col-span-2">
-            <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Nom *</label>
-            <input id="ship-nom" type="text" maxlength="80" required
-              class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500"
-              placeholder="Ex : La Comète Noire">
-          </div>
           <div>
             <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Camp</label>
             <select id="ship-camp"
@@ -253,16 +256,6 @@
               <option value="joueurs">Joueurs (vert)</option>
               <option value="ennemis">Ennemis (rouge)</option>
               <option value="neutres">Neutres (jaune)</option>
-            </select>
-          </div>
-          <div>
-            <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Classe</label>
-            <select id="ship-classe"
-              class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500">
-              <option value="chasseur">Chasseur (▲)</option>
-              <option value="frégate">Frégate (▬)</option>
-              <option value="croiseur">Croiseur (◆)</option>
-              <option value="inconnu">Inconnu (●)</option>
             </select>
           </div>
           <div>
@@ -280,18 +273,12 @@
               placeholder="200">
           </div>
           <div>
-            <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Structure max</label>
-            <input id="ship-structure-max" type="number" min="1"
-              class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500"
-              placeholder="100">
-          </div>
-          <div>
             <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Structure actuelle</label>
             <input id="ship-structure-actuelle" type="number" min="0"
               class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500"
               placeholder="100">
           </div>
-          <div>
+          <div class="col-span-2">
             <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Avantage (valeur)</label>
             <input id="ship-avantage" type="number" min="1"
               class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500"

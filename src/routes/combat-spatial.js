@@ -92,6 +92,7 @@ function parseShip(row) {
   return {
     id:                row.id,
     combat_id:         row.combat_id,
+    fleet_ship_id:     row.fleet_ship_id ?? null,
     ship_model_id:     row.ship_model_id ?? null,
     nom:               row.nom,
     camp:              row.camp,
@@ -110,9 +111,12 @@ function parseShip(row) {
 }
 
 const SHIP_WITH_MODEL_SQL = `
-  SELECT cs.*, sm.senseurs_k AS model_senseurs_k
+  SELECT cs.*,
+    COALESCE(sm.senseurs_k, sm_fleet.senseurs_k) AS model_senseurs_k
   FROM combat_ships cs
   LEFT JOIN ship_models sm ON sm.id = cs.ship_model_id
+  LEFT JOIN ships fleet_s ON fleet_s.id = cs.fleet_ship_id
+  LEFT JOIN ship_models sm_fleet ON sm_fleet.id = fleet_s.model_id
 `;
 
 function getShips(combatId) {
@@ -341,8 +345,40 @@ router.post('/:id/ships', (req, res) => {
   ).get(req.params.id, req.table.id);
   if (!combat) return notFound(res);
 
-  const { nom, camp, trajectoire, position_k, orientation, classe,
-          ship_model_id, structure_actuelle, structure_max } = req.body;
+  const { fleet_ship_id, camp, trajectoire, position_k, orientation,
+          avantage, contact_visuel, structure_actuelle } = req.body;
+
+  // Résoudre nom / classe / structure_max / ship_model_id depuis la flotte
+  let nom, classe, structure_max, ship_model_id;
+  if (fleet_ship_id) {
+    const fleetShip = db.prepare(`
+      SELECT s.nom, s.model_id,
+             COALESCE(LOWER(sm.classe), 'inconnu') AS classe,
+             COALESCE(sm.coque, 100)               AS coque
+      FROM ships s
+      LEFT JOIN ship_models sm ON sm.id = s.model_id
+      WHERE s.id = ? AND s.table_id = ? AND s.deleted_at IS NULL
+    `).get(fleet_ship_id, req.table.id);
+    if (!fleetShip) return notFound(res);
+    nom           = fleetShip.nom;
+    classe        = VALID_CLASSES.includes(fleetShip.classe) ? fleetShip.classe : 'inconnu';
+    structure_max = fleetShip.coque;
+    ship_model_id = fleetShip.model_id ?? null;
+  } else {
+    // Saisie manuelle (compatibilité descendante)
+    nom           = req.body.nom;
+    classe        = req.body.classe;
+    structure_max = req.body.structure_max ?? 100;
+    ship_model_id = req.body.ship_model_id ?? null;
+    if (!nom || !String(nom).trim()) return validationError(res, 'Le nom est requis');
+  }
+
+  const posRaw = Number(position_k);
+  const validPos = Number.isInteger(posRaw) && posRaw % 25 === 0 && posRaw >= -600 && posRaw <= 600
+    ? posRaw : 200;
+  const validStructMax = Number.isInteger(Number(structure_max)) ? Number(structure_max) : 100;
+  const validStructAct = Number.isInteger(Number(structure_actuelle))
+    ? Number(structure_actuelle) : validStructMax;
 
   const maxSort = db.prepare(
     `SELECT COALESCE(MAX(sort_order), -1) AS m FROM combat_ships WHERE combat_id = ?`
@@ -351,22 +387,23 @@ router.post('/:id/ships', (req, res) => {
   const shipId = randomUUID();
   db.prepare(`
     INSERT INTO combat_ships
-      (id, combat_id, ship_model_id, nom, camp, trajectoire, position_k,
-       orientation, classe, structure_actuelle, structure_max, senseurs_k, sort_order)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, combat_id, fleet_ship_id, ship_model_id, nom, camp, trajectoire, position_k,
+       orientation, classe, avantage, contact_visuel, structure_actuelle, structure_max, sort_order)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     shipId, req.params.id,
+    fleet_ship_id ?? null,
     ship_model_id ?? null,
     String(nom).trim(),
     VALID_CAMPS.includes(camp) ? camp : 'neutres',
     VALID_TRAJECTOIRES.includes(trajectoire) ? trajectoire : 'attaque',
-    pos,
+    validPos,
     VALID_ORIENTATIONS.includes(orientation) ? orientation : 'vers500',
     VALID_CLASSES.includes(classe) ? classe : 'inconnu',
-    Number.isInteger(Number(structure_actuelle)) ? Number(structure_actuelle)
-      : (Number.isInteger(Number(structure_max)) ? Number(structure_max) : 100),
-    Number.isInteger(Number(structure_max)) ? Number(structure_max) : 100,
-    sensK,
+    avantage !== undefined && avantage !== null ? Number(avantage) : null,
+    contact_visuel ? 1 : 0,
+    validStructAct,
+    validStructMax,
     maxSort + 1,
   );
 
