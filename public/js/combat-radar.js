@@ -563,7 +563,7 @@ export class CombatRadar {
   // vers500 = pointer vers le centre (0,0), vers0 = pointer vers l'extérieur
   _shipAngle(ship) {
     const sign     = ship.position_k >= 0 ? 1 : -1;
-    const toCenter = ship.orientation === 'vers500';
+    const toCenter = ship.orientation === 'vers0';
     if (ship.trajectoire === 'attaque') {
       // Axe horizontal : positif = droite, négatif = gauche
       // Pointer vers le centre depuis la droite  → gauche → 180°
