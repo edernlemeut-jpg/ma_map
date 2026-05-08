@@ -104,13 +104,16 @@
     .badge-archivee { color: #9ca3af; }
     .propagande-grid { display: grid; grid-template-columns: 1fr 1px 1fr; gap: 1.5rem; align-items: start; }
     .propagande-sep { width: 1px; background-color: #374151; height: 100%; }
-    @media (max-width: 639px) {
+    @media (max-width: 767px) {
       #sessions-panel { width: 100%; }
       #editor-pane { display: none; }
       #sessions-panel.mobile-hidden { display: none !important; }
       #editor-pane.mobile-visible { display: flex; flex-direction: column; }
       .propagande-grid { grid-template-columns: 1fr; }
       .propagande-sep { display: none; }
+      /* Onglets étapes scrollables */
+      .progress-steps-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .progress-step { white-space: nowrap; flex-shrink: 0; }
     }
   </style>
 </head>
@@ -254,7 +257,7 @@
         </div>
 
         <!-- Progress bar -->
-        <div class="flex border-b border-gray-700 mb-4">
+        <div class="progress-steps-bar flex border-b border-gray-700 mb-4">
           <div class="progress-step active" data-step="0">⚙ Paramétrage</div>
           <div class="progress-step" data-step="1">📋 Préparation</div>
           <div class="progress-step" data-step="2">⚡ Exécution</div>

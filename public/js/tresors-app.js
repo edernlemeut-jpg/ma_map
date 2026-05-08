@@ -485,6 +485,7 @@ function renderRightPanel() {
   if (!panel) return;
 
   if (!currentId) {
+    document.body.classList.remove('detail-open');
     panel.innerHTML = `
       <div class="flex flex-col items-center justify-center h-full text-gray-500 gap-4 py-20">
         <span class="text-5xl">🗺️</span>
@@ -498,6 +499,9 @@ function renderRightPanel() {
   if (!c) return;
 
   panel.innerHTML = `
+    <!-- Bouton retour mobile -->
+    <button class="mobile-back mb-3 text-sm text-blue-400 hover:text-blue-300" onclick="closeDetail()">&#8592; Mes chasses</button>
+
     <!-- Titre + actions -->
     <div class="flex items-start justify-between gap-2 mb-4">
       <div>
@@ -516,7 +520,7 @@ function renderRightPanel() {
     </div>
 
     <!-- Onglets -->
-    <div class="flex gap-1 mb-4 border-b border-gray-700 overflow-x-auto">
+    <div class="tab-bar flex gap-1 mb-4 border-b border-gray-700 overflow-x-auto">
       ${['chasse','carte','tresor','antre','gardiens','retours'].map(tab => `
         <button onclick="setTab('${tab}')" class="tab-btn whitespace-nowrap ${activeSideTab === tab ? 'active' : ''}" data-tab="${tab}">
           ${{ chasse:'📋 Chasse', carte:'🗺️ Carte', tresor:'💎 Trésor', antre:'🏛️ Antre', gardiens:'⚔️ Gardiens', retours:'🎲 Retours MF' }[tab]}
@@ -717,6 +721,14 @@ window.selectChasse = function(id) {
   renderList();
   renderRightPanel();
   renderMFPoolBar();
+  if (id) document.body.classList.add('detail-open'); // mobile
+};
+
+window.closeDetail = function() {
+  currentId = null;
+  document.body.classList.remove('detail-open');
+  renderList();
+  renderRightPanel();
 };
 
 window.setTab = function(tab) {

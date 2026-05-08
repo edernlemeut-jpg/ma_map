@@ -100,77 +100,125 @@ export class CombatRadar {
 
   // ── Création SVG ────────────────────────────────────────────────────────────
   _createSVG() {
-    const svg = document.createElementNS(CombatRadar.NS, 'svg');
+    const ns  = CombatRadar.NS;
+    const svg = document.createElementNS(ns, 'svg');
     svg.setAttribute('class', 'combat-radar-svg');
     svg.setAttribute('viewBox', `0 0 ${CombatRadar.W} ${CombatRadar.H}`);
-    svg.setAttribute('xmlns', CombatRadar.NS);
-    svg.style.width  = '100%';
-    svg.style.height = '100%';
-    svg.style.maxWidth  = `${CombatRadar.W}px`;
-    svg.style.maxHeight = `${CombatRadar.H}px`;
-    svg.style.display   = 'block';
-    svg.style.margin    = 'auto';
+    svg.setAttribute('xmlns', ns);
+    svg.style.width    = '100%';
+    svg.style.height   = '100%';
+    svg.style.display  = 'block';
+    svg.style.margin   = 'auto';
+
+    // ── Defs : gradient + clip-path ─────────────────────────────────────────
+    const defs = document.createElementNS(ns, 'defs');
+
+    // Radial gradient for radar face
+    const grad = document.createElementNS(ns, 'radialGradient');
+    grad.setAttribute('id', 'radarGrad');
+    grad.setAttribute('cx', '40%'); grad.setAttribute('cy', '38%');
+    grad.setAttribute('r',  '65%');
+    [['0%', '#1e3d18', '0.95'], ['60%', '#0d1d0a', '0.98'], ['100%', '#050905', '1']]
+      .forEach(([offset, color, opacity]) => {
+        const s = document.createElementNS(ns, 'stop');
+        s.setAttribute('offset',       offset);
+        s.setAttribute('stop-color',   color);
+        s.setAttribute('stop-opacity', opacity);
+        grad.appendChild(s);
+      });
+    defs.appendChild(grad);
+
+    // Clip-path : circle for grid/axes/ships
+    const clip = document.createElementNS(ns, 'clipPath');
+    clip.setAttribute('id', 'radarClip');
+    const clipCircle = document.createElementNS(ns, 'circle');
+    clipCircle.setAttribute('cx', '300'); clipCircle.setAttribute('cy', '300');
+    clipCircle.setAttribute('r',  '285');
+    clip.appendChild(clipCircle);
+    defs.appendChild(clip);
+
+    svg.appendChild(defs);
     return svg;
   }
 
   // ── Fond ────────────────────────────────────────────────────────────────────
   _drawBackground(svg) {
-    const rect = document.createElementNS(CombatRadar.NS, 'rect');
-    rect.setAttribute('width',  CombatRadar.W);
-    rect.setAttribute('height', CombatRadar.H);
-    rect.setAttribute('fill',   '#ffffff');
-    rect.setAttribute('rx',     '4');
-    svg.appendChild(rect);
+    const ns = CombatRadar.NS;
+    const el = (tag, attrs) => { const e = document.createElementNS(ns, tag); Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v)); return e; };
 
-    // Bordure style chaîne (double ligne avec petits tirets)
-    const border = document.createElementNS(CombatRadar.NS, 'rect');
-    border.setAttribute('x', 2); border.setAttribute('y', 2);
-    border.setAttribute('width',  CombatRadar.W - 4);
-    border.setAttribute('height', CombatRadar.H - 4);
-    border.setAttribute('fill',   'none');
-    border.setAttribute('stroke', '#1a5c2a');
-    border.setAttribute('stroke-width', '3');
-    border.setAttribute('stroke-dasharray', '8,4');
-    border.setAttribute('rx', '3');
-    svg.appendChild(border);
+    // Fond SVG noir
+    svg.appendChild(el('rect', { width: 600, height: 600, fill: '#070907' }));
+
+    // Cadre extérieur
+    svg.appendChild(el('rect', { x:3, y:3, width:594, height:594, fill:'none', stroke:'#1a2e16', 'stroke-width':'1.5', rx:'4' }));
+
+    // Face radar (gradient)
+    svg.appendChild(el('circle', { cx:300, cy:300, r:288, fill:'url(#radarGrad)' }));
+
+    // Anneau extérieur du radar
+    svg.appendChild(el('circle', { cx:300, cy:300, r:288, fill:'none', stroke:'#2a4a1e', 'stroke-width':'3' }));
+    svg.appendChild(el('circle', { cx:300, cy:300, r:284, fill:'none', stroke:'#1a3014', 'stroke-width':'1', 'stroke-opacity':'0.6' }));
+
+    // Titre BATTLEGRID
+    svg.appendChild(el('rect', { x:175, y:9, width:250, height:22, fill:'#0c150a', stroke:'#2a4a1e', 'stroke-width':'1', rx:'3' }));
+    const title = el('text', { x:300, y:25, 'text-anchor':'middle', 'font-family':'monospace', 'font-size':'11', 'letter-spacing':'4', fill:'#55cc22', 'font-weight':'bold' });
+    title.textContent = 'BATTLEGRID';
+    svg.appendChild(title);
+
+    // Scale indicator top-right
+    const scaleBox = el('rect', { x:486, y:9, width:106, height:16, fill:'#0c150a', stroke:'#2a4a1e', 'stroke-width':'1', rx:'2' });
+    svg.appendChild(scaleBox);
+    const scaleTxt = el('text', { x:539, y:21, 'text-anchor':'middle', 'font-family':'monospace', 'font-size':'9', fill:'#44bb00' });
+    scaleTxt.innerHTML = '◼ = 25 K';
+    svg.appendChild(scaleTxt);
+
+    // Coins mécaniques (4 bolts)
+    [[14,14],[586,14],[14,586],[586,586]].forEach(([cx,cy]) => {
+      svg.appendChild(el('circle', { cx, cy, r:7, fill:'#1a2a16', stroke:'#3a5030', 'stroke-width':'1.5' }));
+      svg.appendChild(el('circle', { cx, cy, r:3, fill:'#2a4020' }));
+      [[-5,0],[5,0],[0,-5],[0,5]].forEach(([dx,dy]) => {
+        const ln = el('line', { x1:cx+dx*0.4, y1:cy+dy*0.4, x2:cx+dx*0.9, y2:cy+dy*0.9, stroke:'#4a6040', 'stroke-width':'1' });
+        svg.appendChild(ln);
+      });
+    });
   }
 
   // ── Grille radiale ──────────────────────────────────────────────────────────
   _drawGrid(svg) {
-    const g = document.createElementNS(CombatRadar.NS, 'g');
-    g.setAttribute('class', 'grid-group');
+    const ns = CombatRadar.NS;
+    const g  = document.createElementNS(ns, 'g');
+    g.setAttribute('class',       'grid-group');
+    g.setAttribute('clip-path',   'url(#radarClip)');
 
     // Anneaux
     for (const { r } of CombatRadar.RINGS) {
-      const circle = document.createElementNS(CombatRadar.NS, 'circle');
+      const circle = document.createElementNS(ns, 'circle');
       circle.setAttribute('cx', CombatRadar.CX);
       circle.setAttribute('cy', CombatRadar.CY);
       circle.setAttribute('r',  r);
       circle.setAttribute('fill', 'none');
-      circle.setAttribute('stroke', '#1a5c2a');
-      circle.setAttribute('stroke-width', r === 300 ? '2' : '1');
-      circle.setAttribute('stroke-opacity', r === 300 ? '0.7' : '0.4');
+      circle.setAttribute('stroke', '#44bb00');
+      circle.setAttribute('stroke-width',   r === 300 ? '1.5' : '1');
+      circle.setAttribute('stroke-opacity', r === 300 ? '0.65' : '0.3');
       g.appendChild(circle);
     }
 
     // Graduations (ticks tous les 15px sur les 4 bras)
     for (let px = CombatRadar.PX_PER_25K; px <= 300; px += CombatRadar.PX_PER_25K) {
       const isMajor = (px === 60 || px === 150 || px === 300);
-      const tickLen = isMajor ? 6 : 4;
-      // 4 directions
+      const tickLen = isMajor ? 7 : 4;
       const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
       for (const [dx, dy] of dirs) {
-        const x = CombatRadar.CX + dx * px;
-        const y = CombatRadar.CY + dy * px;
-        // tick perpendiculaire à l'axe
+        const x  = CombatRadar.CX + dx * px;
+        const y  = CombatRadar.CY + dy * px;
         const tx = dy * tickLen;
         const ty = dx * tickLen;
-        const tick = document.createElementNS(CombatRadar.NS, 'line');
+        const tick = document.createElementNS(ns, 'line');
         tick.setAttribute('x1', x - tx); tick.setAttribute('y1', y - ty);
         tick.setAttribute('x2', x + tx); tick.setAttribute('y2', y + ty);
-        tick.setAttribute('stroke', '#1a5c2a');
-        tick.setAttribute('stroke-width', isMajor ? '1.5' : '1');
-        tick.setAttribute('stroke-opacity', '0.6');
+        tick.setAttribute('stroke',         '#44bb00');
+        tick.setAttribute('stroke-width',   isMajor ? '1.5' : '1');
+        tick.setAttribute('stroke-opacity', isMajor ? '0.7' : '0.35');
         g.appendChild(tick);
       }
     }
@@ -180,64 +228,64 @@ export class CombatRadar {
 
   // ── Axes ────────────────────────────────────────────────────────────────────
   _drawAxes(svg) {
-    const g = document.createElementNS(CombatRadar.NS, 'g');
-    g.setAttribute('class', 'axes-group');
+    const ns = CombatRadar.NS;
+    const g  = document.createElementNS(ns, 'g');
+    g.setAttribute('class',     'axes-group');
+    g.setAttribute('clip-path', 'url(#radarClip)');
 
     const lines = [
-      // Horizontal = trajectoire d'attaque
-      [10, CombatRadar.CY, CombatRadar.W - 10, CombatRadar.CY],
-      // Vertical = trajectoire d'interception
-      [CombatRadar.CX, 10, CombatRadar.CX, CombatRadar.H - 10],
+      [14, CombatRadar.CY, CombatRadar.W - 14, CombatRadar.CY],
+      [CombatRadar.CX, 14, CombatRadar.CX, CombatRadar.H - 14],
     ];
-    const labels = [
-      { x: CombatRadar.W - 8, y: CombatRadar.CY - 6, text: '→ attaque',     anchor: 'end' },
-      { x: CombatRadar.CX + 4, y: 22,                 text: '↑ interception', anchor: 'start' },
-    ];
-
     lines.forEach(([x1, y1, x2, y2]) => {
-      const line = document.createElementNS(CombatRadar.NS, 'line');
+      const line = document.createElementNS(ns, 'line');
       line.setAttribute('x1', x1); line.setAttribute('y1', y1);
       line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-      line.setAttribute('stroke', '#1a5c2a');
-      line.setAttribute('stroke-width', '1.5');
-      line.setAttribute('stroke-opacity', '0.8');
+      line.setAttribute('stroke',         '#44bb00');
+      line.setAttribute('stroke-width',   '1.5');
+      line.setAttribute('stroke-opacity', '0.75');
       g.appendChild(line);
     });
 
+    const labels = [
+      { x: CombatRadar.W - 20, y: CombatRadar.CY - 8, text: '→ attaque',      anchor: 'end'   },
+      { x: CombatRadar.CX + 6, y: 46,                  text: '↑ interception', anchor: 'start' },
+    ];
     labels.forEach(({ x, y, text, anchor }) => {
-      const t = document.createElementNS(CombatRadar.NS, 'text');
+      const t = document.createElementNS(ns, 'text');
       t.setAttribute('x', x); t.setAttribute('y', y);
-      t.setAttribute('font-size', '9');
-      t.setAttribute('fill', '#1a5c2a');
-      t.setAttribute('text-anchor', anchor);
-      t.setAttribute('font-family', 'monospace');
+      t.setAttribute('font-size',    '9');
+      t.setAttribute('fill',         '#66dd22');
+      t.setAttribute('text-anchor',  anchor);
+      t.setAttribute('font-family',  'monospace');
       t.textContent = text;
       g.appendChild(t);
     });
-
-    // Légende O-O = 25K
-    const legend = document.createElementNS(CombatRadar.NS, 'text');
-    legend.setAttribute('x', 14); legend.setAttribute('y', CombatRadar.H - 10);
-    legend.setAttribute('font-size', '9');
-    legend.setAttribute('fill', '#1a5c2a');
-    legend.setAttribute('font-family', 'monospace');
-    legend.textContent = 'O-O = 25K';
-    g.appendChild(legend);
 
     svg.appendChild(g);
   }
 
   // ── Labels des anneaux ──────────────────────────────────────────────────────
   _drawRingLabels(svg) {
-    const g = document.createElementNS(CombatRadar.NS, 'g');
-    g.setAttribute('class', 'ring-labels-group');
+    const ns = CombatRadar.NS;
+    const g  = document.createElementNS(ns, 'g');
+    g.setAttribute('class',     'ring-labels-group');
+    g.setAttribute('clip-path', 'url(#radarClip)');
 
     for (const { r, label } of CombatRadar.RINGS) {
-      const t = document.createElementNS(CombatRadar.NS, 'text');
+      // Background pill pour lisibilité
+      const bg = document.createElementNS(ns, 'rect');
+      bg.setAttribute('x', CombatRadar.CX + r + 2);
+      bg.setAttribute('y', CombatRadar.CY - 17);
+      bg.setAttribute('width', 32); bg.setAttribute('height', 12);
+      bg.setAttribute('fill', '#0d1d0a'); bg.setAttribute('rx', '2');
+      g.appendChild(bg);
+
+      const t = document.createElementNS(ns, 'text');
       t.setAttribute('x', CombatRadar.CX + r + 4);
-      t.setAttribute('y', CombatRadar.CY - 4);
-      t.setAttribute('font-size', '9');
-      t.setAttribute('fill', '#1a5c2a');
+      t.setAttribute('y', CombatRadar.CY - 8);
+      t.setAttribute('font-size',   '8');
+      t.setAttribute('fill',        '#55cc22');
       t.setAttribute('font-family', 'monospace');
       t.textContent = label;
       g.appendChild(t);
@@ -248,12 +296,17 @@ export class CombatRadar {
 
   // ── Point zéro ──────────────────────────────────────────────────────────────
   _drawCenter(svg) {
-    const circle = document.createElementNS(CombatRadar.NS, 'circle');
-    circle.setAttribute('cx', CombatRadar.CX);
-    circle.setAttribute('cy', CombatRadar.CY);
-    circle.setAttribute('r',  8);
-    circle.setAttribute('fill', '#1a5c2a');
-    svg.appendChild(circle);
+    const ns = CombatRadar.NS;
+    const el = (tag, attrs) => { const e = document.createElementNS(ns, tag); Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v)); return e; };
+    // Anneau cible externe
+    svg.appendChild(el('circle', { cx:300, cy:300, r:14, fill:'none', stroke:'#44bb00', 'stroke-width':'1', 'stroke-opacity':'0.5' }));
+    // Point central
+    svg.appendChild(el('circle', { cx:300, cy:300, r:5, fill:'#55cc22' }));
+    // Petites lignes en croix
+    svg.appendChild(el('line', { x1:288, y1:300, x2:294, y2:300, stroke:'#44bb00', 'stroke-width':'1.5', 'stroke-opacity':'0.8' }));
+    svg.appendChild(el('line', { x1:306, y1:300, x2:312, y2:300, stroke:'#44bb00', 'stroke-width':'1.5', 'stroke-opacity':'0.8' }));
+    svg.appendChild(el('line', { x1:300, y1:288, x2:300, y2:294, stroke:'#44bb00', 'stroke-width':'1.5', 'stroke-opacity':'0.8' }));
+    svg.appendChild(el('line', { x1:300, y1:306, x2:300, y2:312, stroke:'#44bb00', 'stroke-width':'1.5', 'stroke-opacity':'0.8' }));
   }
 
   // ── Lignes de contact visuel ─────────────────────────────────────────────────
@@ -342,7 +395,7 @@ export class CombatRadar {
     const posLabel = document.createElementNS(CombatRadar.NS, 'text');
     posLabel.setAttribute('x', 0); posLabel.setAttribute('y', 30);
     posLabel.setAttribute('font-size', '8');
-    posLabel.setAttribute('fill', '#6b7280');
+    posLabel.setAttribute('fill', '#3a8a20');
     posLabel.setAttribute('text-anchor', 'middle');
     posLabel.setAttribute('font-family', 'monospace');
     posLabel.textContent = `${ship.position_k}K`;

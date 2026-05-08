@@ -40,6 +40,31 @@
     #right-panel::-webkit-scrollbar { width: 4px; }
     #right-panel::-webkit-scrollbar-track { background: transparent; }
     #right-panel::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 2px; }
+
+    /* Bouton retour mobile (caché sur desktop) */
+    .mobile-back { display: none; }
+
+    /* ── Responsive mobile ───────────────────────────────── */
+    @media (max-width: 767px) {
+      main.flex { flex-direction: column !important; height: auto !important; overflow: visible !important; }
+
+      #chasse-sidebar {
+        width: 100% !important;
+        border-right: none !important;
+        border-bottom: 1px solid #374151;
+        max-height: 45vh;
+      }
+      #right-panel { display: none !important; }
+
+      body.detail-open #chasse-sidebar { display: none !important; }
+      body.detail-open #right-panel { display: flex !important; flex-direction: column; min-height: 100dvh; padding-bottom: 1rem; }
+
+      .mobile-back { display: inline-flex !important; align-items: center; gap: 0.4rem; }
+
+      /* Onglets scrollables sur mobile */
+      .tab-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap !important; }
+      .tab-btn { white-space: nowrap; flex-shrink: 0; }
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
@@ -48,10 +73,10 @@
   <header class="border-b border-gray-700 bg-gray-800 flex-shrink-0">
     <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <a href="/index.html" class="text-gray-400 hover:text-gray-200 text-sm">← Accueil</a>
-        <span class="text-gray-600">|</span>
-        <h1 class="font-bold text-amber-300">🗺️ Chasses au Trésor</h1>
-        <span class="text-xs text-gray-500">— Supplément TdM</span>
+        <a href="/"><img src="/images/logo.png" alt="Metal Adventures" class="ma-logo-img"></a>
+        <span style="color:var(--border)">|</span>
+        <h1 class="font-bold flex items-center gap-2" style="color:var(--gold);font-family:'Rajdhani',sans-serif;font-weight:700;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg> Chasses au Trésor</h1>
+        <span class="text-xs" style="color:var(--text-muted)">Supplément TdM</span>
       </div>
       <nav class="flex items-center gap-4 text-sm">
         <span id="header-table-info" class="hidden flex items-center gap-2 text-gray-300 border-r border-gray-600 pr-4 mr-2">
@@ -72,7 +97,7 @@
   <main class="flex-1 flex overflow-hidden" style="height: calc(100vh - 57px);">
 
     <!-- Colonne gauche : liste des chasses -->
-    <aside class="w-72 flex-shrink-0 border-r border-gray-700 flex flex-col bg-gray-850">
+    <aside id="chasse-sidebar" class="w-72 flex-shrink-0 border-r border-gray-700 flex flex-col bg-gray-850">
       <div class="p-4 border-b border-gray-700 flex items-center justify-between">
         <h2 class="font-semibold text-sm text-gray-200">Mes chasses</h2>
         <button id="btn-new-chasse" class="text-xs px-3 py-1.5 rounded btn-primary">+ Nouvelle</button>
@@ -174,5 +199,6 @@
   <div id="toast" class="hidden"></div>
 
   <script type="module" src="/js/tresors-app.js"></script>
+  <script type="module" src="/js/shared/nav-bar.js"></script>
 </body>
 </html>

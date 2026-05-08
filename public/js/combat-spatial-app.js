@@ -142,6 +142,7 @@ class CombatSpatialApp {
     // Afficher le panneau principal
     document.getElementById('panel-empty').classList.add('hidden');
     document.getElementById('panel-combat').classList.remove('hidden');
+    document.body.classList.add('detail-open'); // mobile : bascule vers détail
 
     // Titre + badge phase
     document.getElementById('combat-title').textContent = combat.nom;
@@ -379,6 +380,7 @@ class CombatSpatialApp {
       this._currentCombat = null;
       document.getElementById('panel-empty').classList.remove('hidden');
       document.getElementById('panel-combat').classList.add('hidden');
+      document.body.classList.remove('detail-open'); // mobile : retour liste
       await this._loadList();
     } catch (err) { this._showError(err.message); }
   }
