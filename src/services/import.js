@@ -1,10 +1,12 @@
 import db from '../database.js';
-import { mkdirSync } from 'fs';
+import { mkdirSync, readdirSync, unlinkSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { DB_PATH } from '../config/index.js';
 
+const BACKUP_KEEP = 10;
+
 /**
- * Backup the database before import.
+ * Backup the database before import, then prune old backups (keep BACKUP_KEEP most recent).
  * Returns the backup file path.
  */
 export async function backupDatabase() {
@@ -12,6 +14,16 @@ export async function backupDatabase() {
   mkdirSync(backupDir, { recursive: true });
   const backupPath = resolve(backupDir, `ma_backup_${Date.now()}.db`);
   await db.backup(backupPath);
+
+  // Rotate: keep only the BACKUP_KEEP most recent backups
+  const files = readdirSync(backupDir)
+    .filter(f => f.startsWith('ma_backup_') && f.endsWith('.db'))
+    .sort()
+    .reverse(); // newest first (timestamp in name)
+  for (const old of files.slice(BACKUP_KEEP)) {
+    try { unlinkSync(resolve(backupDir, old)); } catch { /* ignore */ }
+  }
+
   return backupPath;
 }
 

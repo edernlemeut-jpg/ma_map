@@ -7,5 +7,24 @@ playwright-results.txt
 test-results/
 public/uploads/
 .claude/
-
 uploads/
+
+# Données brutes / exports d'extraction
+_archive/
+donnee_base/
+ss_raw_pages.txt
+
+# Fichiers JSON de données sources (importés en DB, inutiles sur le repo)
+systems_data.json
+systems_data_export.json
+secondary_systems_data.json
+perils_data.json.bak
+characters_data.json
+
+# Artifacts BMAD
+_bmad-output/
+_bmad/
+
+# Divers
+.tmp_query.mjs
+src/database.js.bak

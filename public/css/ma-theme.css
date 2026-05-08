@@ -1,76 +1,173 @@
 /* =====================================================
-   Metal Adventures — Thème unifié (palette dorée)
-   Basé sur itineraire.html
+   Metal Adventures — Thème unifié v3
+   Palette : métal brossé, bronze doré, espace profond
+   Inspiré du logo officiel (crâne, sabres, métal)
    ===================================================== */
 
+@import url('/fonts/fonts.css');
+
+/* ── Tokens ─────────────────────────────────────────── */
 :root {
-  --gold:        #c8a464;
-  --gold-dim:    #9a7a3e;
-  --bg:          #1a1a1a;
-  --bg2:         #2c2c2c;
-  --bg3:         #383838;
-  --border:      #444;
-  --text:        #e0e0e0;
-  --text-light:  #f1f1f1;
-  --text-muted:  #888;
-  --primary:     #5bc0de;
-  --primary-dim: #3a9cbd;
-  --danger:      #d9534f;
-  --success:     #5cb85c;
-  --warning:     #f0ad4e;
+  /* Bronze / Doré */
+  --gold:          #c8943a;
+  --gold-bright:   #e8b454;
+  --gold-dim:      #8a6225;
+  --gold-glow:     rgba(200, 148, 58, 0.18);
+  /* Acier / Métal */
+  --steel:         #7a8494;
+  --rust:          #8b3a2a;
+  /* Fonds — espace profond */
+  --bg:            #161820;
+  --bg2:           #21242d;
+  --bg3:           #2d3140;
+  /* Bords */
+  --border:        #3a3e50;
+  /* Texte */
+  --text:          #dce1ec;
+  --text-light:    #f0f2f8;
+  --text-muted:    #7a7e92;
+  /* Actions */
+  --primary:       #5baad0;
+  --primary-dim:   #3a8ab0;
+  --danger:        #c44040;
+  --success:       #4a9e58;
+  --warning:       #d49040;
 }
 
-/* ---- Base ---- */
+/* ── Base ────────────────────────────────────────────── */
 body {
   background-color: var(--bg) !important;
   color: var(--text) !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
-/* ---- Header ---- */
-header {
-  background-color: var(--bg2) !important;
-  border-bottom-color: var(--gold) !important;
-  border-bottom-width: 2px !important;
+/* ── Typographie — Russo One pour titres ─────────────── */
+h1, h2, h3, .ma-display {
+  font-family: 'Russo One', sans-serif;
+  letter-spacing: 0.02em;
 }
-header h1,
+
+/* ── Logo image ──────────────────────────────────────── */
+.ma-logo-img {
+  height: 46px;
+  width: auto;
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+  transition: filter 0.2s ease;
+}
+.ma-logo-img:hover {
+  filter: drop-shadow(0 2px 14px rgba(200, 148, 58, 0.55)) brightness(1.1);
+}
+
+/* ── Header — panneau acier forgé ────────────────────── */
+header {
+  background: linear-gradient(180deg, var(--bg3) 0%, var(--bg2) 100%) !important;
+  border-bottom: 2px solid var(--gold) !important;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.6),
+              inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+}
+header h1 {
+  line-height: 1;
+  margin: 0;
+}
 header h1 a {
-  color: var(--gold) !important;
-  text-shadow: 0 1px 6px rgba(200,164,100,.25);
+  text-decoration: none;
+  display: block;
 }
 header nav a {
-  color: var(--primary) !important;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.05em;
 }
 
-/* ---- Tab navigation ---- */
-.tab-btn {
+/* ── Tab navigation — Rajdhani ───────────────────────── */
+.tab-btn, .cat-btn {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.78rem !important;
   color: var(--text-muted) !important;
   border-bottom: 2px solid transparent;
-  transition: color .15s, border-color .15s;
+  transition: color .15s, border-color .15s, background .15s;
 }
-.tab-btn:hover {
+.tab-btn:hover, .cat-btn:hover {
   color: var(--gold) !important;
   border-bottom-color: var(--gold-dim) !important;
-  background: rgba(200,164,100,.07) !important;
+  background: var(--gold-glow) !important;
 }
 .tab-btn.active-tab,
-.tab-btn[aria-selected="true"] {
+.tab-btn[aria-selected="true"],
+.tab-btn.active,
+.cat-btn.active {
   color: var(--gold) !important;
   border-bottom-color: var(--gold) !important;
-  background: rgba(200,164,100,.1) !important;
+  background: rgba(200, 148, 58, 0.12) !important;
 }
 
-/* ---- Cards & panels ---- */
-.bg-gray-800 { background-color: var(--bg2) !important; }
+/* ── Fonds & Panneaux ────────────────────────────────── */
+.bg-gray-900 { background-color: var(--bg)  !important; }
+.bg-gray-800 {
+  background: linear-gradient(160deg, var(--bg2) 0%, rgba(22, 24, 32, 0.95) 100%) !important;
+}
 .bg-gray-700 { background-color: var(--bg3) !important; }
-.bg-gray-900 { background-color: var(--bg) !important; }
-.border-gray-700 { border-color: var(--border) !important; }
 
-/* ---- Links ---- */
-a.text-blue-400 { color: var(--primary) !important; }
+/* Borders */
+.border-gray-700 { border-color: var(--border) !important; }
+.border-gray-600 { border-color: rgba(58, 62, 80, 0.8) !important; }
+
+/* Nav cards (index.html) — hover glow doré */
+a.bg-gray-800:hover,
+a.hover\:bg-gray-700:hover {
+  background: linear-gradient(160deg, var(--bg3) 0%, var(--bg2) 100%) !important;
+  border-color: var(--gold-dim) !important;
+  box-shadow: 0 0 20px var(--gold-glow), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Icônes SVG des cartes nav ───────────────────────── */
+.nav-card-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--gold);
+  opacity: 0.8;
+  flex-shrink: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+a:hover .nav-card-icon {
+  opacity: 1;
+  color: var(--gold-bright);
+}
+/* Titre des cartes nav */
+.nav-card-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  font-size: 1rem;
+}
+
+/* ── Links ───────────────────────────────────────────── */
+a.text-blue-400       { color: var(--primary)     !important; }
 a.text-blue-400:hover { color: var(--primary-dim) !important; }
 
-/* ---- Scrollbar ---- */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* ── Form controls ───────────────────────────────────── */
+input, select, textarea {
+  background-color: var(--bg3)    !important;
+  border-color:     var(--border) !important;
+  color:            var(--text)   !important;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--gold-dim) !important;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(200, 148, 58, 0.2) !important;
+}
+
+/* ── Alias couleurs ──────────────────────────────────── */
+.text-amber-300  { color: var(--gold)        !important; }
+.text-yellow-300 { color: var(--gold-bright) !important; }
+.text-green-300  { color: var(--gold)        !important; }
+
+/* ── Scrollbar ───────────────────────────────────────── */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }

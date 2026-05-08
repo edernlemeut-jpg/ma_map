@@ -17,6 +17,8 @@ db.pragma('journal_mode = WAL');
 db.pragma('busy_timeout = 5000');
 // Enable foreign key enforcement
 db.pragma('foreign_keys = ON');
+// Checkpoint WAL on startup to prevent unbounded growth
+db.pragma('wal_checkpoint(TRUNCATE)');
 
 // Lightweight runtime schema backfill for legacy DBs.
 function ensureGameTableSessionColumns() {
@@ -491,15 +493,6 @@ function ensureFigurantTemplates() {
   }
 }
 ensureFigurantTemplates();
-
-// ── Ships extensions (Satisfaction, Trésor, Capitaine) ───────────────────────
-function ensureShipsExtensions() {
-  const cols = new Set(db.prepare("PRAGMA table_info('ships')").all().map(c => c.name));
-  if (!cols.has('capitaine_id'))    db.exec("ALTER TABLE ships ADD COLUMN capitaine_id TEXT");
-  if (!cols.has('tresor'))          db.exec("ALTER TABLE ships ADD COLUMN tresor REAL DEFAULT 0");
-  if (!cols.has('crew_state_json')) db.exec("ALTER TABLE ships ADD COLUMN crew_state_json TEXT");
-}
-ensureShipsExtensions();
 
 // ── MF Pool ───────────────────────────────────────────────────────────────────
 function ensureMFPool() {

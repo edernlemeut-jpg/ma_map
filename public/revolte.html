@@ -6,7 +6,7 @@
   <title>Révolte — Metal Adventures</title>
   <link rel="stylesheet" href="/css/tailwind.css?v=2.0.0">
   <link rel="stylesheet" href="/css/ma-theme.css">
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+  <link href="/fonts/fonts.css" rel="stylesheet">
   <style>
     .revolte-fieldset {
       border: 1px solid #374151;
@@ -119,8 +119,8 @@
   <!-- Standard header -->
   <header class="border-b border-gray-700 bg-gray-800">
     <div class="max-w-full mx-auto px-4 py-3 flex items-center justify-between">
-      <h1 class="text-xl font-bold">
-        <a href="/" class="hover:text-blue-400 transition-colors">⚙️ Metal Adventures</a>
+      <h1>
+        <a href="/"><img src="/images/logo.png" alt="Metal Adventures" class="ma-logo-img"></a>
       </h1>
       <nav class="flex items-center gap-4 text-sm">
         <span id="header-table-info" class="hidden flex items-center gap-2 text-gray-300 border-r border-gray-600 pr-4 mr-2">
@@ -903,5 +903,6 @@
 
   <script type="module" src="/js/shared/cold-start.js?v=2.0.2"></script>
   <script type="module" src="/js/revolte/revolte-app.js?v=1.0.0"></script>
+  <script type="module" src="/js/shared/nav-bar.js"></script>
 </body>
 </html>
