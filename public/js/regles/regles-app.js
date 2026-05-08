@@ -40,7 +40,7 @@ const DOM = {
   placeholder:  () => $('detail-placeholder'),
   searchInput:  () => $('search-input'),
   searchClear:  () => $('search-clear'),
-  catNav:       () => $('cat-nav'),
+  catNav:       () => $('cat-sidebar'),
   btnAdd:       () => $('btn-add'),
   modalOverlay: () => $('modal-overlay'),
   modalBody:    () => $('modal-body'),
@@ -261,8 +261,8 @@ function activateCategory(cat) {
   DOM.catNav().querySelectorAll('.cat-btn').forEach(btn => {
     const active = btn.dataset.cat === cat;
     btn.className = [
-      'cat-btn px-3 py-2 text-sm rounded-t-md min-h-[40px] transition-colors',
-      active ? 'bg-gray-700 text-white font-semibold border-b-2 border-blue-500' : 'text-gray-400 hover:text-gray-200',
+      'cat-btn w-full text-left px-3 py-2 text-sm flex items-center gap-2 rounded-lg transition-colors',
+      active ? 'bg-gray-700 text-gray-100 font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800',
     ].join(' ');
   });
   applyFilter();

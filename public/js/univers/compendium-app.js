@@ -284,12 +284,12 @@ function renderApp() {
 
   if (totalCount === 0 && !state.isMJ && !state.isAdmin) {
     $('empty-global').classList.remove('hidden');
-    $('tab-nav').classList.add('hidden');
+    $('univers-sidebar').classList.add('hidden');
     return;
   }
 
   $('empty-global').classList.add('hidden');
-  $('tab-nav').classList.remove('hidden');
+  $('univers-sidebar').classList.remove('hidden');
 
   // Tab buttons
   setupTabNav();
@@ -321,16 +321,16 @@ function openTableSwitcher() {
 }
 
 function setupTabNav() {
-  const nav = $('tab-nav');
+  const nav = $('univers-sidebar');
   if (!nav) return;
   nav.querySelectorAll('.tab-btn').forEach(btn => {
     const tab = btn.dataset.tab;
     const isActive = tab === state.activeTab;
     const wasHidden = btn.classList.contains('hidden');
-    btn.className = `tab-btn px-4 py-3 text-sm font-medium rounded-t-lg min-h-[44px] min-w-[44px] relative transition-colors ${
+    btn.className = `tab-btn w-full text-left px-3 py-2 text-sm flex items-center gap-2 rounded-lg transition-colors ${
       isActive
-        ? 'bg-gray-800 text-gray-100 border border-gray-700 border-b-transparent -mb-px'
-        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+        ? 'bg-gray-700 text-gray-100 font-medium'
+        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
     }${wasHidden ? ' hidden' : ''}`;
 
     // Badge
@@ -2167,12 +2167,12 @@ function exitSearchMode() {
   state.searchMode = false;
   state.searchResults = [];
   $('search-results').classList.add('hidden');
-  $('tab-nav').classList.remove('hidden');
+  $('univers-sidebar').classList.remove('hidden');
   renderActiveTab();
 }
 
 function updateSearchUI() {
-  $('tab-nav').classList.add('hidden');
+  $('univers-sidebar').classList.add('hidden');
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
   $('search-results').classList.remove('hidden');
   $('empty-global').classList.add('hidden');
