@@ -513,6 +513,11 @@ async function loadSessionList() {
   const filter = document.getElementById('session-filter')?.value || '';
   const url = '/api/revolte' + (filter ? `?status=${filter}` : '');
   const sessions = await apiFetch(url).catch(() => []);
+  // Pre-parse state_json for dot indicators
+  sessions.forEach(s => {
+    try { s._cachedState = typeof s.state_json === 'string' ? JSON.parse(s.state_json) : (s.state_json || null); }
+    catch (_) { s._cachedState = null; }
+  });
   renderSessionList(sessions);
 }
 
@@ -529,6 +534,7 @@ function renderSessionList(sessions) {
     const isActive = s.id === currentSessionId;
     const typeColor = TYPE_COLORS[s.type] || 'text-gray-400';
     const location  = s.location_ref ? `<div class="text-xs text-gray-500 mt-0.5 font-mono truncate">${escHtml(s.location_ref)}</div>` : '';
+    const stepDots  = renderStepDots(s);
     return `
       <div class="session-item p-2 rounded cursor-pointer select-none ${isActive ? 'active-session' : ''}"
            data-id="${s.id}">
@@ -537,7 +543,10 @@ function renderSessionList(sessions) {
           <span class="text-xs ${typeColor} flex-shrink-0">${TYPE_LABELS[s.type] || s.type}</span>
         </div>
         ${location}
-        <div class="text-xs badge-${s.status} mt-1">${STATUS_LABELS[s.status] || s.status}</div>
+        <div class="flex items-center justify-between mt-1">
+          <div class="text-xs badge-${s.status}">${STATUS_LABELS[s.status] || s.status}</div>
+          ${stepDots}
+        </div>
       </div>
     `;
   }).join('');
@@ -545,6 +554,81 @@ function renderSessionList(sessions) {
   container.querySelectorAll('.session-item').forEach(el => {
     el.addEventListener('click', () => selectSession(el.dataset.id));
   });
+}
+
+/** Render 3 step-dot indicators for a session (from its state_json or current state). */
+function renderStepDots(session) {
+  const st = (session.id === currentSessionId) ? state : (session._cachedState || null);
+  if (!st) return '';
+
+  const type = st.revolteType || 'emeute';
+  const dots = [1, 2, 3].map(stepIdx => {
+    const status = getStepStatus(st, type, stepIdx);
+    const colors = { done: '#4ade80', partial: '#5bc0de', empty: '#4b5563', fail: '#f87171' };
+    const titles = { done: `Étape ${stepIdx} réussie`, partial: `Étape ${stepIdx} en cours`, empty: `Étape ${stepIdx} non commencée`, fail: `Étape ${stepIdx} échouée` };
+    return `<span title="${titles[status]}" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${colors[status]};margin-left:2px;"></span>`;
+  }).join('');
+  return `<div class="step-dots flex items-center gap-0">${dots}</div>`;
+}
+
+/** Compute step completion status for a given state/type/stepIndex. */
+function getStepStatus(st, type, stepIdx) {
+  const malus = 0; // simplified for sidebar — no PD malus computation needed
+  const sec   = st.securitePlanetaire || 0;
+
+  if (type === 'emeute') {
+    if (stepIdx === 1) {
+      const v = (st.emeute?.empathieSucces || 0) + (st.emeute?.tactiqueSucces || 0);
+      return v > 0 ? 'partial' : 'empty';
+    }
+    if (stepIdx === 2) {
+      const d = st.emeute?.discoursSucces || 0;
+      if (d === 0) return 'empty';
+      return d >= sec ? 'done' : 'fail';
+    }
+    if (stepIdx === 3) return (st.emeute?.discoursSucces || 0) >= sec ? 'done' : 'empty';
+  }
+  if (type === 'festive') {
+    if (stepIdx === 1) {
+      const v = (st.festive?.rassemblementTestSucces || 0) + (st.festive?.preparerLieuTestSucces || 0);
+      return v > 0 ? 'partial' : 'empty';
+    }
+    if (stepIdx === 2) {
+      const d = st.festive?.appelFestiveSucces || 0;
+      if (d === 0) return 'empty';
+      const invD = { 10: 1, 100: 3, 1000: 5, 10000: 8 };
+      const diff = invD[st.festive?.nbInvites || 10] || 1;
+      return d >= diff ? 'done' : 'fail';
+    }
+    if (stepIdx === 3) return (st.festive?.estReussie) ? 'done' : 'empty';
+  }
+  if (type === 'mutinerie') {
+    if (stepIdx === 1) {
+      const v = (st.mutinerie?.eloquencePoste || 0) + (st.mutinerie?.eloquenceCambuse || 0);
+      return v > 0 ? 'partial' : 'empty';
+    }
+    if (stepIdx === 2) {
+      const d = st.mutinerie?.appelSucces || 0;
+      const diff = parseInt(st.mutinerie?.location, 10) || 1;
+      if (d === 0) return 'empty';
+      return d >= diff ? 'done' : 'fail';
+    }
+    if (stepIdx === 3) return (st.mutinerie?.appelSucces || 0) >= (parseInt(st.mutinerie?.location, 10) || 1) ? 'done' : 'empty';
+  }
+  if (type === 'revolution') {
+    const rev = st.revolution || {};
+    if (stepIdx === 1) {
+      const v = (rev.recrutementSucces || 0) + (rev.sensibilisation?.discours || 0);
+      return v > 0 ? 'partial' : 'empty';
+    }
+    if (stepIdx === 2) {
+      const d = rev.execution?.appelSucces || 0;
+      if (d === 0) return 'empty';
+      return d >= sec ? 'done' : 'fail';
+    }
+    if (stepIdx === 3) return (rev.execution?.appelSucces || 0) >= sec ? 'done' : 'empty';
+  }
+  return 'empty';
 }
 
 /** Deep-merge a loaded state with defaultState() to fill any missing sub-objects. */
@@ -825,20 +909,24 @@ function navigateTo(stepIndex) {
   stepsC?.classList.toggle('hidden', isP);
 
   if (!isP) {
-    const type = state.revolteType;
-    ['emeute', 'festive', 'mutinerie', 'revolution'].forEach(t => {
-      document.getElementById(`${t}-container`)?.classList.toggle('hidden', t !== type);
+    // Show correct step panel (tracker-first: unified step-content-N)
+    [1, 2, 3].forEach(n => {
+      document.getElementById(`step-content-${n}`)?.classList.toggle('hidden', n !== stepIndex);
     });
-    const container = document.getElementById(`${type}-container`);
-    if (container) {
-      container.querySelectorAll('.step-content').forEach(el => {
-        el.classList.toggle('hidden', parseInt(el.dataset.stepId, 10) !== stepIndex);
-      });
-    }
+    // Apply type filter on tracker rows and type blocks
+    applyTypeFilter(state.revolteType);
   }
 
   updateUI();
   scheduleAutosave();
+}
+
+/** Show/hide .tracker-row and .tracker-type-block elements based on revolteType. */
+function applyTypeFilter(type) {
+  document.querySelectorAll('[data-types]').forEach(el => {
+    const types = el.dataset.types ? el.dataset.types.split(',') : [];
+    el.classList.toggle('hidden', types.length > 0 && !types.includes(type));
+  });
 }
 
 // ── UI Update ──────────────────────────────────────────────────────────────────
@@ -868,6 +956,7 @@ function updateUI() {
 
   buildLocationUI();
   updateGlobalSettingsUI();
+  applyTypeFilter(type);
 
   // Coût révolution (dépend du scope)
   if (type === 'revolution') {
@@ -884,7 +973,7 @@ function updateUI() {
     if (type === 'mutinerie')   updateMutinerieUI();
     if (type === 'festive')     updateFestiveUI();
     if (type === 'revolution') {
-      if (state.currentStepIndex === 1) updateRevolutionPrepUI();
+      updateRevolutionPrepUI();
       if (state.currentStepIndex === 2) updateRevolutionExecutionUI();
       if (state.currentStepIndex === 3) updateRevolutionCelebrationUI();
     }
@@ -908,6 +997,33 @@ function getPdRequiredSpan() {
 function setInnerHTML(id, html) {
   const el = document.getElementById(id);
   if (el) el.innerHTML = html;
+}
+
+/** Update .tracker-diff-badge with diff label and optional bonus dice. */
+function setDiffBadge(id, diff, bonusDice = 0) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  let label = diff > 0 ? `diff ${diff}` : (diff === 0 ? 'auto' : '—');
+  if (bonusDice > 0) label += ` +${bonusDice}d`;
+  el.textContent = label;
+}
+
+/** Update .tracker-status span for an input row. */
+function setTrackerStatus(inputId, succesValue, diffValue) {
+  const el = document.getElementById(`${inputId}-status`);
+  if (!el) return;
+  const v = parseInt(succesValue, 10) || 0;
+  const d = parseInt(diffValue, 10) || 0;
+  if (v === 0) {
+    el.textContent = '—';
+    el.className = 'tracker-status';
+  } else if (v >= d) {
+    el.textContent = '✅';
+    el.className = 'tracker-status success';
+  } else {
+    el.textContent = '❌';
+    el.className = 'tracker-status failure';
+  }
 }
 
 function updateGlobalSettingsUI() {
@@ -957,24 +1073,27 @@ function updateEmeuteUI() {
   const totalPreparationBonus = pdBonusPreparation + propagandeBonus;
   const securite = state.securitePlanetaire;
 
-  if (state.currentStepIndex === 1) {
-    const empathieDiff  = 1 + malus;
-    const tactiqueDiff  = 1 + malus;
-    setInnerHTML('empathieTestLabel', `Empathie (${empathieDiff})${getBonusDiceSpan(totalPreparationBonus)}`);
-    setInnerHTML('tactiqueTestLabel', `Tactique (${tactiqueDiff})${getBonusDiceSpan(totalPreparationBonus)}`);
-    const mfBonusTactique = Math.max(0, state.emeute.tactiqueSucces - tactiqueDiff);
-    setInnerHTML('emeutePreparationResult',
-      `Bonus au test d'Éloquence : <strong>+${Math.max(0, state.emeute.empathieSucces - empathieDiff)}d</strong><br>` +
-      `Coût du Retour de Flamme (Sécurité) : <strong>+${mfBonusTactique}d MF</strong>.`
-    );
-  }
+  const empathieDiff  = 1 + malus;
+  const tactiqueDiff  = 1 + malus;
+  setDiffBadge('empathieDiffBadge',  empathieDiff,  totalPreparationBonus);
+  setDiffBadge('tactiqueDiffBadge',  tactiqueDiff,  totalPreparationBonus);
+  setInnerHTML('empathieTestLabel', `Empathie`);
+  setInnerHTML('tactiqueTestLabel', `Tactique`);
+  setTrackerStatus('empathieTestInput', state.emeute.empathieSucces, empathieDiff);
+  setTrackerStatus('tactiqueTestInput', state.emeute.tactiqueSucces, tactiqueDiff);
+  const mfBonusTactique = Math.max(0, state.emeute.tactiqueSucces - tactiqueDiff);
+  setInnerHTML('emeutePreparationResult',
+    `Bonus au test d'Éloquence : <strong>+${Math.max(0, state.emeute.empathieSucces - empathieDiff)}d</strong><br>` +
+    `Coût du Retour de Flamme (Sécurité) : <strong>+${mfBonusTactique}d MF</strong>.`
+  );
 
   if (state.currentStepIndex === 2) {
-    const empathieDiff       = 1 + malus;
     const etatEspritBonus    = Math.max(0, state.emeute.empathieSucces - empathieDiff);
     const totalExecutionBonus = pdBonusExecution + etatEspritBonus + propagandeBonus;
     const discoursDiff       = securite + malus;
-    setInnerHTML('discoursTestLabel', `Eloquence (vs ${discoursDiff})${getBonusDiceSpan(totalExecutionBonus)}`);
+    setDiffBadge('discoursDiffBadge', discoursDiff, totalExecutionBonus);
+    setInnerHTML('discoursTestLabel', `Éloquence (Discours)`);
+    setTrackerStatus('discoursTestInput', state.emeute.discoursSucces, discoursDiff);
     const discoursReussi = state.emeute.discoursSucces >= discoursDiff;
     if (discoursReussi) {
       const succesExc = state.emeute.discoursSucces - discoursDiff;
@@ -1020,54 +1139,53 @@ function updateFestiveUI() {
   };
   const invitesData = nbInvitesData[state.festive.nbInvites] || nbInvitesData[10];
 
-  if (state.currentStepIndex === 1) {
-    let autorisationDiff = 0;
-    const autorisationGroup = document.querySelector('#autorisationTestSucces')?.closest('.input-group, div');
-    if (state.festive.lieuFete === 'vaisseau_nature') {
-      autorisationGroup?.classList.add('hidden');
-    } else {
-      autorisationDiff = securite + malus;
-      autorisationGroup?.classList.remove('hidden');
-    }
-    const autorisationSkill = state.festive.lieuFete === 'lieu_illegale' ? 'Illégalités' : 'Étiquette';
-
-    const preparationDiff  = invitesData.diff + malus;
-    const rassemblementDiff = 3 + malus;
-
-    setInnerHTML('autorisationTestLabel',    `Test d'autorisation : ${autorisationSkill} (${autorisationDiff})${getBonusDiceSpan(totalPreparationBonus)}`);
-    setInnerHTML('rassemblementTestLabel',   `Test de rassemblement : Étiquette (${rassemblementDiff})${getBonusDiceSpan(totalPreparationBonus)}`);
-    setInnerHTML('preparerLieuTestLabel',    `Test de préparation du lieu : Environnement (${preparationDiff})${getBonusDiceSpan(totalPreparationBonus)}`);
-    document.getElementById('recruterTestGroup')?.classList.add('hidden');
-
-    const rassemblementSuccesExc = Math.max(0, state.festive.rassemblementTestSucces - rassemblementDiff);
-    const rassemblementReussi    = rassemblementSuccesExc >= invitesData.diff;
-    const prepaLieuReussi        = state.festive.preparerLieuTestSucces >= preparationDiff;
-    const autorisationReussie    = state.festive.lieuFete === 'vaisseau_nature' || state.festive.autorisationTestSucces >= autorisationDiff;
-
-    let prepResultText = `Matériel acheté : <strong>${invitesData.cout.toLocaleString('fr-FR')} Ø</strong>.<br>`;
-    prepResultText += `Préparation du lieu : ${prepaLieuReussi ? '<span class="text-green-400">Réussi</span>' : '<span class="text-red-400">Échec</span>'}.<br>`;
-    prepResultText += `Rassemblement des invités : ${rassemblementReussi ? '<span class="text-green-400">Réussi</span>' : '<span class="text-red-400">Échec</span>'}.<br>`;
-    if (state.festive.lieuFete !== 'vaisseau_nature') {
-      prepResultText += `Obtention de l'autorisation : ${autorisationReussie ? '<span class="text-green-400">Réussi</span>' : '<span class="text-red-400">Échec</span>'}.<br>`;
-    }
-    prepResultText += `<hr class="my-2 border-gray-600"><strong>Recruter des invités de marque :</strong> ` +
-      `Pour chaque invité, faire un test d'Étiquette (${3 + malus}) ou Illégalités (${3 + malus}). ` +
-      `L'invité ne viendra que si sa Gloire minimum est strictement inférieure à la Difficulté (${invitesData.gloire_diff}).`;
-    setInnerHTML('prepaFestiveDetails', prepResultText);
-
-    const preparationComplete = autorisationReussie && prepaLieuReussi && rassemblementReussi;
-    setInnerHTML('festivePrepResult',
-      preparationComplete
-        ? '<strong class="text-green-400">Préparation complète ! Vous pouvez passer à l\'exécution.</strong>'
-        : '<strong class="text-red-400">Préparation incomplète.</strong>'
-    );
+  // Step 1 prep calcs (always update badges even if on step 2/3 for sidebar)
+  let autorisationDiff = 0;
+  const autorisationRow = document.getElementById('autorisationRow');
+  if (state.festive.lieuFete === 'vaisseau_nature') {
+    autorisationRow?.classList.add('hidden');
+  } else {
+    autorisationDiff = securite + malus;
+    autorisationRow?.classList.remove('hidden');
   }
+  const autorisationSkill = state.festive.lieuFete === 'lieu_illegale' ? 'Illégalités' : 'Étiquette';
+
+  const preparationDiff   = invitesData.diff + malus;
+  const rassemblementDiff = 3 + malus;
+
+  setInnerHTML('autorisationTestLabel',  autorisationSkill);
+  setInnerHTML('rassemblementTestLabel', 'Rassemblement');
+  setInnerHTML('preparerLieuTestLabel',  'Préparer le lieu');
+  setDiffBadge('autorisationDiffBadge',  autorisationDiff,  totalPreparationBonus);
+  setDiffBadge('rassemblementDiffBadge', rassemblementDiff, totalPreparationBonus);
+  setDiffBadge('preparerLieuDiffBadge',  preparationDiff,   totalPreparationBonus);
+
+  setTrackerStatus('autorisationTestSucces',  state.festive.autorisationTestSucces,  autorisationDiff);
+  setTrackerStatus('rassemblementTestSucces', state.festive.rassemblementTestSucces, rassemblementDiff);
+  setTrackerStatus('preparerLieuTestSucces',  state.festive.preparerLieuTestSucces,  preparationDiff);
+
+  const rassemblementSuccesExc = Math.max(0, state.festive.rassemblementTestSucces - rassemblementDiff);
+  const rassemblementReussi    = rassemblementSuccesExc >= invitesData.diff;
+  const prepaLieuReussi        = state.festive.preparerLieuTestSucces >= preparationDiff;
+  const autorisationReussie    = state.festive.lieuFete === 'vaisseau_nature' || state.festive.autorisationTestSucces >= autorisationDiff;
+
+  // prepaFestiveResult = coût + résumé lieu
+  setInnerHTML('prepaFestiveResult', `Matériel acheté : <strong>${invitesData.cout.toLocaleString('fr-FR')} Ø</strong>.`);
+
+  let prepResultText = `Préparation du lieu : ${prepaLieuReussi ? '<span class="text-green-400">Réussi</span>' : '<span class="text-red-400">Échec</span>'}.<br>`;
+  prepResultText += `Rassemblement des invités : ${rassemblementReussi ? '<span class="text-green-400">Réussi</span>' : '<span class="text-red-400">Échec</span>'}.<br>`;
+  if (state.festive.lieuFete !== 'vaisseau_nature') {
+    prepResultText += `Obtention de l'autorisation : ${autorisationReussie ? '<span class="text-green-400">Réussi</span>' : '<span class="text-red-400">Échec</span>'}.<br>`;
+  }
+  prepResultText += `<hr class="my-2 border-gray-600"><strong>Recruter des invités de marque :</strong> ` +
+    `Étiquette ou Illégalités (${3 + malus}). Gloire min &lt; ${invitesData.gloire_diff}.`;
+  setInnerHTML('prepaFestiveDetails', prepResultText);
 
   if (state.currentStepIndex === 2) {
     const appelDiff = invitesData.diff + malus;
-    setInnerHTML('appelFestiveLabel',
-      `Appel à la Révolution : Eloquence (${appelDiff})${getBonusDiceSpan(totalExecutionBonus)}${getPdRequiredSpan()}`
-    );
+    setInnerHTML('appelFestiveLabel', `Appel Révolution Festive`);
+    setDiffBadge('appelFestiveDiffBadge', appelDiff, totalExecutionBonus);
+    setTrackerStatus('appelFestiveSucces', state.festive.appelFestiveSucces, appelDiff);
     const appelReussi = state.festive.appelFestiveSucces >= appelDiff;
     state.festive.estReussie = appelReussi;
     setInnerHTML('festiveExecutionResult',
@@ -1101,7 +1219,13 @@ function updateMutinerieUI() {
     `Coût pour déclencher : <strong>${tonnageCosts[s.tonnage] ?? 1} PP</strong> (dépense).`
   );
 
-  if (state.currentStepIndex === 1) {
+  // Tracker badges (always visible)
+  setTrackerStatus('mutinerieEloquencePoste',   s.eloquencePoste,   3);
+  setTrackerStatus('mutinerieEloquenceCambuse', s.eloquenceCambuse, 2);
+  setTrackerStatus('mutinerieDiscretion',       s.discretion,       1);
+  setTrackerStatus('mutinerieTactique',         s.tactique,         3);
+
+  if (state.currentStepIndex >= 1) {
     const mutinsPoste   = Math.max(0, s.eloquencePoste   - 3);
     const mutinsCambuse = Math.max(0, s.eloquenceCambuse - 2);
     const totalMutins   = mutinsPoste + mutinsCambuse;
@@ -1121,7 +1245,9 @@ function updateMutinerieUI() {
 
   if (state.currentStepIndex === 2) {
     const appelDiff = parseInt(s.location, 10) || 1;
-    setInnerHTML('mutinerieAppelLabel', `Appel à la mutinerie (Eloquence vs ${appelDiff})`);
+    setInnerHTML('mutinerieAppelLabel', `Appel à la Mutinerie`);
+    setDiffBadge('mutinerieAppelDiffBadge', appelDiff);
+    setTrackerStatus('mutinerieAppelSucces', s.appelSucces, appelDiff);
     const succesExc = Math.max(0, s.appelSucces - appelDiff);
     const duree = 5 * succesExc;
     setInnerHTML('mutinerieExecutionResult',
@@ -1227,7 +1353,9 @@ function updateRevolutionPrepUI() {
   // 3. Insurgents
   const securite = state.securitePlanetaire;
   const recrutementDiff = securite + totalPrepMalus;
-  setInnerHTML('recrutementLabel', `Recrutement : Éloquence (${recrutementDiff + prepBonus})`);
+  setInnerHTML('recrutementLabel', `Recrutement (Éloquence)`);
+  setDiffBadge('recrutementDiffBadge', recrutementDiff, prepBonus);
+  setTrackerStatus('recrutementSucces', rev.recrutementSucces, recrutementDiff);
 
   const recruitedSections     = Math.max(0, rev.recrutementSucces - recrutementDiff);
   const totalInsurgentSections = rev.currentSections + recruitedSections;
@@ -1275,9 +1403,15 @@ function updateRevolutionPrepUI() {
   const discoursDiff      = securite + totalPrepMalus;
   const tractsDiff        = securite + totalPrepMalus;
   const comprehensionDiff = 3 + totalPrepMalus;
-  setInnerHTML('discoursPeupleLabel',      `Discours de rue : Éloquence (${discoursDiff + prepBonus})`);
-  setInnerHTML('tractsPeupleLabel',        `Tracts et affiches : Propagande (${tractsDiff + prepBonus})`);
-  setInnerHTML('comprehensionPeupleLabel', `Compréhension du peuple : Sciences Solaires (${comprehensionDiff + prepBonus})`);
+  setInnerHTML('discoursPeupleLabel',      `Discours de rue`);
+  setInnerHTML('tractsPeupleLabel',        `Tracts et affiches`);
+  setInnerHTML('comprehensionPeupleLabel', `Compréhension du peuple`);
+  setDiffBadge('discoursPeupleDiffBadge',      discoursDiff,      prepBonus);
+  setDiffBadge('tractsPeupleDiffBadge',        tractsDiff,        prepBonus);
+  setDiffBadge('comprehensionPeupleDiffBadge', comprehensionDiff, prepBonus);
+  setTrackerStatus('discoursPeupleSucces',      rev.sensibilisation.discours,      discoursDiff);
+  setTrackerStatus('tractsPeupleSucces',        rev.sensibilisation.tracts,        tractsDiff);
+  setTrackerStatus('comprehensionPeupleSucces', rev.sensibilisation.comprehension, comprehensionDiff);
 
   const totalSensBonus = Math.max(0, rev.sensibilisation.discours     - discoursDiff)
                        + Math.max(0, rev.sensibilisation.tracts       - tractsDiff)
@@ -1376,9 +1510,9 @@ function updateRevolutionExecutionUI() {
   const totalExecBonus   = pdBonusExecution + state.propagande.bonusJets + execBonusAllies + totalSensBonus;
   const appelDiff        = securite + malus;
 
-  setInnerHTML('appelRevolteLabel',
-    `Appel à la Révolte : Éloquence (${appelDiff + totalExecBonus})${getPdRequiredSpan()}`
-  );
+  setInnerHTML('appelRevolteLabel', `Appel à la Révolte`);
+  setDiffBadge('appelRevolteDiffBadge', appelDiff, totalExecBonus);
+  setTrackerStatus('appelRevolteSucces', rev.execution.appelSucces, appelDiff);
   setInnerHTML('appelRevolteResult',
     rev.execution.appelSucces >= appelDiff
       ? `<span class="text-green-400">Réussi !</span> L'insurrection commence !`
@@ -1394,9 +1528,9 @@ function updateRevolutionExecutionUI() {
     else if (capturedCount > 0)                redditionDiff = 'TD';
   }
 
-  setInnerHTML('intimidationRedditionLabel',
-    `Reddition des Autorités : Intimidation (${redditionDiff === 'TD' ? 'TD' : redditionDiff + totalExecBonus})`
-  );
+  setInnerHTML('intimidationRedditionLabel', `Reddition des Autorités`);
+  setDiffBadge('intimidationDiffBadge', redditionDiff === 'TD' ? 'TD' : redditionDiff, totalExecBonus);
+  setTrackerStatus('intimidationRedditionSucces', rev.execution.intimidationSucces, redditionDiff === 'TD' ? securite + malus + 1 : redditionDiff);
 
   let redditionText = 'En attente du résultat...';
   if (redditionDiff === 0) {
@@ -1433,9 +1567,10 @@ function updateRevolutionCelebrationUI() {
     if (currentVal && candidates.some(c => c.nom === currentVal)) selectEl.value = currentVal;
   }
 
-  setInnerHTML('sciencesSolairesLabel',
-    `Prévoir les conséquences : Sciences Solaires (${3 + state.propagande.bonusJets})`
-  );
+  const sciencesDiff = 3;
+  setInnerHTML('sciencesSolairesLabel', `Sciences Solaires`);
+  setDiffBadge('sciencesSolairsDiffBadge', sciencesDiff, state.propagande.bonusJets);
+  setTrackerStatus('sciencesSolairesSucces', rev.celebration.sciencesSolairesSucces, sciencesDiff);
 
   let ppGain = 0, pgGain = 0;
   switch (rev.scope) {
