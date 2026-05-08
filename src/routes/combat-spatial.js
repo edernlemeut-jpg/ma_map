@@ -35,7 +35,7 @@ const VALID_TRAJECTOIRES = ['attaque', 'interception'];
 const VALID_ORIENTATIONS = ['vers0', 'vers500'];
 const VALID_CLASSES = ['chasseur', 'frégate', 'croiseur', 'inconnu'];
 
-// Transition de phase : ordre imposé, irréversible
+// Transition de phase — bidirectionnelle en cas de retour (avec flag force)
 const PHASE_ORDER = { approche: 0, tournoyant: 1, poursuite: 2, abordage: 3 };
 
 // Positions initiales selon configuration (paires [trajectoire, position_k])
@@ -228,11 +228,13 @@ router.patch('/:id', (req, res) => {
 
   if (phase !== undefined) {
     if (!VALID_PHASES.includes(phase)) return validationError(res, `Phase invalide : ${phase}`);
-    // Transition irréversible
-    if (PHASE_ORDER[phase] < PHASE_ORDER[existing.phase]) {
-      return validationError(res, `Impossible de revenir à la phase "${phase}" depuis "${existing.phase}"`);
+    const isRegression = PHASE_ORDER[phase] < PHASE_ORDER[existing.phase];
+    const force = req.body.force === true;
+    if (isRegression && !force) {
+      return validationError(res, `Utilisez force:true pour revenir à la phase "${phase}"`);
     }
     updates.phase = phase;
+    updates._journal_action = isRegression ? `retour_phase:${existing.phase}:${phase}` : `avance_phase:${existing.phase}:${phase}`;
   }
   if (statut !== undefined) {
     if (!VALID_STATUTS.includes(statut)) return validationError(res, `Statut invalide : ${statut}`);
@@ -260,9 +262,57 @@ router.patch('/:id', (req, res) => {
 
   if (Object.keys(updates).length === 0) return validationError(res, 'Aucun champ à mettre à jour');
 
+  // Handle journal side-effects for phase transitions (separate from DB column updates)
+  const journalAction = updates._journal_action;
+  delete updates._journal_action;
+
   const sets = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+
+  // If a phase transition, update journal_json in the same write
+  if (journalAction) {
+    let journal = [];
+    try { journal = existing.journal_json ? JSON.parse(existing.journal_json) : []; } catch { /* ok */ }
+
+    const [direction, fromPhase, toPhase] = journalAction.split(':');
+
+    if (direction === 'retour_phase') {
+      // Prune: find the last __phase_transition__ entry that corresponds to the transition INTO fromPhase
+      // i.e. the entry with action '__phase_transition__' and note containing `→ fromPhase`
+      const markerPattern = `→ ${fromPhase}`;
+      let cutIdx = -1;
+      for (let i = journal.length - 1; i >= 0; i--) {
+        if (journal[i].action === '__phase_transition__' && journal[i].note?.includes(markerPattern)) {
+          cutIdx = i;
+          break;
+        }
+      }
+      if (cutIdx !== -1) {
+        journal = journal.slice(0, cutIdx); // remove marker + everything after
+      }
+      // Add a "retour arrière" marker
+      journal.push({
+        id:     Date.now(),
+        ts:     new Date().toISOString(),
+        action: '__phase_transition__',
+        acteur: null,
+        note:   `⟵ Retour arrière : ${fromPhase} → ${toPhase}`,
+      });
+    } else {
+      // Forward: add a transition marker
+      journal.push({
+        id:     Date.now(),
+        ts:     new Date().toISOString(),
+        action: '__phase_transition__',
+        acteur: null,
+        note:   `Phase : ${fromPhase} → ${toPhase}`,
+      });
+    }
+    updates.journal_json = JSON.stringify(journal);
+  }
+
+  const setsWithJournal = Object.keys(updates).map(k => `${k} = ?`).join(', ');
   db.prepare(
-    `UPDATE combats_spatiaux SET ${sets}, updated_at = datetime('now') WHERE id = ?`
+    `UPDATE combats_spatiaux SET ${setsWithJournal}, updated_at = datetime('now') WHERE id = ?`
   ).run(...Object.values(updates), existing.id);
 
   const row = db.prepare('SELECT * FROM combats_spatiaux WHERE id = ?').get(existing.id);

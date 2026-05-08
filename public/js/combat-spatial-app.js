@@ -139,29 +139,158 @@ class CombatSpatialApp {
   }
 
   _renderCombat(combat) {
-    // Afficher le panneau principal
     document.getElementById('panel-empty').classList.add('hidden');
     document.getElementById('panel-combat').classList.remove('hidden');
-    document.body.classList.add('detail-open'); // mobile : bascule vers détail
+    document.body.classList.add('detail-open');
 
-    // Titre + badge phase
     document.getElementById('combat-title').textContent = combat.nom;
     this._renderPhaseBadge(combat.phase);
     document.getElementById('combat-config').textContent = this._configLabel(combat.configuration);
     document.getElementById('combat-champ').textContent  = this._champLabel(combat.champ_bataille);
 
-    // Contrôles MJ
     this._renderMJControls(combat);
+    this._renderPhaseBody(combat);   // phase-first: creates radar-container + ship-list + Écart
+    this._renderJournal(combat.journal ?? []);
+  }
 
-    // Radar
+  // ── Phase-first body ──────────────────────────────────────────────────────────
+  _renderPhaseBody(combat) {
+    const phaseBody = document.getElementById('phase-body');
+    const ships = combat.vaisseaux ?? [];
+    const phase = combat.phase;
+
+    const shipSidebarHtml = `
+      <aside class="w-64 flex-shrink-0 border-l border-gray-700 flex flex-col">
+        <div class="p-3 border-b border-gray-700">
+          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Vaisseaux</h3>
+        </div>
+        <div id="ship-list" class="flex-1 overflow-y-auto p-3 space-y-2 text-sm"></div>
+      </aside>`;
+
+    const legendHtml = `
+      <div class="flex items-center gap-6 justify-center text-xs text-gray-400">
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-green-500 inline-block"></span> Joueurs</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-red-500 inline-block"></span> Ennemis</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-yellow-500 inline-block"></span> Neutres</span>
+        <span class="flex items-center gap-1 text-gray-500">Ligne tiretée = contact visuel</span>
+      </div>`;
+
+    const radarWrapHtml = `
+      <div id="radar-container" class="w-full aspect-square max-w-[600px] mx-auto"></div>
+      ${legendHtml}`;
+
+    if (phase === 'approche') {
+      phaseBody.innerHTML = `
+        <div class="flex-1 p-4 flex flex-col gap-4 overflow-y-auto">
+          ${radarWrapHtml}
+          <div class="p-3 rounded-lg text-sm" style="background:var(--bg2);border:1px solid var(--border)">
+            <p class="text-xs font-semibold uppercase tracking-wide mb-1.5" style="color:var(--gold)">Phase : Approche</p>
+            <p class="text-xs leading-relaxed" style="color:var(--text-muted)">Vaisseaux <strong>invisibles</strong> à l'œil nu — senseurs uniquement. Le <strong>Pilote</strong> annonce sa vitesse (multiple de 25K, min 25K). Les autres rôles attendent.<br>Action clé : <strong>Engagement</strong> pour passer en Combat Tournoyant (diff = distance ÷ 25).</p>
+          </div>
+        </div>
+        ${shipSidebarHtml}`;
+    } else if (phase === 'tournoyant') {
+      phaseBody.innerHTML = `
+        <div class="flex-1 p-4 flex flex-col gap-4 overflow-y-auto">
+          ${radarWrapHtml}
+        </div>
+        ${shipSidebarHtml}`;
+    } else if (phase === 'poursuite') {
+      phaseBody.innerHTML = `
+        <div class="flex-1 p-4 flex flex-col gap-4 overflow-y-auto">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wide mb-3" style="color:var(--gold)">Phase : Poursuite</p>
+            ${this._renderEcartCounter(ships)}
+          </div>
+          ${radarWrapHtml}
+        </div>
+        ${shipSidebarHtml}`;
+    } else { // abordage
+      phaseBody.innerHTML = `
+        <div class="flex-1 p-4 flex flex-col gap-4 overflow-y-auto">
+          ${radarWrapHtml}
+          <div class="p-3 rounded-lg text-sm" style="background:rgba(139,0,0,0.15);border:1px solid #6b0000">
+            <p class="text-xs font-semibold uppercase tracking-wide mb-1.5 text-red-400">Phase : Abordage</p>
+            <p class="text-xs leading-relaxed" style="color:var(--text-muted)">Fusiliers à bord du vaisseau adverse. Combat personnel en parallèle. Action spéciale : <strong>Stella Special</strong> (amarrage en vol — TD opposé).</p>
+          </div>
+        </div>
+        ${shipSidebarHtml}`;
+    }
+
+    // Avantage banner — visible uniquement en Tournoyant
+    const banner = document.getElementById('avantage-banner');
+    if (banner) {
+      banner.classList.toggle('hidden', phase !== 'tournoyant');
+      this._renderAvantageBanner(ships);
+    }
+
+    // Re-initialiser le radar avec le nouveau container (recréé dans le innerHTML)
+    this._radar = new CombatRadar(document.getElementById('radar-container'));
     this._radar.render(combat);
     this._radar.setEditable(this._mj && combat.statut === 'en_cours');
 
-    // Liste vaisseaux (panneau latéral bas)
-    this._renderShipList(combat.vaisseaux ?? []);
+    // Re-binder les événements radar sur le nouveau container
+    this._bindRadarEvents();
 
-    // Journal
-    this._renderJournal(combat.journal ?? []);
+    // Remplir la liste vaisseaux dans le nouveau #ship-list
+    this._renderShipList(ships);
+  }
+
+  _renderAvantageBanner(ships) {
+    const container = document.getElementById('avantage-banner-ships');
+    if (!container) return;
+    const active = ships.filter(s => s.avantage != null && !s.destroyed);
+    if (active.length === 0) {
+      container.innerHTML = '<span class="text-xs italic" style="color:var(--text-muted)">Aucun avantage actif</span>';
+      return;
+    }
+    const dotColor = { joueurs: '#4ade80', ennemis: '#f87171', neutres: '#facc15' };
+    container.innerHTML = active.map(s => `
+      <div class="flex items-center gap-1.5 px-2.5 py-1 rounded" style="background:rgba(200,148,58,0.1);border:1px solid var(--border)">
+        <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${dotColor[s.camp] ?? '#9ca3af'}"></span>
+        <span class="text-xs font-medium" style="color:var(--text)">${this._esc(s.nom)}</span>
+        <span class="text-xs font-bold ml-1" style="color:var(--gold)">AVT ${s.avantage}</span>
+      </div>`).join('');
+  }
+
+  _renderEcartCounter(ships) {
+    const active = ships.filter(s => !s.destroyed);
+    if (active.length < 2) {
+      return `<p class="text-xs italic" style="color:var(--text-muted)">Ajoutez au moins 2 vaisseaux pour visualiser l'Écart.</p>`;
+    }
+    const positions = active.map(s => s.position_k);
+    const minPos = Math.min(...positions);
+    const maxPos = Math.max(...positions);
+    const ecart  = maxPos - minPos;
+    const scale  = Math.max(300, maxPos + 100 - Math.min(0, minPos));
+    const normalize = p => ((p - minPos) / scale) * 100;
+    const dotColor = { joueurs: '#4ade80', ennemis: '#f87171', neutres: '#facc15' };
+
+    const markers = active.map(s => {
+      const pct = normalize(s.position_k);
+      const color = dotColor[s.camp] ?? '#9ca3af';
+      return `
+        <div class="absolute flex flex-col items-center" style="left:${pct}%;transform:translateX(-50%);top:0">
+          <span style="font-size:0.6rem;color:${color};max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this._esc(s.nom)}</span>
+          <div class="w-3 h-3 rounded-full border-2 border-white mt-1" style="background:${color}"></div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="p-4 rounded-lg" style="background:var(--bg2);border:1px solid var(--border)">
+        <div class="relative w-full" style="height:60px">
+          <div class="absolute left-0 right-0 h-1.5 rounded-full" style="top:38px;background:var(--bg3);border:1px solid var(--border)">
+            <div class="absolute h-full rounded-full" style="background:rgba(200,148,58,0.35);width:${Math.min(100, (ecart / scale) * 100)}%"></div>
+          </div>
+          ${markers}
+        </div>
+        <div class="flex justify-between text-xs mt-2" style="color:var(--text-muted)">
+          <span>0K — Réengagement</span>
+          <span class="font-bold" style="color:var(--gold)">Écart : ${ecart}K</span>
+          <span>→ Liberté</span>
+        </div>
+        <p class="text-xs mt-1.5 italic" style="color:var(--text-muted)">Écart = 0 → réengagement en Tournoyant · Écart &gt; portée senseurs → vaisseau libre.</p>
+      </div>`;
   }
 
   _renderPhaseBadge(phase) {
@@ -176,12 +305,21 @@ class CombatSpatialApp {
     const controls = document.getElementById('mj-controls');
     if (!this._mj) { controls.innerHTML = ''; return; }
 
-    const nextPhase = PHASES[PHASE_ORDER[combat.phase] + 1];
+    const phaseIdx   = PHASE_ORDER[combat.phase];
+    const nextPhase  = PHASES[phaseIdx + 1];
+    const prevPhase  = PHASES[phaseIdx - 1];
     const canAdvance = Boolean(nextPhase) && combat.statut === 'en_cours';
-    const canResolve = this._mj && combat.statut === 'en_cours';
+    const canRegress = Boolean(prevPhase) && combat.statut === 'en_cours';
+    const canResolve = combat.statut === 'en_cours';
 
     controls.innerHTML = `
       <div class="flex flex-wrap gap-2">
+        ${canRegress ? `
+          <button id="btn-prev-phase"
+            class="px-3 py-1.5 rounded text-xs font-medium bg-gray-700 hover:bg-gray-600 text-gray-200"
+            title="Revenir à la phase précédente (annule le journal de cette phase)">
+            ← ${PHASE_LABELS[prevPhase]}
+          </button>` : ''}
         ${canAdvance ? `
           <button id="btn-next-phase"
             class="px-3 py-1.5 rounded text-xs font-medium bg-blue-700 hover:bg-blue-600 text-white">
@@ -198,10 +336,15 @@ class CombatSpatialApp {
           </button>` : ''}
         <button id="btn-delete-combat"
           class="px-3 py-1.5 rounded text-xs font-medium bg-red-900 hover:bg-red-800 text-white ml-auto">
-          Supprimer combat
+          Supprimer
         </button>
       </div>`;
 
+    if (canRegress) {
+      document.getElementById('btn-prev-phase').addEventListener('click', () => {
+        this._regressPhase(combat.id, prevPhase);
+      });
+    }
     if (canAdvance) {
       document.getElementById('btn-next-phase').addEventListener('click', () => {
         this._advancePhase(combat.id, nextPhase);
@@ -261,40 +404,38 @@ class CombatSpatialApp {
 
   // ── Binding événements ────────────────────────────────────────────────────────
   _bindEvents() {
-    // Bouton nouveau combat
     const btnNew = document.getElementById('btn-new-combat');
     if (btnNew) btnNew.addEventListener('click', () => this._openNewCombatModal());
 
-    // Fermer modaux
     document.getElementById('modal-close').addEventListener('click', () => this._closeModal('combat-modal'));
     document.getElementById('modal-ship-close').addEventListener('click', () => this._closeModal('ship-modal'));
 
-    // Formulaire nouveau combat
     document.getElementById('form-new-combat').addEventListener('submit', async (e) => {
       e.preventDefault();
       await this._createCombat();
     });
 
-    // Formulaire vaisseau
     document.getElementById('form-ship').addEventListener('submit', async (e) => {
       e.preventDefault();
       await this._submitShipForm();
     });
 
-    // Journal entries depuis le résolveur
     document.addEventListener('journal-entry', (e) => {
       if (e.detail.combatId === this._currentCombat?.id) {
         this._prependJournalEntry(e.detail.entry);
       }
     });
+    // Note: radar events are bound in _bindRadarEvents() after each _renderPhaseBody()
+  }
 
-    // Drag-drop radar
+  // Rebind radar drag/select events after phase-body re-render (container is recreated)
+  _bindRadarEvents() {
     const radarEl = document.getElementById('radar-container');
+    if (!radarEl) return;
     radarEl.addEventListener('ship-moved', async (e) => {
       const { shipId, trajectoire, position_k } = e.detail;
       await this._moveShip(shipId, trajectoire, position_k);
     });
-
     radarEl.addEventListener('ship-selected', (e) => {
       if (this._mj && this._currentCombat?.statut === 'en_cours') {
         this._openEditShipModal(e.detail.shipId);
@@ -323,7 +464,23 @@ class CombatSpatialApp {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? res.statusText);
+      this._currentCombat = json.data;
+      this._renderCombat(json.data);
+      await this._loadList();
+    } catch (err) { this._showError(err.message); }
+  }
 
+  async _regressPhase(combatId, prevPhase) {
+    const label = PHASE_LABELS[prevPhase] ?? prevPhase;
+    if (!confirm(`Revenir à la phase « ${label} » ?\nLes entrées du journal depuis la dernière transition seront supprimées.`)) return;
+    try {
+      const res = await fetchWithTable(`/api/combat-spatial/${combatId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phase: prevPhase, force: true }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? res.statusText);
       this._currentCombat = json.data;
       this._renderCombat(json.data);
       await this._loadList();
@@ -561,6 +718,14 @@ class CombatSpatialApp {
 
   _buildJournalItem(e) {
     const li = document.createElement('li');
+    // Phase transition entries get a distinct style
+    if (e.action === '__phase_transition__') {
+      li.className = 'px-3 py-1.5 rounded text-xs flex items-center gap-2';
+      li.style.cssText = 'background:rgba(200,148,58,0.08);border:1px solid var(--gold-dim);color:var(--gold)';
+      const ts = e.ts ? new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—';
+      li.innerHTML = `<span class="font-mono" style="color:var(--text-muted)">[${ts}]</span> <span>${this._esc(e.note ?? e.action)}</span>`;
+      return li;
+    }
     li.className = 'px-3 py-2 rounded border border-gray-700 text-sm space-y-0.5';
 
     const ts     = e.ts ? new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—';
