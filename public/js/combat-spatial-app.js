@@ -69,6 +69,22 @@ function _setTrajectoire(traj) {
   document.getElementById('traj-icon').textContent  = meta.icon;
 }
 
+function _setContactVisuel(val) {
+  const active = Boolean(val);
+  document.getElementById('ship-contact-visuel').value = active ? '1' : '0';
+  const btn = document.getElementById('ship-cv-toggle');
+  document.getElementById('cv-icon').textContent  = active ? '●' : '○';
+  document.getElementById('cv-label').textContent = active ? 'Contact visuel confirmé' : 'Pas de contact visuel';
+  btn.style.borderColor      = active ? '#c8943a' : 'var(--border)';
+  btn.style.color            = active ? '#c8943a' : 'var(--text-muted)';
+  btn.style.backgroundColor  = active ? 'rgba(200,148,58,0.12)' : 'transparent';
+}
+
+function _setStructMax(max) {
+  const hint = document.getElementById('struct-max-hint');
+  hint.textContent = max ? `/ ${max}` : '';
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 class CombatSpatialApp {
@@ -519,6 +535,12 @@ class CombatSpatialApp {
       const current = document.getElementById('ship-trajectoire').value;
       _setTrajectoire(current === 'attaque' ? 'interception' : 'attaque');
     });
+
+    // Toggle contact visuel
+    document.getElementById('ship-cv-toggle').addEventListener('click', () => {
+      const current = document.getElementById('ship-contact-visuel').value;
+      _setContactVisuel(current !== '1');
+    });
   }
 
   // Rebind radar drag/select events after phase-body re-render (container is recreated)
@@ -764,15 +786,17 @@ class CombatSpatialApp {
     // Pré-remplir structure_actuelle avec la coque max par défaut
     const coqueMax = s.model?.coque ?? 100;
     document.getElementById('ship-structure-actuelle').value = coqueMax;
+    _setStructMax(coqueMax);
   }
 
   _populateShipForm(ship) {
     _setCamp(ship.camp ?? 'joueurs');
     _setTrajectoire(ship.trajectoire ?? 'attaque');
+    _setContactVisuel(ship.contact_visuel);
+    _setStructMax(ship.structure_max ?? null);
     document.getElementById('ship-position').value           = ship.position_k ?? 200;
     document.getElementById('ship-structure-actuelle').value = ship.structure_actuelle ?? (ship.structure_max ?? 100);
     document.getElementById('ship-avantage').value           = ship.avantage ?? '';
-    document.getElementById('ship-contact-visuel').checked   = Boolean(ship.contact_visuel);
   }
 
   async _submitShipForm() {
@@ -798,7 +822,7 @@ class CombatSpatialApp {
       avantage:           document.getElementById('ship-avantage').value !== ''
                             ? Number(document.getElementById('ship-avantage').value)
                             : null,
-      contact_visuel:     document.getElementById('ship-contact-visuel').checked,
+      contact_visuel:     document.getElementById('ship-contact-visuel').value === '1',
     };
 
     if (mode === 'add') payload.fleet_ship_id = fleet_ship_id;
