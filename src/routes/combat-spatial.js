@@ -104,7 +104,9 @@ function parseShip(row) {
     contact_visuel:    Boolean(row.contact_visuel),
     structure_actuelle: row.structure_actuelle,
     structure_max:     row.structure_max,
-    senseurs_k:        row.model_senseurs_k ?? null,
+    senseurs_k:        row.model_senseurs_k != null
+                         ? (parseInt(String(row.model_senseurs_k), 10) || null)
+                         : null,
     destroyed:         Boolean(row.destroyed),
     sort_order:        row.sort_order,
   };
