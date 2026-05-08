@@ -56,6 +56,19 @@ function _setCamp(camp) {
   });
 }
 
+const TRAJ_META = {
+  attaque:      { label: 'Attaque',      hint: 'axe horizontal', icon: '↔' },
+  interception: { label: 'Interception', hint: 'axe vertical',   icon: '↕' },
+};
+
+function _setTrajectoire(traj) {
+  document.getElementById('ship-trajectoire').value = traj;
+  const meta = TRAJ_META[traj] ?? TRAJ_META.attaque;
+  document.getElementById('traj-label').textContent = meta.label;
+  document.getElementById('traj-hint').textContent  = meta.hint;
+  document.getElementById('traj-icon').textContent  = meta.icon;
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
 class CombatSpatialApp {
@@ -500,6 +513,12 @@ class CombatSpatialApp {
       const btn = e.target.closest('[data-camp]');
       if (btn) _setCamp(btn.dataset.camp);
     });
+
+    // Toggle trajectoire
+    document.getElementById('ship-trajectoire-toggle').addEventListener('click', () => {
+      const current = document.getElementById('ship-trajectoire').value;
+      _setTrajectoire(current === 'attaque' ? 'interception' : 'attaque');
+    });
   }
 
   // Rebind radar drag/select events after phase-body re-render (container is recreated)
@@ -749,7 +768,7 @@ class CombatSpatialApp {
 
   _populateShipForm(ship) {
     _setCamp(ship.camp ?? 'joueurs');
-    document.getElementById('ship-trajectoire').value        = ship.trajectoire ?? 'attaque';
+    _setTrajectoire(ship.trajectoire ?? 'attaque');
     document.getElementById('ship-position').value           = ship.position_k ?? 200;
     document.getElementById('ship-structure-actuelle').value = ship.structure_actuelle ?? (ship.structure_max ?? 100);
     document.getElementById('ship-avantage').value           = ship.avantage ?? '';

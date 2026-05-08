@@ -266,11 +266,14 @@
           </div>
           <div>
             <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Trajectoire</label>
-            <select id="ship-trajectoire"
-              class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500">
-              <option value="attaque">Attaque (axe horizontal)</option>
-              <option value="interception">Interception (axe vertical)</option>
-            </select>
+            <input type="hidden" id="ship-trajectoire" value="attaque">
+            <button type="button" id="ship-trajectoire-toggle"
+              class="w-full py-2 rounded text-sm font-medium border-2 transition-all flex items-center justify-between px-3"
+              style="border-color:var(--primary);color:var(--primary);background:transparent">
+              <span id="traj-icon" class="text-base">&#x2194;</span>
+              <span id="traj-label">Attaque</span>
+              <span class="text-xs opacity-60" id="traj-hint">axe horizontal</span>
+            </button>
           </div>
           <div>
             <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Position (K)</label>
