@@ -275,17 +275,16 @@
               <span class="text-xs opacity-60" id="traj-hint">axe horizontal</span>
             </button>
           </div>
-          <div class="col-span-2">
+          <div>
             <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Orientation</label>
             <input type="hidden" id="ship-orientation" value="vers500">
-            <div id="ship-orientation-buttons" class="flex gap-2">
-              <button type="button" data-orient="vers0"
-                class="orient-btn flex-1 py-2 rounded text-sm font-medium border-2 transition-all"
-                style="border-color:#5baad0;color:#5baad0">↙ En approche</button>
-              <button type="button" data-orient="vers500"
-                class="orient-btn flex-1 py-2 rounded text-sm font-medium border-2 transition-all"
-                style="border-color:#c8943a;color:#c8943a">En fuite ↗</button>
-            </div>
+            <button type="button" id="ship-orientation-toggle"
+              class="w-full py-2 rounded text-sm font-medium border-2 transition-all flex items-center justify-between px-3"
+              style="border-color:var(--primary);color:var(--primary);background:transparent">
+              <span id="orient-icon" class="text-base">↗</span>
+              <span id="orient-label">En fuite</span>
+              <span class="text-xs opacity-60" id="orient-hint">vers 500K</span>
+            </button>
           </div>
           <div>
             <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Position (K)</label>

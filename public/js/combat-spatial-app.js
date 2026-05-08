@@ -80,17 +80,18 @@ function _setContactVisuel(val) {
   btn.style.backgroundColor  = active ? 'rgba(200,148,58,0.12)' : 'transparent';
 }
 
-const ORIENT_COLORS = { vers0: '#5baad0', vers500: '#c8943a' };
+const ORIENT_META = {
+  vers500: { label: 'En fuite',    hint: 'vers 500K', icon: '↗' },
+  vers0:   { label: 'En approche', hint: 'vers 0K',   icon: '↙' },
+};
 
 function _setOrientation(orient) {
-  document.getElementById('ship-orientation').value = orient ?? 'vers500';
-  document.querySelectorAll('#ship-orientation-buttons .orient-btn').forEach(btn => {
-    const active = btn.dataset.orient === (orient ?? 'vers500');
-    const color  = ORIENT_COLORS[btn.dataset.orient] ?? '#888';
-    btn.style.backgroundColor = active ? color : 'transparent';
-    btn.style.color            = active ? '#fff' : color;
-    btn.style.borderColor      = color;
-  });
+  const o    = orient ?? 'vers500';
+  const meta = ORIENT_META[o] ?? ORIENT_META.vers500;
+  document.getElementById('ship-orientation').value       = o;
+  document.getElementById('orient-icon').textContent      = meta.icon;
+  document.getElementById('orient-label').textContent     = meta.label;
+  document.getElementById('orient-hint').textContent      = meta.hint;
 }
 
 function _setStructMax(max) {
@@ -549,10 +550,10 @@ class CombatSpatialApp {
       _setTrajectoire(current === 'attaque' ? 'interception' : 'attaque');
     });
 
-    // Boutons d'orientation
-    document.getElementById('ship-orientation-buttons').addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-orient]');
-      if (btn) _setOrientation(btn.dataset.orient);
+    // Toggle orientation
+    document.getElementById('ship-orientation-toggle').addEventListener('click', () => {
+      const current = document.getElementById('ship-orientation').value;
+      _setOrientation(current === 'vers500' ? 'vers0' : 'vers500');
     });
 
     // Toggle contact visuel
