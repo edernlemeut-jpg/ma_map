@@ -40,6 +40,7 @@ export class CombatRadar {
   constructor(container) {
     this._container = container;
     this._editable  = false;
+    this._isMJ      = false;
     this._combat    = null;
     this._dragging  = null;
     this._svg       = null;
@@ -49,6 +50,10 @@ export class CombatRadar {
   setEditable(val) {
     this._editable = Boolean(val);
     if (this._svg) this._applyEditability();
+  }
+
+  setSensorMode(isMJ) {
+    this._isMJ = Boolean(isMJ);
   }
 
   // ── Render principal ────────────────────────────────────────────────────────
@@ -70,7 +75,16 @@ export class CombatRadar {
     this._drawCenter(svg);
 
     if (combat && Array.isArray(combat.vaisseaux)) {
-      combat.vaisseaux.forEach(ship => this._drawShip(svg, ship));
+      // Anneaux senseurs MJ (dessinés en dessous des tokens)
+      if (this._isMJ) {
+        this._drawSensorRings(svg, combat.vaisseaux);
+      }
+
+      const joueurShips = combat.vaisseaux.filter(s => s.camp === 'joueurs');
+      combat.vaisseaux.forEach(ship => {
+        const ghost = !this._isMJ && !this._isShipVisible(ship, joueurShips);
+        this._drawShip(svg, ship, ghost);
+      });
       this._drawContactLines(svg, combat.vaisseaux);
     }
 
@@ -339,23 +353,82 @@ export class CombatRadar {
     svg.appendChild(g);
   }
 
+  // ── Helpers visibilité senseurs ────────────────────────────────────────────
+  _kSpacePos(ship) {
+    if (ship.trajectoire === 'attaque') return { x: ship.position_k, y: 0 };
+    return { x: 0, y: ship.position_k };
+  }
+
+  _distK(a, b) {
+    const pa = this._kSpacePos(a);
+    const pb = this._kSpacePos(b);
+    return Math.hypot(pa.x - pb.x, pa.y - pb.y);
+  }
+
+  /** Un vaisseau non-joueur est visible si au moins un joueur le détecte. */
+  _isShipVisible(ship, joueurShips) {
+    if (ship.camp === 'joueurs') return true;
+    const armed = joueurShips.filter(j => j.senseurs_k != null);
+    // Aucun joueur n'a de senseurs définis → visibilité totale (rétrocompat)
+    if (armed.length === 0) return true;
+    return armed.some(j => this._distK(j, ship) <= j.senseurs_k);
+  }
+
+  // ── Anneaux de portée senseurs (MJ uniquement) ────────────────────────────────
+  _drawSensorRings(svg, ships) {
+    const ns = CombatRadar.NS;
+    const g  = document.createElementNS(ns, 'g');
+    g.setAttribute('class',     'sensor-rings-group');
+    g.setAttribute('clip-path', 'url(#radarClip)');
+
+    for (const ship of ships) {
+      if (ship.senseurs_k == null || ship.destroyed) continue;
+      const [cx, cy] = this._shipPx(ship);
+      const r = (ship.senseurs_k / 25) * CombatRadar.PX_PER_25K;
+      const color = CombatRadar.CAMP_COLOR[ship.camp] ?? '#9ca3af';
+
+      const ring = document.createElementNS(ns, 'circle');
+      ring.setAttribute('cx', cx); ring.setAttribute('cy', cy); ring.setAttribute('r', r);
+      ring.setAttribute('fill',           'none');
+      ring.setAttribute('stroke',         color);
+      ring.setAttribute('stroke-width',   '1');
+      ring.setAttribute('stroke-opacity', '0.28');
+      ring.setAttribute('stroke-dasharray', '4,3');
+      g.appendChild(ring);
+
+      // Label portée discret
+      const label = document.createElementNS(ns, 'text');
+      label.setAttribute('x', cx + r + 3);
+      label.setAttribute('y', cy - 3);
+      label.setAttribute('font-size',   '7');
+      label.setAttribute('fill',        color);
+      label.setAttribute('fill-opacity', '0.5');
+      label.setAttribute('font-family', 'monospace');
+      label.textContent = `${ship.senseurs_k}K`;
+      g.appendChild(label);
+    }
+
+    svg.appendChild(g);
+  }
+
   // ── Token vaisseau ──────────────────────────────────────────────────────────
-  _drawShip(svg, ship) {
+  _drawShip(svg, ship, ghost = false) {
     const [cx, cy] = this._shipPx(ship);
     const color    = CombatRadar.CAMP_COLOR[ship.camp] ?? '#9ca3af';
 
     const g = document.createElementNS(CombatRadar.NS, 'g');
-    g.setAttribute('class', `ship-token camp-${ship.camp}`);
+    g.setAttribute('class', `ship-token camp-${ship.camp}${ghost ? ' ghost' : ''}`);
     g.setAttribute('data-ship-id', ship.id);
     g.setAttribute('transform', `translate(${cx},${cy})`);
-    g.style.cursor = this._editable ? 'grab' : 'pointer';
+    g.style.cursor = this._editable && !ghost ? 'grab' : 'pointer';
+    if (ghost) g.setAttribute('opacity', '0.22');
 
     // Forme selon classe (viewBox 20×20, centré sur 0,0)
-    const shape = this._shipShape(ship.classe, color);
+    const shape = this._shipShape(ghost ? 'inconnu' : ship.classe, ghost ? '#6b7280' : color);
     g.appendChild(shape);
 
-    // Arc de surbrillance si Avantage
-    if (ship.avantage != null) {
+    // Arc de surbrillance si Avantage (non-ghost)
+    if (!ghost && ship.avantage != null) {
       const arc = document.createElementNS(CombatRadar.NS, 'circle');
       arc.setAttribute('cx', 0); arc.setAttribute('cy', 0); arc.setAttribute('r', 16);
       arc.setAttribute('fill', 'none');
@@ -385,13 +458,20 @@ export class CombatRadar {
     const label = document.createElementNS(CombatRadar.NS, 'text');
     label.setAttribute('x', 0); label.setAttribute('y', 20);
     label.setAttribute('font-size', '9');
-    label.setAttribute('fill', color);
+    label.setAttribute('fill', ghost ? '#6b7280' : color);
     label.setAttribute('text-anchor', 'middle');
     label.setAttribute('font-family', 'sans-serif');
-    label.textContent = ship.nom.length > 12 ? ship.nom.slice(0, 11) + '…' : ship.nom;
+    if (ghost) {
+      label.textContent = '?';
+      label.setAttribute('font-size', '14');
+      label.setAttribute('font-weight', 'bold');
+    } else {
+      label.textContent = ship.nom.length > 12 ? ship.nom.slice(0, 11) + '…' : ship.nom;
+    }
     g.appendChild(label);
 
-    // Position K
+    // Position K (masquée pour ghost)
+    if (!ghost) {
     const posLabel = document.createElementNS(CombatRadar.NS, 'text');
     posLabel.setAttribute('x', 0); posLabel.setAttribute('y', 30);
     posLabel.setAttribute('font-size', '8');
@@ -400,6 +480,7 @@ export class CombatRadar {
     posLabel.setAttribute('font-family', 'monospace');
     posLabel.textContent = `${ship.position_k}K`;
     g.appendChild(posLabel);
+    }
 
     // Interactivité
     g.addEventListener('click', (e) => {

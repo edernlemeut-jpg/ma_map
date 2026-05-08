@@ -103,6 +103,7 @@ function parseShip(row) {
     contact_visuel:    Boolean(row.contact_visuel),
     structure_actuelle: row.structure_actuelle,
     structure_max:     row.structure_max,
+    senseurs_k:        row.senseurs_k ?? null,
     destroyed:         Boolean(row.destroyed),
     sort_order:        row.sort_order,
   };
@@ -331,13 +332,16 @@ router.post('/:id/ships', (req, res) => {
   if (!combat) return notFound(res);
 
   const { nom, camp, trajectoire, position_k, orientation, classe,
-          ship_model_id, structure_actuelle, structure_max } = req.body;
+          ship_model_id, structure_actuelle, structure_max, senseurs_k } = req.body;
 
   if (!nom || !String(nom).trim()) return validationError(res, 'Le nom est requis');
 
   const pos = (Number.isInteger(Number(position_k)) && Number(position_k) % 25 === 0)
     ? Number(position_k) : 200;
   if (pos < -600 || pos > 600) return validationError(res, 'position_k doit être entre -600 et 600');
+
+  const sensK = (senseurs_k !== undefined && senseurs_k !== null && senseurs_k !== '')
+    ? Number(senseurs_k) : null;
 
   const maxSort = db.prepare(
     `SELECT COALESCE(MAX(sort_order), -1) AS m FROM combat_ships WHERE combat_id = ?`
@@ -347,8 +351,8 @@ router.post('/:id/ships', (req, res) => {
   db.prepare(`
     INSERT INTO combat_ships
       (id, combat_id, ship_model_id, nom, camp, trajectoire, position_k,
-       orientation, classe, structure_actuelle, structure_max, sort_order)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       orientation, classe, structure_actuelle, structure_max, senseurs_k, sort_order)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     shipId, req.params.id,
     ship_model_id ?? null,
@@ -361,6 +365,7 @@ router.post('/:id/ships', (req, res) => {
     Number.isInteger(Number(structure_actuelle)) ? Number(structure_actuelle)
       : (Number.isInteger(Number(structure_max)) ? Number(structure_max) : 100),
     Number.isInteger(Number(structure_max)) ? Number(structure_max) : 100,
+    sensK,
     maxSort + 1,
   );
 
@@ -389,7 +394,7 @@ router.patch('/:id/ships/:shipId', (req, res) => {
 
   const updates = {};
   const { position_k, trajectoire, orientation, avantage, contact_visuel,
-          structure_actuelle, destroyed, nom, camp, classe } = req.body;
+          structure_actuelle, destroyed, nom, camp, classe, senseurs_k } = req.body;
 
   if (position_k !== undefined) {
     const pos = Number(position_k);
@@ -437,6 +442,9 @@ router.patch('/:id/ships/:shipId', (req, res) => {
   if (classe !== undefined) {
     if (!VALID_CLASSES.includes(classe)) return validationError(res, 'classe invalide');
     updates.classe = classe;
+  }
+  if (senseurs_k !== undefined) {
+    updates.senseurs_k = (senseurs_k !== null && senseurs_k !== '') ? Number(senseurs_k) : null;
   }
 
   if (Object.keys(updates).length === 0) return validationError(res, 'Aucun champ à mettre à jour');

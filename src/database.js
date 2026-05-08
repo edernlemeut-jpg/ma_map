@@ -585,4 +585,7 @@ function ensureCombatSpatial() {
 }
 ensureCombatSpatial();
 
+// Migrations incrémentales combat_ships
+try { db.exec("ALTER TABLE combat_ships ADD COLUMN senseurs_k INTEGER DEFAULT NULL"); } catch {}
+
 export default db;

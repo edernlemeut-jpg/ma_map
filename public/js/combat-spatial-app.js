@@ -226,8 +226,9 @@ class CombatSpatialApp {
 
     // Re-initialiser le radar avec le nouveau container (recréé dans le innerHTML)
     this._radar = new CombatRadar(document.getElementById('radar-container'));
-    this._radar.render(combat);
     this._radar.setEditable(this._mj && combat.statut === 'en_cours');
+    this._radar.setSensorMode(this._mj);
+    this._radar.render(combat);
 
     // Re-binder les événements radar sur le nouveau container
     this._bindRadarEvents();
@@ -662,11 +663,13 @@ class CombatSpatialApp {
     const rawClasse = (s.model?.classe ?? '').toLowerCase();
     const classe = COMBAT_CLASSES.find(c => rawClasse.includes(c)) ?? 'inconnu';
     const coqueMax = s.model?.coque ?? 100;
+    const sensK = s.model?.senseurs_k ?? null;
     this._populateShipForm({
       nom:               s.name,
       classe,
       structure_max:     coqueMax,
       structure_actuelle: coqueMax,
+      senseurs_k:        sensK,
     });
   }
 
@@ -678,6 +681,7 @@ class CombatSpatialApp {
     document.getElementById('ship-position').value    = ship.position_k ?? 200;
     document.getElementById('ship-structure-max').value   = ship.structure_max ?? 100;
     document.getElementById('ship-structure-actuelle').value = ship.structure_actuelle ?? 100;
+    document.getElementById('ship-senseurs-k').value  = ship.senseurs_k ?? '';
     document.getElementById('ship-avantage').value    = ship.avantage ?? '';
     document.getElementById('ship-contact-visuel').checked = Boolean(ship.contact_visuel);
   }
@@ -696,6 +700,9 @@ class CombatSpatialApp {
       position_k:         Number(document.getElementById('ship-position').value),
       structure_max:      Number(document.getElementById('ship-structure-max').value),
       structure_actuelle: Number(document.getElementById('ship-structure-actuelle').value),
+      senseurs_k: document.getElementById('ship-senseurs-k').value !== ''
+                    ? Number(document.getElementById('ship-senseurs-k').value)
+                    : null,
       avantage:           document.getElementById('ship-avantage').value !== ''
                             ? Number(document.getElementById('ship-avantage').value)
                             : null,
