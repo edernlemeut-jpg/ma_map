@@ -978,11 +978,139 @@ function updateUI() {
       if (state.currentStepIndex === 3) updateRevolutionCelebrationUI();
     }
   }
+  updatePPCounter();
 }
 
 function getMalus() {
   const s = state.stellaPropagande;
   return (!s.porteDrapeau || !s.connu ? 1 : 0) + (s.morte ? 1 : 0);
+}
+
+/** Compute and render the PP counter in the sidebar. */
+function updatePPCounter() {
+  const el = document.getElementById('pp-counter');
+  if (!el || !currentSessionId) { if (el) el.textContent = ''; return; }
+
+  const type   = state.revolteType;
+  const malus  = getMalus();
+  const sec    = state.securitePlanetaire;
+  let ppDepenses = 0, ppGagnes = 0;
+
+  if (type === 'emeute') {
+    ppDepenses = 3;
+    ppGagnes   = state.emeute.discoursSucces >= (sec + malus) ? 1 : 0;
+  } else if (type === 'festive') {
+    ppDepenses = 3;
+    ppGagnes   = state.festive.estReussie ? 1 : 0;
+  } else if (type === 'mutinerie') {
+    const tc   = { 100: 1, 1000: 5, 10000: 8, 100000: 10 };
+    ppDepenses = tc[state.mutinerie.tonnage] ?? 1;
+    const aD   = parseInt(state.mutinerie.location, 10) || 1;
+    ppGagnes   = state.mutinerie.appelSucces >= aD ? (state.mutinerie.tonnage >= 10000 ? 2 : 1) : 0;
+  } else if (type === 'revolution') {
+    const costs = { planetaire: 5, locale: 10, stellaire: 25 };
+    const gains = { planetaire: 1, locale: 2,  stellaire: 3  };
+    ppDepenses  = costs[state.revolution.scope] || 5;
+    const ok    = state.revolution.execution.appelSucces >= (sec + malus);
+    ppGagnes    = ok ? (gains[state.revolution.scope] || 1) : 0;
+  }
+
+  const net      = ppGagnes - ppDepenses;
+  const netSign  = net >= 0 ? '+' : '';
+  const netClass = net >= 0 ? 'text-green-400' : 'text-red-400';
+  el.innerHTML   = `<span class="text-gray-500 text-xs mr-1">PP :</span>` +
+    `<span class="text-red-400 text-xs font-mono">\u2212${ppDepenses}</span>` +
+    `<span class="text-gray-600 text-xs mx-1">/</span>` +
+    `<span class="text-green-400 text-xs font-mono">+${ppGagnes}</span>` +
+    `<span class="${netClass} text-xs font-mono ml-1">(${netSign}${net})</span>`;
+}
+
+/** Generate a markdown CR summary and trigger download. */
+function exportCR() {
+  if (!currentSessionId) return;
+  const type     = state.revolteType;
+  const malus    = getMalus();
+  const sec      = state.securitePlanetaire;
+  const name     = document.getElementById('editor-session-name')?.textContent || 'Révolte';
+  const dateStr  = new Date().toLocaleDateString('fr-FR');
+  const locRef   = computeLocationRef();
+
+  const lines = [
+    `# CR — ${name}`,
+    `**Date :** ${dateStr}  `,
+    `**Type :** ${TYPE_LABELS[type] || type}  `,
+    `**Localisation :** ${locRef || '(non précisée)'}  `,
+    `**Sécurité planétaire :** ${sec}  `,
+    '',
+  ];
+
+  if (type === 'emeute') {
+    const emp  = state.emeute.empathieSucces;
+    const tact = state.emeute.tactiqueSucces;
+    const disc = state.emeute.discoursSucces;
+    const empD = 1 + malus, tactD = 1 + malus, discD = sec + malus;
+    lines.push('## Préparation',
+      `- Empathie : **${emp}** succès (diff ${empD}) — ${emp >= empD ? '✅' : '❌'}`,
+      `- Tactique : **${tact}** succès (diff ${tactD}) — ${tact >= tactD ? '✅' : '❌'}`,
+      '');
+    lines.push('## Exécution',
+      `- Discours : **${disc}** succès (diff ${discD}) — ${disc >= discD ? '✅ Émeute déclenchée' : '❌ Échec'}`,
+      `- Coût : 3 PP`,
+      disc >= discD ? `- Durée : **${5 * (1 + Math.max(0, disc - discD))} min**` : '',
+      '');
+  } else if (type === 'festive') {
+    const inv  = state.festive.nbInvites;
+    const inv2diff = { 10: 1, 100: 3, 1000: 5, 10000: 8 };
+    const appel    = state.festive.appelFestiveSucces;
+    const appelD   = (inv2diff[inv] || 1) + malus;
+    lines.push('## Préparation',
+      `- Invités : **${inv.toLocaleString('fr-FR')}**`,
+      `- Lieu : ${state.festive.lieuFete || '—'}`,
+      `- Rassemblement : **${state.festive.rassemblementTestSucces}** succès — ${state.festive.rassemblementTestSucces >= 3 + malus ? '✅' : '❌'}`,
+      `- Préparation lieu : **${state.festive.preparerLieuTestSucces}** succès — ${state.festive.preparerLieuTestSucces >= (inv2diff[inv] || 1) + malus ? '✅' : '❌'}`,
+      '');
+    lines.push('## Exécution',
+      `- Appel : **${appel}** succès (diff ${appelD}) — ${appel >= appelD ? '✅ Fête lancée' : '❌ Échec'}`,
+      `- Coût : 3 PP`,
+      '');
+  } else if (type === 'mutinerie') {
+    const s  = state.mutinerie;
+    const aD = parseInt(s.location, 10) || 1;
+    lines.push('## Préparation',
+      `- Éloquence (poste) : **${s.eloquencePoste}** succès (diff 3) — ${s.eloquencePoste >= 3 ? '✅' : '❌'}`,
+      `- Éloquence (cambuse) : **${s.eloquenceCambuse}** succès (diff 2) — ${s.eloquenceCambuse >= 2 ? '✅' : '❌'}`,
+      `- Discrétion : **${s.discretion}** succès (diff 1) — ${s.discretion >= 1 ? '✅' : '❌'}`,
+      `- Tactique : **${s.tactique}** succès (diff 3) — ${s.tactique >= 3 ? '✅' : '❌'}`,
+      '');
+    lines.push('## Exécution',
+      `- Appel mutinerie : **${s.appelSucces}** succès (diff ${aD}) — ${s.appelSucces >= aD ? '✅' : '❌'}`,
+      `- Coût : ${({ 100: 1, 1000: 5, 10000: 8, 100000: 10 }[s.tonnage] ?? 1)} PP`,
+      '');
+  } else if (type === 'revolution') {
+    const rev = state.revolution;
+    const recD = sec + malus;
+    lines.push('## Préparation',
+      `- Recrutement : **${rev.recrutementSucces}** succès (diff ${recD}) — ${rev.recrutementSucces >= recD ? '✅' : '❌'}`,
+      `- Discours peuple : **${rev.sensibilisation.discours}** — ${rev.sensibilisation.discours >= sec + malus ? '✅' : '❌'}`,
+      `- Tracts : **${rev.sensibilisation.tracts}** — ${rev.sensibilisation.tracts >= sec + malus ? '✅' : '❌'}`,
+      '');
+    const appelD = sec + malus;
+    lines.push('## Exécution',
+      `- Appel révolte : **${rev.execution.appelSucces}** succès (diff ${appelD}) — ${rev.execution.appelSucces >= appelD ? '✅' : '❌'}`,
+      `- Reddition : **${rev.execution.intimidationSucces}** succès`,
+      '');
+  }
+
+  lines.push('---', `*Généré automatiquement — Metal Adventures*`);
+
+  const txt  = lines.filter(l => l !== undefined).join('\n');
+  const blob = new Blob([txt], { type: 'text/markdown; charset=utf-8' });
+  const a    = Object.assign(document.createElement('a'), {
+    href:     URL.createObjectURL(blob),
+    download: `CR-${name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.md`,
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function getBonusDiceSpan(bonus) {
@@ -1089,7 +1217,8 @@ function updateEmeuteUI() {
 
   if (state.currentStepIndex === 2) {
     const etatEspritBonus    = Math.max(0, state.emeute.empathieSucces - empathieDiff);
-    const totalExecutionBonus = pdBonusExecution + etatEspritBonus + propagandeBonus;
+    const grandLieuBonus     = state.emeute.grandLieu ? 1 : 0;
+    const totalExecutionBonus = pdBonusExecution + etatEspritBonus + propagandeBonus + grandLieuBonus;
     const discoursDiff       = securite + malus;
     setDiffBadge('discoursDiffBadge', discoursDiff, totalExecutionBonus);
     setInnerHTML('discoursTestLabel', `Éloquence (Discours)`);
@@ -1244,9 +1373,10 @@ function updateMutinerieUI() {
   }
 
   if (state.currentStepIndex === 2) {
-    const appelDiff = parseInt(s.location, 10) || 1;
+    const appelDiff      = parseInt(s.location, 10) || 1;
+    const conditionsBonus = s.conditionsFavorables ? 1 : 0;
     setInnerHTML('mutinerieAppelLabel', `Appel à la Mutinerie`);
-    setDiffBadge('mutinerieAppelDiffBadge', appelDiff);
+    setDiffBadge('mutinerieAppelDiffBadge', appelDiff, conditionsBonus);
     setTrackerStatus('mutinerieAppelSucces', s.appelSucces, appelDiff);
     const succesExc = Math.max(0, s.appelSucces - appelDiff);
     const duree = 5 * succesExc;
@@ -1618,6 +1748,9 @@ function bindAll() {
     });
   });
 
+  // Export CR
+  addListener('export-cr-btn', 'click', () => exportCR());
+
   // Paramétrage
   addListener('revolteType', 'change', e => { state.revolteType = e.target.value; navigateTo(state.currentStepIndex); refreshLocationSelects(); scheduleAutosave(); });
   addListener('populationInput', 'input', e => { state.population = parseFloat(e.target.value) || 0; updateUI(); scheduleAutosave(); });
@@ -1681,9 +1814,10 @@ function bindAll() {
   });
 
   // Emeute
-  addListener('empathieTestInput', 'input', e => { state.emeute.empathieSucces = parseInt(e.target.value, 10) || 0; updateUI(); scheduleAutosave(); });
-  addListener('tactiqueTestInput', 'input', e => { state.emeute.tactiqueSucces = parseInt(e.target.value, 10) || 0; updateUI(); scheduleAutosave(); });
-  addListener('discoursTestInput', 'input', e => { state.emeute.discoursSucces = parseInt(e.target.value, 10) || 0; updateUI(); scheduleAutosave(); });
+  addListener('grandLieuCheck',    'change', e => { state.emeute.grandLieu     = e.target.checked;                updateUI(); scheduleAutosave(); });
+  addListener('empathieTestInput', 'input',  e => { state.emeute.empathieSucces = parseInt(e.target.value, 10) || 0; updateUI(); scheduleAutosave(); });
+  addListener('tactiqueTestInput', 'input',  e => { state.emeute.tactiqueSucces = parseInt(e.target.value, 10) || 0; updateUI(); scheduleAutosave(); });
+  addListener('discoursTestInput', 'input',  e => { state.emeute.discoursSucces = parseInt(e.target.value, 10) || 0; updateUI(); scheduleAutosave(); });
 
   // Festive
   addListener('lieuFete',              'change', e => { state.festive.lieuFete = e.target.value; updateFestiveUI(); scheduleAutosave(); });

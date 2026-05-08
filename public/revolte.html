@@ -176,6 +176,8 @@
     .tracker-subresult.malus { border-left-color: #cb5a5a; }
     .tracker-subresult strong { color: #c8a464; }
     .tracker-type-block { margin-bottom: 0.75rem; }
+    .rule-tip { cursor: help; color: #4b5563; font-size: 0.7rem; text-decoration: none; flex-shrink: 0; line-height: 1; }
+    .rule-tip:hover { color: #9ca3af; }
   </style>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
@@ -246,6 +248,7 @@
         </select>
       </div>
       <div id="sessions-list" class="flex-1 overflow-y-auto text-sm"></div>
+      <div class="px-3 py-1.5 border-t border-gray-700 flex items-center gap-1" id="pp-counter"></div>
     </aside>
 
     <!-- Editor pane -->
@@ -312,6 +315,7 @@
             <option value="echouee">Échouée</option>
             <option value="archivee">Archivée</option>
           </select>
+          <button id="export-cr-btn" class="text-xs bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded transition-colors" title="Télécharger le compte-rendu Markdown">📄 CR</button>
           <button id="save-btn" class="text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded transition-colors">💾 Sauvegarder</button>
           <button id="delete-session-btn" class="text-xs bg-red-900/60 hover:bg-red-700 text-red-300 px-2 py-1 rounded transition-colors" title="Supprimer cette session">🗑</button>
           <span id="save-indicator" class="text-xs text-gray-500 hidden">Sauvegardé ✓</span>
@@ -678,6 +682,7 @@
                 <div class="tracker-row" data-input="empathieTestInput" data-types="emeute">
                   <div class="tracker-row-label">
                     <span id="empathieTestLabel" class="tracker-test-name">Empathie</span>
+                    <abbr class="rule-tip" title="Diff 1+malus. Succès excédentaires = +Xd bonus au Discours (exécution). Grand Lieu = +1d suppl.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="empathieDiffBadge"></span>
                   </div>
                   <div class="tracker-row-controls">
@@ -691,6 +696,7 @@
                 <div class="tracker-row" data-input="tactiqueTestInput" data-types="emeute">
                   <div class="tracker-row-label">
                     <span id="tactiqueTestLabel" class="tracker-test-name">Tactique</span>
+                    <abbr class="rule-tip" title="Diff 1+malus. Succès excédentaires = réduction du Retour de Flamme (police). Chaque succès exc. réduit le malus de 1.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="tactiqueDiffBadge"></span>
                   </div>
                   <div class="tracker-row-controls">
@@ -704,6 +710,7 @@
                 <div class="tracker-row" data-input="autorisationTestSucces" data-types="festive" id="autorisationRow">
                   <div class="tracker-row-label">
                     <span id="autorisationTestLabel" class="tracker-test-name">Autorisation</span>
+                    <abbr class="rule-tip" title="Diff Sécurité+malus. Étiquette en lieu public, Illégalités en lieu clandestin. Non requis sur vaisseau.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="autorisationDiffBadge"></span>
                   </div>
                   <div class="tracker-row-controls">
@@ -715,6 +722,7 @@
                 <div class="tracker-row" data-input="rassemblementTestSucces" data-types="festive">
                   <div class="tracker-row-label">
                     <span id="rassemblementTestLabel" class="tracker-test-name">Rassemblement</span>
+                    <abbr class="rule-tip" title="Diff 3+malus. Permet de réunir les invités. Succès excédentaires ≥ diff invités = invités réunis.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="rassemblementDiffBadge"></span>
                   </div>
                   <div class="tracker-row-controls">
@@ -789,6 +797,7 @@
                 <div class="tracker-row" data-input="recrutementSucces" data-types="revolution">
                   <div class="tracker-row-label">
                     <span id="recrutementLabel" class="tracker-test-name">Recrutement (Éloquence)</span>
+                    <abbr class="rule-tip" title="Éloquence (diff Sécurité+malus). Succès excédentaires = sections d'insurgés recrutées ce mois. Sections actuelles + recrutées = forces totales.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="recrutementDiffBadge"></span>
                   </div>
                   <div class="tracker-row-controls">
@@ -893,6 +902,7 @@
                 <div class="tracker-row" data-input="discoursTestInput" data-types="emeute">
                   <div class="tracker-row-label">
                     <span id="discoursTestLabel" class="tracker-test-name">Éloquence (Discours)</span>
+                    <abbr class="rule-tip" title="Diff Sécurité+malus. Si réussi : l'émeute débute, durée = 5×(1+succès exc.) min. Coût : 3 PP à répartir.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="discoursDiffBadge"></span>
                   </div>
                   <div class="tracker-row-controls">
@@ -908,6 +918,7 @@
                 <div class="tracker-row" data-input="appelFestiveSucces" data-types="festive">
                   <div class="tracker-row-label">
                     <span id="appelFestiveLabel" class="tracker-test-name">Appel Révolution Festive</span>
+                    <abbr class="rule-tip" title="Éloquence. Diff : 10 invités→1, 100→3, 1000→5, 10000→8. Coût : 3 PP. Si réussi : la fête dure 6-10h.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="appelFestiveDiffBadge"></span>
                   </div>
                   <div class="tracker-row-controls">
@@ -923,6 +934,7 @@
                 <div class="tracker-row" data-input="mutinerieAppelSucces" data-types="mutinerie">
                   <div class="tracker-row-label">
                     <span id="mutinerieAppelLabel" class="tracker-test-name">Appel à la Mutinerie</span>
+                    <abbr class="rule-tip" title="Éloquence. Diff selon lieu (1-5). Conditions favorables = +1d bonus. Durée = 5×succès exc. min.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="mutinerieAppelDiffBadge"></span>
                   </div>
                   <div class="tracker-row-controls">
@@ -937,6 +949,7 @@
                 <div class="tracker-row" data-input="appelRevolteSucces" data-types="revolution">
                   <div class="tracker-row-label">
                     <span id="appelRevolteLabel" class="tracker-test-name">Appel à la Révolte</span>
+                    <abbr class="rule-tip" title="Éloquence (diff Sécurité+malus). Déclenche l'insurrection. Coût : 5/10/25 PP (planétaire/système/secteur).">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="appelRevolteDiffBadge"></span>
                   </div>
                   <div class="tracker-row-controls">
