@@ -602,6 +602,7 @@ class CombatSpatialApp {
     form.dataset.mode    = 'add';
     form.dataset.combatId = combatId;
     form.dataset.shipId   = '';
+    form.dataset.shipModelId = '';
 
     this._populateShipForm({});
     document.getElementById('modal-ship-title').textContent = 'Ajouter un vaisseau';
@@ -663,13 +664,13 @@ class CombatSpatialApp {
     const rawClasse = (s.model?.classe ?? '').toLowerCase();
     const classe = COMBAT_CLASSES.find(c => rawClasse.includes(c)) ?? 'inconnu';
     const coqueMax = s.model?.coque ?? 100;
-    const sensK = s.model?.senseurs_k ?? null;
+    // Stocker le model_id pour que le serveur puisse lire senseurs_k automatiquement
+    document.getElementById('form-ship').dataset.shipModelId = s.model_id ?? '';
     this._populateShipForm({
       nom:               s.name,
       classe,
       structure_max:     coqueMax,
       structure_actuelle: coqueMax,
-      senseurs_k:        sensK,
     });
   }
 
@@ -681,7 +682,6 @@ class CombatSpatialApp {
     document.getElementById('ship-position').value    = ship.position_k ?? 200;
     document.getElementById('ship-structure-max').value   = ship.structure_max ?? 100;
     document.getElementById('ship-structure-actuelle').value = ship.structure_actuelle ?? 100;
-    document.getElementById('ship-senseurs-k').value  = ship.senseurs_k ?? '';
     document.getElementById('ship-avantage').value    = ship.avantage ?? '';
     document.getElementById('ship-contact-visuel').checked = Boolean(ship.contact_visuel);
   }
@@ -700,9 +700,7 @@ class CombatSpatialApp {
       position_k:         Number(document.getElementById('ship-position').value),
       structure_max:      Number(document.getElementById('ship-structure-max').value),
       structure_actuelle: Number(document.getElementById('ship-structure-actuelle').value),
-      senseurs_k: document.getElementById('ship-senseurs-k').value !== ''
-                    ? Number(document.getElementById('ship-senseurs-k').value)
-                    : null,
+      ship_model_id:      form.dataset.shipModelId || null,
       avantage:           document.getElementById('ship-avantage').value !== ''
                             ? Number(document.getElementById('ship-avantage').value)
                             : null,

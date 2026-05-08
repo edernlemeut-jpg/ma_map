@@ -103,16 +103,26 @@ function parseShip(row) {
     contact_visuel:    Boolean(row.contact_visuel),
     structure_actuelle: row.structure_actuelle,
     structure_max:     row.structure_max,
-    senseurs_k:        row.senseurs_k ?? null,
+    senseurs_k:        row.model_senseurs_k ?? null,
     destroyed:         Boolean(row.destroyed),
     sort_order:        row.sort_order,
   };
 }
 
+const SHIP_WITH_MODEL_SQL = `
+  SELECT cs.*, sm.senseurs_k AS model_senseurs_k
+  FROM combat_ships cs
+  LEFT JOIN ship_models sm ON sm.id = cs.ship_model_id
+`;
+
 function getShips(combatId) {
   return db.prepare(
-    `SELECT * FROM combat_ships WHERE combat_id = ? ORDER BY sort_order, id`
+    `${SHIP_WITH_MODEL_SQL} WHERE cs.combat_id = ? ORDER BY cs.sort_order, cs.id`
   ).all(combatId);
+}
+
+function getShipById(shipId) {
+  return db.prepare(`${SHIP_WITH_MODEL_SQL} WHERE cs.id = ?`).get(shipId);
 }
 
 // ── GET / — liste des combats de la table ────────────────────────────────────
@@ -332,16 +342,7 @@ router.post('/:id/ships', (req, res) => {
   if (!combat) return notFound(res);
 
   const { nom, camp, trajectoire, position_k, orientation, classe,
-          ship_model_id, structure_actuelle, structure_max, senseurs_k } = req.body;
-
-  if (!nom || !String(nom).trim()) return validationError(res, 'Le nom est requis');
-
-  const pos = (Number.isInteger(Number(position_k)) && Number(position_k) % 25 === 0)
-    ? Number(position_k) : 200;
-  if (pos < -600 || pos > 600) return validationError(res, 'position_k doit être entre -600 et 600');
-
-  const sensK = (senseurs_k !== undefined && senseurs_k !== null && senseurs_k !== '')
-    ? Number(senseurs_k) : null;
+          ship_model_id, structure_actuelle, structure_max } = req.body;
 
   const maxSort = db.prepare(
     `SELECT COALESCE(MAX(sort_order), -1) AS m FROM combat_ships WHERE combat_id = ?`
@@ -373,8 +374,7 @@ router.post('/:id/ships', (req, res) => {
     `UPDATE combats_spatiaux SET updated_at = datetime('now') WHERE id = ?`
   ).run(req.params.id);
 
-  const row = db.prepare('SELECT * FROM combat_ships WHERE id = ?').get(shipId);
-  res.status(201).json({ success: true, data: parseShip(row) });
+  res.status(201).json({ success: true, data: parseShip(getShipById(shipId)) });
 });
 
 // ── PATCH /:id/ships/:shipId — déplacer / mettre à jour un vaisseau ──────────
@@ -394,7 +394,7 @@ router.patch('/:id/ships/:shipId', (req, res) => {
 
   const updates = {};
   const { position_k, trajectoire, orientation, avantage, contact_visuel,
-          structure_actuelle, destroyed, nom, camp, classe, senseurs_k } = req.body;
+          structure_actuelle, destroyed, nom, camp, classe } = req.body;
 
   if (position_k !== undefined) {
     const pos = Number(position_k);
@@ -443,9 +443,6 @@ router.patch('/:id/ships/:shipId', (req, res) => {
     if (!VALID_CLASSES.includes(classe)) return validationError(res, 'classe invalide');
     updates.classe = classe;
   }
-  if (senseurs_k !== undefined) {
-    updates.senseurs_k = (senseurs_k !== null && senseurs_k !== '') ? Number(senseurs_k) : null;
-  }
 
   if (Object.keys(updates).length === 0) return validationError(res, 'Aucun champ à mettre à jour');
 
@@ -456,8 +453,7 @@ router.patch('/:id/ships/:shipId', (req, res) => {
     `UPDATE combats_spatiaux SET updated_at = datetime('now') WHERE id = ?`
   ).run(req.params.id);
 
-  const updated = db.prepare('SELECT * FROM combat_ships WHERE id = ?').get(ship.id);
-  success(res, parseShip(updated));
+  success(res, parseShip(getShipById(ship.id)));
 });
 
 // ── DELETE /:id/ships/:shipId — retirer un vaisseau ──────────────────────────
