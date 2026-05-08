@@ -23,32 +23,32 @@ const T_ORIGINE = [
 
 // 2d6 → Forme de la carte (range 2-12)
 const T_FORME = {
-  2:  { label: 'Module-mémoire', solidite: 'Solide',  pds: '0', diff_fouille: 3 },
-  3:  { label: 'Ordinateur',     solidite: 'Solide',  pds: '0', diff_fouille: 1 },
-  4:  { label: 'Peinture',       solidite: 'Fragile', pds: '0-1', diff_fouille: 3 },
-  5:  { label: 'Tatouage',       solidite: 'Fragile', pds: '0', diff_fouille: 3 },
-  6:  { label: 'Parchemin',      solidite: 'Fragile', pds: '0-1', diff_fouille: 3 },
-  7:  { label: 'Parchemin',      solidite: 'Fragile', pds: '0-1', diff_fouille: 3 },
-  8:  { label: 'Parchemin',      solidite: 'Fragile', pds: '0-1', diff_fouille: 3 },
-  9:  { label: 'Objet enchanté', solidite: 'Fragile', pds: '0-3', diff_fouille: 5 },
-  10: { label: 'Objet enchanté', solidite: 'Fragile', pds: '0-3', diff_fouille: 5 },
-  11: { label: 'Talisman enchanté', solidite: 'Fragile', pds: '0-3', diff_fouille: 5 },
+  2:  { label: 'Tatouage',          solidite: '-',       pds: '0',   diff_fouille: 0 },
+  3:  { label: 'Peinture',          solidite: 'Fragile', pds: '0-1', diff_fouille: 3 },
+  4:  { label: 'Module-mémoire',    solidite: 'Solide',  pds: '0-3', diff_fouille: 3 },
+  5:  { label: 'Module-mémoire',    solidite: 'Solide',  pds: '0-3', diff_fouille: 3 },
+  6:  { label: 'Parchemin',         solidite: 'Fragile', pds: '0-1', diff_fouille: 3 },
+  7:  { label: 'Parchemin',         solidite: 'Fragile', pds: '0-1', diff_fouille: 3 },
+  8:  { label: 'Parchemin',         solidite: 'Fragile', pds: '0-1', diff_fouille: 3 },
+  9:  { label: 'Ordinateur',        solidite: 'Solide',  pds: '0-5', diff_fouille: 1 },
+  10: { label: 'Ordinateur',        solidite: 'Solide',  pds: '0-5', diff_fouille: 1 },
+  11: { label: 'Objet enchanté',    solidite: 'Fragile', pds: '0-3', diff_fouille: 5 },
   12: { label: 'Talisman enchanté', solidite: 'Fragile', pds: '0-3', diff_fouille: 5 },
 };
 
 // 2d6 → Fonction + présentation (range 2-12)
 const T_FONCTION = {
-  2:  { label: 'Carte directe',       type: 'directe',   exploit_diff: 1 },
-  3:  { label: 'Journal de bord',     type: 'directe',   exploit_diff: 1 },
-  4:  { label: 'Journal de bord',     type: 'directe',   exploit_diff: 1 },
-  5:  { label: 'Journal intime',      type: 'directe',   exploit_diff: 3 },
-  6:  { label: 'Manifeste',           type: 'directe',   exploit_diff: 1 },
-  7:  { label: 'Manifeste',           type: 'directe',   exploit_diff: 1 },
-  8:  { label: 'Manifeste',           type: 'directe',   exploit_diff: 1 },
-  9:  { label: 'News',                type: 'directe',   exploit_diff: 3 },
-  10: { label: 'News',                type: 'directe',   exploit_diff: 3 },
-  11: { label: "Œuvre d'art",         type: 'indirecte', exploit_diff: 5 },
-  12: { label: 'Rapport colonisation',type: 'indirecte', exploit_diff: 8 },
+  2:  { label: 'Journal intime',          type: 'indirecte', exploit_diff: 3 },
+  3:  { label: 'Manifeste de chargement', type: 'indirecte', exploit_diff: 1 },
+  4:  { label: 'Journal de bord',         type: 'indirecte', exploit_diff: 1 },
+  5:  { label: 'Journal de bord',         type: 'indirecte', exploit_diff: 1 },
+  6:  { label: 'Carte au trésor',         type: 'directe',   exploit_diff: 1 },
+  7:  { label: 'Carte au trésor',         type: 'directe',   exploit_diff: 1 },
+  8:  { label: 'Carte au trésor',         type: 'directe',   exploit_diff: 1 },
+  9:  { label: 'News',                    type: 'indirecte', exploit_diff: 3 },
+  10: { label: 'News',                    type: 'indirecte', exploit_diff: 3 },
+  11: { label: 'Rapport de colonisation', type: 'indirecte', exploit_diff: 5 },
+  12: { label: 'Textes sacrés',           type: 'indirecte', exploit_diff: 8 },
 };
 
 // 2d6 → Localisation (rang 2-12, table du supplément)

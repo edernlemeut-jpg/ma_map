@@ -405,17 +405,20 @@ async function populatePdSelects() {
 const POPULATION_DATA = [
   { pop: 0,      insurgents: 25000,   sections: 3   },
   { pop: 1,      insurgents: 50000,   sections: 5   },
-  { pop: 5,      insurgents: 100000,  sections: 10  },
-  { pop: 10,     insurgents: 200000,  sections: 20  },
-  { pop: 50,     insurgents: 500000,  sections: 50  },
-  { pop: 100,    insurgents: 700000,  sections: 70  },
-  { pop: 200,    insurgents: 800000,  sections: 80  },
+  { pop: 5,      insurgents: 75000,   sections: 8   },
+  { pop: 7,      insurgents: 100000,  sections: 10  },
+  { pop: 10,     insurgents: 125000,  sections: 13  },
+  { pop: 15,     insurgents: 150000,  sections: 15  },
+  { pop: 25,     insurgents: 250000,  sections: 25  },
+  { pop: 50,     insurgents: 350000,  sections: 35  },
+  { pop: 100,    insurgents: 500000,  sections: 50  },
+  { pop: 250,    insurgents: 750000,  sections: 75  },
   { pop: 500,    insurgents: 1000000, sections: 100 },
-  { pop: 1000,   insurgents: 1200000, sections: 120 },
-  { pop: 2000,   insurgents: 1500000, sections: 150 },
+  { pop: 1000,   insurgents: 1250000, sections: 125 },
+  { pop: 2500,   insurgents: 1500000, sections: 150 },
   { pop: 5000,   insurgents: 2000000, sections: 200 },
   { pop: 10000,  insurgents: 2500000, sections: 250 },
-  { pop: 20000,  insurgents: 3000000, sections: 300 },
+  { pop: 25000,  insurgents: 3000000, sections: 300 },
   { pop: 50000,  insurgents: 3500000, sections: 350 },
 ];
 
@@ -866,6 +869,16 @@ function updateUI() {
   buildLocationUI();
   updateGlobalSettingsUI();
 
+  // Coût révolution (dépend du scope)
+  if (type === 'revolution') {
+    const revCosts = { planetaire: 5, locale: 10, stellaire: 25 };
+    const revCost  = revCosts[state.revolution.scope] || 5;
+    setInnerHTML('revolutionCoutResult',
+      `Déclenchement : sacrifice de <strong>${revCost} PP</strong> (à répartir entre les participants).`
+    );
+  }
+  document.getElementById('revolutionCoutResult')?.classList.toggle('hidden', type !== 'revolution');
+
   if (state.currentStepIndex > 0) {
     if (type === 'emeute')      updateEmeuteUI();
     if (type === 'mutinerie')   updateMutinerieUI();
@@ -975,7 +988,7 @@ function updateEmeuteUI() {
       );
     }
     setInnerHTML('coutPanache',
-      `Coût : Verrouillage de <strong>3 PP</strong>. (Max ${totalPd || 1} PP par personne).`
+      `Dépense : <strong>3 PP</strong> (à répartir entre les participants).`
     );
   }
 
