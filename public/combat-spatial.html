@@ -229,6 +229,16 @@
 
       <form id="form-ship" class="p-5 space-y-4">
 
+        <!-- Pré-remplissage depuis la flotte (mode add uniquement) -->
+        <div id="fleet-select-section" class="hidden">
+          <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Depuis la flotte</label>
+          <select id="ship-fleet-select"
+            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-gray-200">
+            <option value="">— Saisie manuelle —</option>
+          </select>
+          <p class="text-xs text-gray-500 mt-1">Sélectionner un vaisseau pré-remplit les champs ci-dessous.</p>
+        </div>
+
         <div class="grid grid-cols-2 gap-3">
           <div class="col-span-2">
             <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Nom *</label>

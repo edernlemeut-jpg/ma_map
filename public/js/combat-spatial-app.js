@@ -425,6 +425,15 @@ class CombatSpatialApp {
         this._prependJournalEntry(e.detail.entry);
       }
     });
+
+    // Pré-remplissage depuis la flotte
+    document.getElementById('ship-fleet-select').addEventListener('change', (e) => {
+      const selected = e.target.options[e.target.selectedIndex];
+      if (selected.value && selected.dataset.ship) {
+        this._prefillFromFleet(selected.dataset.ship);
+      }
+    });
+
     // Note: radar events are bound in _bindRadarEvents() after each _renderPhaseBody()
   }
 
@@ -586,7 +595,7 @@ class CombatSpatialApp {
     } catch (err) { this._showError(err.message); }
   }
 
-  _openAddShipModal(combatId) {
+  async _openAddShipModal(combatId) {
     const form = document.getElementById('form-ship');
     form.reset();
     form.dataset.mode    = 'add';
@@ -595,6 +604,12 @@ class CombatSpatialApp {
 
     this._populateShipForm({});
     document.getElementById('modal-ship-title').textContent = 'Ajouter un vaisseau';
+
+    // Afficher + charger la flotte
+    const section = document.getElementById('fleet-select-section');
+    section.classList.remove('hidden');
+    await this._loadFleetSelect();
+
     this._openModal('ship-modal');
   }
 
@@ -608,9 +623,51 @@ class CombatSpatialApp {
     form.dataset.combatId = this._currentCombat.id;
     form.dataset.shipId   = shipId;
 
+    // Masquer la section flotte en mode édition
+    document.getElementById('fleet-select-section').classList.add('hidden');
+
     this._populateShipForm(ship);
     document.getElementById('modal-ship-title').textContent = `Modifier : ${ship.nom}`;
     this._openModal('ship-modal');
+  }
+
+  async _loadFleetSelect() {
+    const sel = document.getElementById('ship-fleet-select');
+    sel.innerHTML = '<option value="">— Chargement… —</option>';
+    try {
+      const res = await fetchWithTable('/api/ships');
+      const json = await res.json();
+      const ships = json.data ?? json ?? [];
+      sel.innerHTML = '<option value="">— Saisie manuelle —</option>';
+      ships.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        const classeLabel = s.model?.classe ? ` (${s.model.classe})` : '';
+        opt.textContent = `${s.name}${classeLabel}`;
+        opt.dataset.ship = JSON.stringify(s);
+        sel.appendChild(opt);
+      });
+      if (ships.length === 0) {
+        sel.innerHTML += '<option value="" disabled>Aucun vaisseau dans la flotte</option>';
+      }
+    } catch {
+      sel.innerHTML = '<option value="">— Erreur chargement flotte —</option>';
+    }
+  }
+
+  _prefillFromFleet(fleetShipJson) {
+    let s;
+    try { s = JSON.parse(fleetShipJson); } catch { return; }
+    const COMBAT_CLASSES = ['chasseur', 'frégate', 'croiseur'];
+    const rawClasse = (s.model?.classe ?? '').toLowerCase();
+    const classe = COMBAT_CLASSES.find(c => rawClasse.includes(c)) ?? 'inconnu';
+    const coqueMax = s.model?.coque ?? 100;
+    this._populateShipForm({
+      nom:               s.name,
+      classe,
+      structure_max:     coqueMax,
+      structure_actuelle: coqueMax,
+    });
   }
 
   _populateShipForm(ship) {
