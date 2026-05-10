@@ -38,8 +38,13 @@ function getDiffForInput(inputId) {
       return { diff: securite + malus, title: 'Autorisation', comp: state.festive.lieuFete === 'lieu_illegale' ? 'Illégalités' : 'Étiquette' };
     case 'rassemblementTestSucces':
       return { diff: 3 + malus, title: 'Rassemblement', comp: 'Étiquette' };
-    case 'preparerLieuTestSucces':
-      return { diff: (invDiff[state.festive.nbInvites] || 1) + malus, title: 'Préparer le Lieu', comp: 'Environnement' };
+    case 'preparerLieuTestSucces': {
+      const lf = state.festive.lieuFete;
+      const prepComp = lf === 'vaisseau_nature' ? 'Environnement'
+                     : lf === 'lieu_illegale'   ? 'Illégalités'
+                     : 'Étiquette';
+      return { diff: (invDiff[state.festive.nbInvites] || 1) + malus, title: 'Préparer le Lieu', comp: prepComp };
+    }
     case 'appelFestiveSucces':
       return { diff: (invDiff[state.festive.nbInvites] || 1) + malus, title: 'Appel Festive', comp: 'Éloquence' };
     case 'mutinerieEloquencePoste':
@@ -982,8 +987,12 @@ function updateUI() {
 }
 
 function getMalus() {
+  // Conditions OK = (au moins un PD pirate impliqué) ET (population connaît Stella). Sinon D+1.
+  // Stella morte → encore +1.
   const s = state.stellaPropagande;
-  return (!s.porteDrapeau || !s.connu ? 1 : 0) + (s.morte ? 1 : 0);
+  const pirateCount = (state.pdList?.pirates?.length) ?? state.pd?.pirates ?? 0;
+  const okStella = pirateCount > 0 && !!s.connu;
+  return (okStella ? 0 : 1) + (s.morte ? 1 : 0);
 }
 
 /** Compute and render the PP counter in the sidebar. */
@@ -1023,6 +1032,50 @@ function updatePPCounter() {
     `<span class="text-gray-600 text-xs mx-1">/</span>` +
     `<span class="text-green-400 text-xs font-mono">+${ppGagnes}</span>` +
     `<span class="${netClass} text-xs font-mono ml-1">(${netSign}${net})</span>`;
+}
+
+/** Create a calendar event linked to the current revolt session (MJ only). */
+async function createCalendarEvent() {
+  if (!currentSessionId) return;
+  if (!currentUserIsMJ) {
+    alert('Réservé au MJ');
+    return;
+  }
+  const sessName = document.getElementById('editor-session-name')?.textContent || 'Révolte';
+  // Quick inline form via prompts (a richer modal is planned for Lot C).
+  const titleSuggest = `${TYPE_LABELS[state.revolteType] || 'Révolte'} — ${sessName}`;
+  const title = prompt('Titre de l\'événement :', titleSuggest);
+  if (!title) return;
+  const year = prompt('Année galactique (entier ex. 2226) :', '2226');
+  if (!year) return;
+  const month = prompt('Mois (1-10) :', '1');
+  if (!month) return;
+  const week = prompt('Semaine (1-5) :', '1');
+  if (!week) return;
+  const day = prompt('Jour (1-5) :', '1');
+  if (!day) return;
+  const mm = String(parseInt(month, 10) || 1).padStart(2, '0');
+  const ww = String(parseInt(week,  10) || 1).padStart(2, '0');
+  const dd = String(parseInt(day,   10) || 1).padStart(2, '0');
+  const date_start = `${mm}${ww}.${dd}`; // format XXYY.ZZ
+  try {
+    await apiFetch(`/api/revolte/${currentSessionId}/calendar-event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        description: `Lieu : ${computeLocationRef() || '—'}\nStatut : ${document.getElementById('editor-status')?.value || 'en_cours'}`,
+        date_start,
+        date_end: date_start,
+        galactic_year: parseInt(year, 10),
+        color: '#c89c3a',
+        is_public: false,
+      }),
+    });
+    alert('Événement ajouté au calendrier galactique.');
+  } catch (err) {
+    alert(`Erreur calendrier : ${err.message}`);
+  }
 }
 
 /** Generate a markdown CR summary and trigger download. */
@@ -1217,8 +1270,8 @@ function updateEmeuteUI() {
 
   if (state.currentStepIndex === 2) {
     const etatEspritBonus    = Math.max(0, state.emeute.empathieSucces - empathieDiff);
-    const grandLieuBonus     = state.emeute.grandLieu ? 1 : 0;
-    const totalExecutionBonus = pdBonusExecution + etatEspritBonus + propagandeBonus + grandLieuBonus;
+    // Note: « Grand lieu » n'a PAS d'effet sur le discours — il multiplie le prix du sang (×10 décès/5 min).
+    const totalExecutionBonus = pdBonusExecution + etatEspritBonus + propagandeBonus;
     const discoursDiff       = securite + malus;
     setDiffBadge('discoursDiffBadge', discoursDiff, totalExecutionBonus);
     setInnerHTML('discoursTestLabel', `Éloquence (Discours)`);
@@ -1241,10 +1294,22 @@ function updateEmeuteUI() {
   }
 
   if (state.currentStepIndex === 3) {
+    // Prix du sang : 1 décès / 5 min (ou ×10 si Grand Lieu).
+    const discoursDiffCel = securite + malus;
+    const succesExc       = Math.max(0, state.emeute.discoursSucces - discoursDiffCel);
+    const dureeMin        = state.emeute.discoursSucces >= discoursDiffCel ? 5 * (1 + succesExc) : 0;
+    const tranches        = Math.floor(dureeMin / 5);
+    const tauxParTranche  = state.emeute.grandLieu ? 10 : 1;
+    const morts           = tranches * tauxParTranche;
     setInnerHTML('emeuteCelebrationResult',
       "Si la Révolte est une réussite, la situation planétaire s'améliore.<br>" +
       "Les Officiers impliqués regagnent <strong>+1 PP</strong>.<br>" +
       "Les PJ gagnent <strong>+1d</strong> pour lancer une future révolte sur cette planète."
+    );
+    setInnerHTML('emeutePrixDuSangResult',
+      `Durée : <strong>${dureeMin} min</strong> &middot; ` +
+      `Décès estimés : <strong>${morts}</strong>` +
+      (state.emeute.grandLieu ? ' <span class="text-orange-400 text-xs">(Grand Lieu ×10)</span>' : '')
     );
   }
 }
@@ -1257,16 +1322,24 @@ function updateFestiveUI() {
   const pdBonusPreparation = totalPd > 0 && pd.locaux  > pd.pirates ? 1 : 0;
   const pdBonusExecution   = totalPd > 0 && pd.pirates > pd.locaux  ? 1 : 0;
   const propagandeBonus    = state.propagande.bonusJets;
-  const totalPreparationBonus = pdBonusPreparation + propagandeBonus;
-  const totalExecutionBonus   = pdBonusExecution  + propagandeBonus;
+  // Le bonus de référence (refBonusD) est ajouté plus bas après lecture de nbInvitesData.
+  let totalPreparationBonus = pdBonusPreparation + propagandeBonus;
+  let totalExecutionBonus   = pdBonusExecution  + propagandeBonus;
 
+  // Bonus de référence (table d'invités) — s'applique à toutes les actions pendant la fête.
+  //   10 inv → aucun ; 100 → +1d ; 1000 → TF ; 10000 → TF.
   const nbInvitesData = {
-    10:    { cout: 250,    diff: 1, bonus: 0, gloire_diff: 1 },
-    100:   { cout: 2500,   diff: 3, bonus: 1, gloire_diff: 3 },
-    1000:  { cout: 25000,  diff: 5, bonus: 0, gloire_diff: 5 },
-    10000: { cout: 250000, diff: 8, bonus: 0, gloire_diff: 8 },
+    10:    { cout: 250,    diff: 1, refBonus: 0,     gloire_diff: 1 },
+    100:   { cout: 2500,   diff: 3, refBonus: '+1d', gloire_diff: 3 },
+    1000:  { cout: 25000,  diff: 5, refBonus: 'TF',  gloire_diff: 5 },
+    10000: { cout: 250000, diff: 8, refBonus: 'TF',  gloire_diff: 8 },
   };
   const invitesData = nbInvitesData[state.festive.nbInvites] || nbInvitesData[10];
+  const refBonusD  = invitesData.refBonus === '+1d' ? 1 : 0;
+  const refBonusTF = invitesData.refBonus === 'TF';
+  // Le bonus de référence s'applique à TOUTES les actions de la fête (préparation + exécution).
+  totalPreparationBonus += refBonusD;
+  totalExecutionBonus   += refBonusD;
 
   // Step 1 prep calcs (always update badges even if on step 2/3 for sidebar)
   let autorisationDiff = 0;
@@ -1285,6 +1358,13 @@ function updateFestiveUI() {
   setInnerHTML('autorisationTestLabel',  autorisationSkill);
   setInnerHTML('rassemblementTestLabel', 'Rassemblement');
   setInnerHTML('preparerLieuTestLabel',  'Préparer le lieu');
+  // Affichage du bonus de référence (TF affiché en suffixe puisque setDiffBadge ne gère que des nombres)
+  const tfTag = refBonusTF ? ' <span class="text-green-300 text-xs font-bold">TF</span>' : '';
+  if (tfTag) {
+    setInnerHTML('autorisationTestLabel',  autorisationSkill   + tfTag);
+    setInnerHTML('rassemblementTestLabel', 'Rassemblement'     + tfTag);
+    setInnerHTML('preparerLieuTestLabel',  'Préparer le lieu'  + tfTag);
+  }
   setDiffBadge('autorisationDiffBadge',  autorisationDiff,  totalPreparationBonus);
   setDiffBadge('rassemblementDiffBadge', rassemblementDiff, totalPreparationBonus);
   setDiffBadge('preparerLieuDiffBadge',  preparationDiff,   totalPreparationBonus);
@@ -1312,7 +1392,7 @@ function updateFestiveUI() {
 
   if (state.currentStepIndex === 2) {
     const appelDiff = invitesData.diff + malus;
-    setInnerHTML('appelFestiveLabel', `Appel Révolution Festive`);
+    setInnerHTML('appelFestiveLabel', `Appel Révolution Festive${tfTag}`);
     setDiffBadge('appelFestiveDiffBadge', appelDiff, totalExecutionBonus);
     setTrackerStatus('appelFestiveSucces', state.festive.appelFestiveSucces, appelDiff);
     const appelReussi = state.festive.appelFestiveSucces >= appelDiff;
@@ -1355,8 +1435,9 @@ function updateMutinerieUI() {
   setTrackerStatus('mutinerieTactique',         s.tactique,         3);
 
   if (state.currentStepIndex >= 1) {
-    const mutinsPoste   = Math.max(0, s.eloquencePoste   - 3);
-    const mutinsCambuse = Math.max(0, s.eloquenceCambuse - 2);
+    // Règle: chaque test d'Éloquence réussi recrute 1 mutin + 1 par succès excédentaire.
+    const mutinsPoste   = s.eloquencePoste   >= 3 ? 1 + (s.eloquencePoste   - 3) : 0;
+    const mutinsCambuse = s.eloquenceCambuse >= 2 ? 1 + (s.eloquenceCambuse - 2) : 0;
     const totalMutins   = mutinsPoste + mutinsCambuse;
     const masseCritique = s.tonnage / 100;
     const aMasseCritique = totalMutins >= masseCritique;
@@ -1680,13 +1761,9 @@ function updateRevolutionCelebrationUI() {
   const selectEl = document.getElementById('nouveauDirigeantSelect');
   if (selectEl) {
     const currentVal = selectEl.value;
-    selectEl.innerHTML = '<option value="">-- Candidats PD --</option>';
-    const candidates = [
-      ...state.pdList.locaux.map(e => ({ ...e, cat: 'Local' })),
-      ...state.pdList.pirates.map(e => ({ ...e, cat: 'Pirate' })),
-      ...state.pdList.autres.map(e => ({ ...e, cat: 'Autre' })),
-      ...state.officiersList.map(e => ({ ...e, cat: 'Officier' })),
-    ];
+    selectEl.innerHTML = '<option value="">-- Candidats PD locaux --</option>';
+    // Règle: le nouveau dirigeant doit être un PD local.
+    const candidates = state.pdList.locaux.map(e => ({ ...e, cat: 'Local' }));
     candidates.forEach(c => {
       const opt = document.createElement('option');
       opt.value = c.nom;
@@ -1750,6 +1827,9 @@ function bindAll() {
 
   // Export CR
   addListener('export-cr-btn', 'click', () => exportCR());
+
+  // Calendrier galactique
+  addListener('calendar-event-btn', 'click', () => createCalendarEvent());
 
   // Paramétrage
   addListener('revolteType', 'change', e => { state.revolteType = e.target.value; navigateTo(state.currentStepIndex); refreshLocationSelects(); scheduleAutosave(); });
@@ -2131,6 +2211,7 @@ async function init() {
   if (currentUserIsMJ) {
     document.getElementById('mj-only-badge')?.classList.remove('hidden');
     document.getElementById('new-session-btn')?.classList.remove('hidden');
+    document.getElementById('calendar-event-btn')?.classList.remove('hidden');
   }
 
   bindAll();

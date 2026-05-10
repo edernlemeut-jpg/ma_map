@@ -227,7 +227,12 @@ function upsertTraitsFromSeed() {
     );
     const run = db.transaction(() => {
       // Supprimer les entrées obsolètes (doublons supprimés)
-      const obsoleteIds = ['qualite-contact-boss', 'qualite-contact-heros', 'qualite-contact-elite'];
+      const obsoleteIds = [
+        'qualite-contact-boss', 'qualite-contact-heros', 'qualite-contact-elite',
+        'defaut-hook\u00a0',          // ancienne ID avec espace insécable
+        'defaut-vengeance\u00a0',     // ancienne ID avec espace insécable
+        'defaut-vengeance-1', 'defaut-vengeance-3', 'defaut-vengeance-5', // doublons numérotés
+      ];
       const del = db.prepare('DELETE FROM rules_entries WHERE id = ? AND table_id IS NULL');
       for (const id of obsoleteIds) del.run(id);
 
@@ -292,6 +297,7 @@ function ensureRevolteTables() {
     CREATE TABLE IF NOT EXISTS revolte_sessions (
       id           TEXT PRIMARY KEY,
       table_id     INTEGER NOT NULL REFERENCES game_tables(id) ON DELETE CASCADE,
+      parent_id    TEXT REFERENCES revolte_sessions(id) ON DELETE CASCADE,
       name         TEXT NOT NULL,
       type         TEXT NOT NULL DEFAULT 'emeute',
       scope        TEXT,
@@ -303,7 +309,25 @@ function ensureRevolteTables() {
       updated_at   TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_revolte_table ON revolte_sessions(table_id, status);
+    CREATE INDEX IF NOT EXISTS idx_revolte_parent ON revolte_sessions(parent_id);
   `);
+  // Migration in place: ajouter parent_id si l'ancienne table existait sans
+  const cols = new Set(db.prepare("PRAGMA table_info('revolte_sessions')").all().map(c => c.name));
+  if (!cols.has('parent_id')) {
+    db.exec("ALTER TABLE revolte_sessions ADD COLUMN parent_id TEXT REFERENCES revolte_sessions(id) ON DELETE CASCADE");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_revolte_parent ON revolte_sessions(parent_id)");
+  }
+  // Reset des sessions existantes : l'utilisateur a confirm\u00e9 qu'il n'y a rien
+  // d'important en base avant le refactor d'alignement r\u00e8gles (mai 2026).
+  // Idempotent : ne d\u00e9clenche le wipe qu'une fois via un flag dans meta_kv.
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS meta_kv (k TEXT PRIMARY KEY, v TEXT)`);
+    const flag = db.prepare("SELECT v FROM meta_kv WHERE k = 'revolte_reset_2026_05'").get();
+    if (!flag) {
+      db.exec("DELETE FROM revolte_sessions");
+      db.prepare("INSERT INTO meta_kv (k, v) VALUES ('revolte_reset_2026_05', ?)").run(new Date().toISOString());
+    }
+  } catch (_) { /* meta_kv peut d\u00e9j\u00e0 exister sous une autre forme, ignorer */ }
 }
 
 ensureRevolteTables();

@@ -303,6 +303,7 @@
             <option value="archivee">Archivée</option>
           </select>
           <button id="export-cr-btn" class="text-xs bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded transition-colors" title="Télécharger le compte-rendu Markdown">📄 CR</button>
+          <button id="calendar-event-btn" class="text-xs bg-purple-700 hover:bg-purple-600 text-white px-2 py-1 rounded transition-colors hidden" title="Inscrire un événement de cette révolte au calendrier galactique">📅 Calendrier</button>
           <button id="save-btn" class="text-xs bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded transition-colors">💾 Sauvegarder</button>
           <button id="delete-session-btn" class="text-xs bg-red-900/60 hover:bg-red-700 text-red-300 px-2 py-1 rounded transition-colors" title="Supprimer cette session">🗑</button>
           <span id="save-indicator" class="text-xs text-gray-500 hidden">Sauvegardé ✓</span>
@@ -401,13 +402,13 @@
           <fieldset class="revolte-fieldset">
             <legend class="revolte-legend">Stella Bell (Modifications)</legend>
             <div class="grid grid-cols-3 gap-3 mb-3">
-              <label class="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" id="stellaPorteDrapeauCheck" class="revolte-input"> Porte-Drapeau
+              <label class="flex items-center gap-2 text-sm cursor-pointer" title="Stella implique sa présence personnellement — bonus +1d sur les tests de la Révolte (effet à venir)">
+                <input type="checkbox" id="stellaPorteDrapeauCheck" class="revolte-input"> Stella participe
               </label>
-              <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <label class="flex items-center gap-2 text-sm cursor-pointer" title="La population connaît Stella Bell — condition nécessaire pour annuler le malus de base (combiné à un PD pirate)">
                 <input type="checkbox" id="stellaConnuCheck" class="revolte-input"> Connue
               </label>
-              <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <label class="flex items-center gap-2 text-sm cursor-pointer" title="Stella Bell est morte — ajoute D+1 supplémentaire">
                 <input type="checkbox" id="stellaMorteCheck" class="revolte-input"> Morte
               </label>
             </div>
@@ -825,7 +826,7 @@
                 <div class="tracker-row" data-input="tractsPeupleSucces" data-types="revolution">
                   <div class="tracker-row-label">
                     <span id="tractsPeupleLabel" class="tracker-test-name">Tracts et affiches</span>
-                    <abbr class="rule-tip" title="Communication. Diffuser des tracts et affiches révolutionnaires dans les rues. Diff Sécurité+malus. Chaque succès exc. = +1 section sensibilisée.">ⓘ</abbr>
+                    <abbr class="rule-tip" title="Propagande. Diffuser des tracts et affiches révolutionnaires dans les rues. Diff Sécurité+malus. Chaque succès exc. = +1 section sensibilisée.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="tractsPeupleDiffBadge"></span>
                   </div>
                   <div class="tracker-row-controls">
@@ -1022,6 +1023,7 @@
 
                 <!-- Résumé commun -->
                 <div class="tracker-row tracker-subresult" data-types="emeute" id="emeuteCelebrationResult"></div>
+                <div class="tracker-row tracker-subresult malus" data-types="emeute" id="emeutePrixDuSangResult"></div>
                 <div class="tracker-row tracker-subresult" data-types="festive" id="festiveCelebrationResult"></div>
                 <div class="tracker-row tracker-subresult" data-types="festive" id="festiveContreRevolutionResult"></div>
                 <div class="tracker-row tracker-subresult" data-types="mutinerie" id="mutinerieRecompensesResult"></div>
