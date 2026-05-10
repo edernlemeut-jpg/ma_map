@@ -164,6 +164,17 @@
     /* Shared button style (same as tresors.html) */
     .btn-primary { background: #92400e; color: #fef3c7; font-weight: 500; }
     .btn-primary:hover { background: #b45309; }
+    /* Assaut 4 étapes */
+    .assault-card { border-left: 3px solid #4b5563; transition: border-color 0.2s; }
+    .assault-card.captured { border-left-color: #10b981; }
+    .assault-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 0.5rem; }
+    @media (min-width: 768px) { .assault-grid { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+    .assault-step { background: rgba(17,24,39,0.6); border: 1px solid #374151; border-radius: 4px; padding: 0.4rem; }
+    .assault-step.done { border-color: #10b981; background: rgba(6,78,59,0.25); }
+    .assault-step-header { display: flex; align-items: center; gap: 0.25rem; }
+    /* Lignes registres/délégués/insurrection */
+    .pp-ledger-row { border-bottom: 1px dashed #374151; }
+    .delegue-row, .insurrection-row { border-left: 2px solid #6d28d9; }
   </style>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
@@ -621,6 +632,70 @@
                 <div id="powerPlaceList" class="space-y-2 mb-3"></div>
                 <div id="powerPlaceResult" class="info-box"></div>
                 <div id="revolutionCoutResult" class="info-box mt-3 hidden"></div>
+
+                <!-- QG des factions présentes sur la planète (séparé des lieux assaillis) -->
+                <div class="tracker-row mt-3" data-types="revolution">
+                  <div class="tracker-row-label">
+                    <span class="tracker-test-name">QG de factions sur la planète</span>
+                    <abbr class="rule-tip" title="Nombre de QG de factions présents sur la planète, hors lieux à assaillir. Chaque QG ajoute +1 à la difficulté de l'Appel révolutionnaire (analyse-revolte §9).">ⓘ</abbr>
+                  </div>
+                  <div class="tracker-row-controls">
+                    <input type="number" id="qgFactionsPlanetInput" min="0" value="0" class="revolte-input w-16 text-center" title="Nombre de QG hors lieux assaillis (malus à l'Appel)">
+                  </div>
+                </div>
+              </fieldset>
+
+              <!-- Registre PP (dépenses vs sacrifices) -->
+              <fieldset class="revolte-fieldset" data-types="revolution,emeute,festive,mutinerie">
+                <legend class="revolte-legend cursor-pointer" id="ppLedgerLegend">
+                  Registre des Points de Pouvoir <span class="text-xs text-gray-500">(cliquer pour ouvrir)</span>
+                </legend>
+                <div id="ppLedgerWrap" class="hidden">
+                  <p class="text-xs italic mb-2" style="color:var(--text-muted)">
+                    <strong>Dépense</strong> = PP réservé pour l'action (récupérable en cas d'échec total).
+                    <strong>Sacrifice</strong> = PP brûlé pour bonus (toujours perdu).
+                  </p>
+                  <div class="grid grid-cols-1 md:grid-cols-5 gap-2 mb-2 text-sm">
+                    <input type="text" id="ppEntryWho" placeholder="Qui ?" class="revolte-input md:col-span-2">
+                    <select id="ppEntryKind" class="revolte-select">
+                      <option value="depense">Dépense</option>
+                      <option value="sacrifice">Sacrifice</option>
+                    </select>
+                    <input type="number" id="ppEntryAmount" min="1" value="1" class="revolte-input" placeholder="Montant">
+                    <button id="ppEntryAddBtn" class="text-sm bg-purple-700 hover:bg-purple-600 text-white px-3 py-1.5 rounded transition-colors">+ Ajouter</button>
+                    <input type="text" id="ppEntryReason" placeholder="Raison (optionnel)" class="revolte-input md:col-span-5">
+                  </div>
+                  <div id="pp-ledger-list" class="space-y-1"></div>
+                </div>
+              </fieldset>
+
+              <!-- Délégués (révolution locale/stellaire) -->
+              <fieldset class="revolte-fieldset" data-types="revolution" id="deleguesFieldset">
+                <legend class="revolte-legend">Délégués (Révolution locale/stellaire)</legend>
+                <p class="text-xs italic mb-2" style="color:var(--text-muted)">
+                  Désignez un délégué par planète. Bonus selon délai depuis le dernier RDV : 1 mois = +1d, 6 mois = TF.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-2 mb-2 text-sm">
+                  <input type="text" id="delegueNom" placeholder="Nom du délégué" class="revolte-input md:col-span-2">
+                  <input type="text" id="deleguePlanete" placeholder="Planète" class="revolte-input">
+                  <input type="number" id="delegueLastRdv" placeholder="Mois écoulés" min="0" value="0" class="revolte-input">
+                  <button id="addDelegueBtn" class="text-sm bg-gray-600 hover:bg-gray-500 text-white px-3 py-1.5 rounded">+ Ajouter</button>
+                  <input type="text" id="delegueAction" placeholder="Action en cours (optionnel)" class="revolte-input md:col-span-5">
+                </div>
+                <div id="delegues-list"></div>
+              </fieldset>
+
+              <!-- Insurrection générale (révolution stellaire) -->
+              <fieldset class="revolte-fieldset" data-types="revolution" id="insurrectionFieldset">
+                <legend class="revolte-legend">Insurrection Générale <span class="text-xs text-gray-500">(stellaire uniquement)</span></legend>
+                <p class="text-xs italic mb-2" style="color:var(--text-muted)">
+                  Préalable obligatoire à la Révolution stellaire. 4 tests par quadrant (politique, social, économique, sécuritaire). 6+ tests cumulés = instabilité −1 ; 12+ = −2.
+                </p>
+                <div class="flex gap-2 mb-2">
+                  <input type="text" id="insurrectionQuadrantName" placeholder="Nom du quadrant" class="revolte-input flex-1">
+                  <button id="addQuadrantBtn" class="text-sm bg-gray-600 hover:bg-gray-500 text-white px-3 py-1.5 rounded">+ Ajouter quadrant</button>
+                </div>
+                <div id="insurrection-list"></div>
               </fieldset>
               <fieldset class="revolte-fieldset">
                 <legend class="revolte-legend">Soutiens Stratégiques</legend>
@@ -1034,6 +1109,41 @@
 
               </div>
             </fieldset>
+
+            <!-- Contre-Révolution (révolution uniquement) -->
+            <fieldset class="revolte-fieldset" data-types="revolution">
+              <legend class="revolte-legend text-red-300">Contre-Révolution</legend>
+              <p class="text-xs italic mb-2" style="color:var(--text-muted)">
+                Le pouvoir renversé contre-attaque. Notez les menaces, la trahison potentielle du nouveau dirigeant, et le délai d'arrivée d'une flotte de répression.
+              </p>
+              <div class="space-y-2">
+                <label class="flex items-center gap-2 text-sm">
+                  <input type="checkbox" id="crTrahisonDirigeantCheck" class="revolte-input">
+                  Trahison potentielle du nouveau dirigeant
+                </label>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-1">Délai d'arrivée d'une flotte de répression</label>
+                    <select id="crFlotteDelaiSelect" class="revolte-select w-full">
+                      <option value="aucune">Aucune flotte annoncée</option>
+                      <option value="1semaine">1 semaine</option>
+                      <option value="1mois" selected>1 mois</option>
+                      <option value="2mois">2 mois</option>
+                      <option value="6mois">6 mois</option>
+                    </select>
+                  </div>
+                  <label class="flex items-end gap-2 text-sm">
+                    <input type="checkbox" id="crNegociationsCheck" class="revolte-input">
+                    Négociations en cours
+                  </label>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1">Notes</label>
+                  <textarea id="crNotesInput" rows="3" placeholder="Pactes signés, factions menaçantes, dette politique..." class="revolte-input w-full"></textarea>
+                </div>
+              </div>
+            </fieldset>
+
           </div><!-- /step-content-3 -->
 
         </div><!-- /revolte-steps-container -->
@@ -1046,5 +1156,36 @@
   <script type="module" src="/js/shared/cold-start.js?v=2.0.2"></script>
   <script type="module" src="/js/revolte/revolte-app.js?v=1.0.0"></script>
   <script type="module" src="/js/shared/nav-bar.js"></script>
+
+  <!-- Modal de confirmation (remplace window.confirm) -->
+  <div id="confirmModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60">
+    <div class="bg-gray-900 border border-red-700 rounded-lg p-5 max-w-md w-full mx-4 shadow-xl">
+      <h3 id="confirmModalTitle" class="text-lg font-bold text-red-300 mb-2">Confirmation requise</h3>
+      <p id="confirmModalMessage" class="text-sm text-gray-300 mb-4">Êtes-vous sûr ?</p>
+      <div class="flex justify-end gap-2">
+        <button id="confirmModalCancel" class="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded">Annuler</button>
+        <button id="confirmModalOk" class="text-sm bg-red-700 hover:bg-red-600 text-white px-3 py-1.5 rounded">Confirmer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Glossaire flottant -->
+  <button id="glossaryToggleBtn" type="button"
+          class="fixed bottom-4 right-4 z-40 bg-purple-800 hover:bg-purple-700 text-white rounded-full w-12 h-12 shadow-lg text-xl"
+          title="Glossaire des règles">📘</button>
+  <div id="glossaryPanel"
+       class="fixed bottom-20 right-4 z-40 hidden bg-gray-900 border border-purple-700 rounded-lg p-4 max-w-sm shadow-xl text-xs space-y-2">
+    <h3 class="text-purple-300 font-bold text-sm mb-1">Glossaire des règles</h3>
+    <p><strong class="text-green-300">+1d</strong> : un dé bonus au jet.</p>
+    <p><strong class="text-green-400">TF</strong> : Très Facile — réussite quasi-automatique.</p>
+    <p><strong class="text-red-300">D+1</strong> : difficulté augmentée de 1.</p>
+    <p><strong class="text-red-400">TD</strong> : Très Difficile.</p>
+    <p><strong>sc</strong> : succès comptés. <strong>SC</strong> : succès excédentaires (au-delà de la difficulté).</p>
+    <p><strong class="text-yellow-300">PP dépense</strong> : Point de Pouvoir réservé, récupérable si l'action échoue totalement.</p>
+    <p><strong class="text-red-300">PP sacrifice</strong> : Point de Pouvoir brûlé pour un bonus, toujours perdu.</p>
+    <p><strong>Personnage nommé</strong> : PNJ avec nom, sinon D+1 sur tous les jets d'assaut.</p>
+    <p class="text-gray-400 italic mt-2">Voir docs/analyse-revolte.md pour le détail.</p>
+  </div>
+
 </body>
 </html>

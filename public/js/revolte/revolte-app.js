@@ -467,6 +467,7 @@ function defaultState() {
     revolteType: 'emeute',
     population: 1.0,
     securitePlanetaire: 5,
+    qgFactionsOnPlanet: 0,
     locationRef: { quadrant: '', systemId: null, systemNom: '', planetId: null, planetNom: '', shipId: null, shipNom: '' },
     stellaPropagande: { porteDrapeau: false, connu: false, morte: false },
     propagande: {
@@ -474,21 +475,30 @@ function defaultState() {
       propagandeSucces: 1, eloquenceSucces: 3,
       bonusJets: 0, bonusDuree: 0,
     },
+    propagandeGenerale: { portee: 'planete', succesExc: 0, choix: 'bonus' },
+    ppLedger: [],
     pd:       { locaux: 0, pirates: 0, autres: 0 },
     pdList:   { locaux: [], pirates: [], autres: [] },
     officiers: 0,
     officiersList: [],
-    emeute:   { grandLieu: false, empathieSucces: 1, tactiqueSucces: 1, discoursSucces: 5 },
+    emeute:   {
+      grandLieu: false, empathieSucces: 1, tactiqueSucces: 1, discoursSucces: 5,
+      inRun: { tranches: 0, notes: '' },
+    },
     festive: {
       lieuFete: 'vaisseau_nature', nbInvites: 10,
       autorisationTestSucces: 0, rassemblementTestSucces: 0,
       preparerLieuTestSucces: 0, appelFestiveSucces: 0,
       estReussie: false,
+      invitesDeMarque: [],
+      inRun: { heuresEcoulees: 0, notes: '' },
     },
     mutinerie: {
       tonnage: 100, eloquencePoste: 0, eloquenceCambuse: 0,
       discretion: 1, conditionsFavorables: false, tactique: 0,
       location: 1, appelSucces: 0,
+      journal: [],
+      currentDay: 1,
     },
     revolution: {
       scope: 'planetaire',
@@ -496,10 +506,14 @@ function defaultState() {
       powerPlaces: [],
       currentSections: 0, recrutementSucces: 0, troopQuality: -2,
       sensibilisation: { discours: 0, tracts: 0, comprehension: 0 },
-      special: { secret: false, tech: false },
+      special: { secret: false, tech: false, secretNiveau: '+1d', secretDementi: false, techNiveau: 1, techTonnageVendu: 0 },
       execution: { appelSucces: 0, intimidationSucces: 0, assaults: {}, sectionsLost: 0 },
-      celebration: { sciencesSolairesSucces: 3, joursDeCombat: 1 },
+      celebration: { sciencesSolairesSucces: 3, joursDeCombat: 1, nouveauDirigeant: '', gouvernement: '' },
+      contreRevolution: { trahisonDirigeant: false, flotteDelai: '1mois', negociationsEnCours: false, notes: '' },
+      delegues: [],
+      insurrection: { quadrants: [] },
     },
+    retoursDeFlamme: [],
   };
 }
 
@@ -647,6 +661,9 @@ function mergeState(loaded) {
     stellaPropagande: { ...def.stellaPropagande, ...(loaded.stellaPropagande || {}) },
     locationRef:  { ...def.locationRef,       ...(loaded.locationRef       || {}) },
     propagande:       { ...def.propagande,       ...(loaded.propagande       || {}) },
+    propagandeGenerale: { ...def.propagandeGenerale, ...(loaded.propagandeGenerale || {}) },
+    ppLedger: Array.isArray(loaded.ppLedger) ? loaded.ppLedger : [],
+    retoursDeFlamme: Array.isArray(loaded.retoursDeFlamme) ? loaded.retoursDeFlamme : [],
     pd:               { ...def.pd,               ...(loaded.pd               || {}) },
     pdList: {
       locaux:  Array.isArray(loaded.pdList?.locaux)  ? loaded.pdList.locaux  : [],
@@ -654,18 +671,40 @@ function mergeState(loaded) {
       autres:  Array.isArray(loaded.pdList?.autres)  ? loaded.pdList.autres  : [],
     },
     officiersList: Array.isArray(loaded.officiersList) ? loaded.officiersList : [],
-    emeute:           { ...def.emeute,            ...(loaded.emeute           || {}) },
-    festive:          { ...def.festive,           ...(loaded.festive          || {}) },
-    mutinerie:        { ...def.mutinerie,         ...(loaded.mutinerie        || {}) },
+    emeute: {
+      ...def.emeute,
+      ...(loaded.emeute || {}),
+      inRun: { ...def.emeute.inRun, ...((loaded.emeute || {}).inRun || {}) },
+    },
+    festive: {
+      ...def.festive,
+      ...(loaded.festive || {}),
+      invitesDeMarque: Array.isArray((loaded.festive || {}).invitesDeMarque) ? loaded.festive.invitesDeMarque : [],
+      inRun: { ...def.festive.inRun, ...((loaded.festive || {}).inRun || {}) },
+    },
+    mutinerie: {
+      ...def.mutinerie,
+      ...(loaded.mutinerie || {}),
+      journal: Array.isArray((loaded.mutinerie || {}).journal) ? loaded.mutinerie.journal : [],
+    },
     revolution: {
       ...def.revolution,
       ...rev,
       allies:          Array.isArray(rev.allies)      ? rev.allies      : def.revolution.allies,
-      powerPlaces:     Array.isArray(rev.powerPlaces) ? rev.powerPlaces : def.revolution.powerPlaces,
+      powerPlaces:     Array.isArray(rev.powerPlaces) ? rev.powerPlaces.map(p => ({
+        discoveryStatus: 'identified',
+        isPersonnageNomme: true,
+        ...p,
+      })) : def.revolution.powerPlaces,
+      delegues:        Array.isArray(rev.delegues) ? rev.delegues : [],
       sensibilisation: { ...def.revolution.sensibilisation, ...(rev.sensibilisation || {}) },
       special:         { ...def.revolution.special,         ...(rev.special         || {}) },
       execution:       { ...def.revolution.execution,       ...(rev.execution       || {}) },
       celebration:     { ...def.revolution.celebration,     ...(rev.celebration     || {}) },
+      contreRevolution:{ ...def.revolution.contreRevolution,...(rev.contreRevolution|| {}) },
+      insurrection: {
+        quadrants: Array.isArray((rev.insurrection || {}).quadrants) ? rev.insurrection.quadrants : [],
+      },
     },
   };
 }
@@ -752,6 +791,21 @@ function applyStateToUI(session) {
   setVal('intimidationRedditionSucces',state.revolution.execution.intimidationSucces);
   setVal('sciencesSolairesSucces',    state.revolution.celebration.sciencesSolairesSucces);
   setVal('joursDeCombatInput',        state.revolution.celebration.joursDeCombat);
+  setVal('nouveauDirigeantSelect',    state.revolution.celebration.nouveauDirigeant);
+
+  // QG factions hors lieux assaillis
+  setVal('qgFactionsPlanetInput',     state.qgFactionsOnPlanet);
+
+  // Contre-Révolution
+  setCheck('crTrahisonDirigeantCheck', state.revolution.contreRevolution.trahisonDirigeant);
+  setVal('crFlotteDelaiSelect',        state.revolution.contreRevolution.flotteDelai);
+  setCheck('crNegociationsCheck',      state.revolution.contreRevolution.negociationsEnCours);
+  setVal('crNotesInput',               state.revolution.contreRevolution.notes);
+
+  // Rendus dynamiques (PP ledger / Délégués / Insurrection)
+  renderPPLedger();
+  renderDelegues();
+  renderInsurrection();
 
   buildLocationUI();
   refreshLocationSelects();
@@ -855,7 +909,11 @@ async function createSession() {
 async function deleteSession() {
   if (!currentSessionId) return;
   const name = document.getElementById('editor-session-name')?.textContent || 'cette session';
-  if (!confirm(`Supprimer « ${name} » ? Cette action est irréversible.`)) return;
+  const ok = await showConfirm({
+    title:   'Supprimer la session',
+    message: `Supprimer « ${name} » ? Cette action est irréversible.`,
+  });
+  if (!ok) return;
 
   try {
     await apiFetch(`/api/revolte/${currentSessionId}`, { method: 'DELETE' });
@@ -992,7 +1050,12 @@ function getMalus() {
   const s = state.stellaPropagande;
   const pirateCount = (state.pdList?.pirates?.length) ?? state.pd?.pirates ?? 0;
   const okStella = pirateCount > 0 && !!s.connu;
-  return (okStella ? 0 : 1) + (s.morte ? 1 : 0);
+  let m = (okStella ? 0 : 1) + (s.morte ? 1 : 0);
+  // Pour une Révolution, chaque QG de faction présent sur la planète ajoute +1 à l'Appel/Sécurité.
+  if (state.revolteType === 'revolution') {
+    m += Number(state.qgFactionsOnPlanet) || 0;
+  }
+  return m;
 }
 
 /** Compute and render the PP counter in the sidebar. */
@@ -1024,14 +1087,113 @@ function updatePPCounter() {
     ppGagnes    = ok ? (gains[state.revolution.scope] || 1) : 0;
   }
 
+  // Compteur qualifié (depense vs sacrifice) issu du ppLedger
+  let ledgerDepense   = 0;
+  let ledgerSacrifice = 0;
+  (state.ppLedger || []).forEach(e => {
+    if (e.kind === 'depense')   ledgerDepense   += Number(e.amount) || 0;
+    if (e.kind === 'sacrifice') ledgerSacrifice += Number(e.amount) || 0;
+  });
+
   const net      = ppGagnes - ppDepenses;
   const netSign  = net >= 0 ? '+' : '';
   const netClass = net >= 0 ? 'text-green-400' : 'text-red-400';
-  el.innerHTML   = `<span class="text-gray-500 text-xs mr-1">PP :</span>` +
+  el.innerHTML   = `<span class="text-gray-500 text-xs mr-1">PP cible :</span>` +
     `<span class="text-red-400 text-xs font-mono">\u2212${ppDepenses}</span>` +
     `<span class="text-gray-600 text-xs mx-1">/</span>` +
     `<span class="text-green-400 text-xs font-mono">+${ppGagnes}</span>` +
-    `<span class="${netClass} text-xs font-mono ml-1">(${netSign}${net})</span>`;
+    `<span class="${netClass} text-xs font-mono ml-1">(${netSign}${net})</span>` +
+    (ledgerDepense || ledgerSacrifice
+      ? `<span class="text-gray-500 text-xs ml-2" title="Détail du registre PP de la révolte">` +
+        `réservé : <span class="text-yellow-300">${ledgerDepense}d</span>·` +
+        `<span class="text-red-300">${ledgerSacrifice}s</span></span>`
+      : '');
+  renderPPLedger();
+}
+
+/** Render the PP ledger detail panel (collapsible). */
+function renderPPLedger() {
+  const wrap = document.getElementById('pp-ledger-list');
+  if (!wrap) return;
+  const entries = state.ppLedger || [];
+  if (entries.length === 0) {
+    wrap.innerHTML = '<p class="text-xs text-gray-500 italic">Aucune entrée. Ajoutez une dépense (récupérable en cas d\'échec) ou un sacrifice (consommé).</p>';
+    return;
+  }
+  wrap.innerHTML = entries.map((e, i) => {
+    const kindCls = e.kind === 'sacrifice' ? 'text-red-300' : 'text-yellow-300';
+    const kindLbl = e.kind === 'sacrifice' ? 'Sacrifice' : 'Dépense';
+    return `<div class="pp-ledger-row flex items-center gap-2 text-xs py-1">
+      <span class="${kindCls} font-mono w-20">${kindLbl}</span>
+      <span class="font-mono w-8 text-right">${Number(e.amount) || 0}</span>
+      <span class="flex-1 truncate">${escHtml(e.who || '?')}${e.reason ? ` — ${escHtml(e.reason)}` : ''}</span>
+      <button class="pp-ledger-remove text-red-400 hover:text-red-300" data-idx="${i}" title="Retirer">×</button>
+    </div>`;
+  }).join('');
+}
+
+/** Render délégués (officiers délégués pour scope locale/stellaire). */
+function renderDelegues() {
+  const wrap = document.getElementById('delegues-list');
+  if (!wrap) return;
+  const list = state.revolution.delegues || [];
+  if (list.length === 0) {
+    wrap.innerHTML = '<p class="text-xs text-gray-500 italic">Aucun délégué. Pour une Révolution locale/stellaire, désigner un délégué par planète.</p>';
+    return;
+  }
+  wrap.innerHTML = list.map((d, i) => {
+    // Bonus selon délai depuis le dernier rendez-vous (en mois)
+    let delaiTxt = '—';
+    let bonusTxt = '';
+    if (d.lastRdvMonth) {
+      const m = parseInt(d.lastRdvMonth, 10) || 0;
+      delaiTxt = `${m} mois`;
+      if (m >= 6)      bonusTxt = '<span class="text-green-300 font-bold">TF</span>';
+      else if (m >= 1) bonusTxt = '<span class="text-green-400">+1d</span>';
+    }
+    return `<div class="delegue-row bg-gray-800 p-2 rounded text-xs mb-1">
+      <div class="flex items-center gap-2">
+        <strong>${escHtml(d.nom || '?')}</strong>
+        <span class="text-gray-400">${escHtml(d.planete || '')}</span>
+        <span class="ml-auto">${bonusTxt}</span>
+        <button class="delegue-remove text-red-400 hover:text-red-300" data-idx="${i}" title="Retirer">×</button>
+      </div>
+      ${d.action ? `<div class="text-gray-300 mt-1">Action : ${escHtml(d.action)}</div>` : ''}
+      <div class="text-gray-500 mt-1">Dernier RDV : ${delaiTxt}</div>
+    </div>`;
+  }).join('');
+}
+
+/** Render insurrection générale (révolution stellaire). */
+function renderInsurrection() {
+  const wrap = document.getElementById('insurrection-list');
+  if (!wrap) return;
+  const list = state.revolution.insurrection?.quadrants || [];
+  if (list.length === 0) {
+    wrap.innerHTML = '<p class="text-xs text-gray-500 italic">Aucun quadrant. L\'Insurrection générale est requise comme préalable à la Révolution stellaire.</p>';
+    return;
+  }
+  wrap.innerHTML = list.map((q, i) => {
+    const tests = q.tests || { politique: 0, social: 0, economique: 0, securitaire: 0 };
+    const total = (tests.politique || 0) + (tests.social || 0) + (tests.economique || 0) + (tests.securitaire || 0);
+    const instab = total >= 12 ? -2 : total >= 6 ? -1 : 0;
+    return `<div class="insurrection-row bg-gray-800 p-2 rounded text-xs mb-1">
+      <div class="flex items-center gap-2 mb-1">
+        <strong>Quadrant ${escHtml(q.name || '?')}</strong>
+        <span class="ml-auto">Instabilité : <strong class="${instab < 0 ? 'text-red-400' : 'text-gray-400'}">${instab}</strong></span>
+        <button class="insurrection-remove text-red-400 hover:text-red-300" data-idx="${i}" title="Retirer">×</button>
+      </div>
+      <div class="grid grid-cols-4 gap-1 text-center">
+        ${['politique', 'social', 'economique', 'securitaire'].map(k => `
+          <label class="block">
+            <span class="text-gray-400 text-xs">${k}</span>
+            <input type="number" min="0" value="${tests[k] || 0}"
+                   class="insurrection-test-input revolte-input w-full text-center"
+                   data-idx="${i}" data-key="${k}">
+          </label>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 /** Create a calendar event linked to the current revolt session (MJ only). */
@@ -1146,12 +1308,83 @@ function exportCR() {
       `- Recrutement : **${rev.recrutementSucces}** succès (diff ${recD}) — ${rev.recrutementSucces >= recD ? '✅' : '❌'}`,
       `- Discours peuple : **${rev.sensibilisation.discours}** — ${rev.sensibilisation.discours >= sec + malus ? '✅' : '❌'}`,
       `- Tracts : **${rev.sensibilisation.tracts}** — ${rev.sensibilisation.tracts >= sec + malus ? '✅' : '❌'}`,
+      `- QG factions hors lieux assaillis : **${state.qgFactionsOnPlanet || 0}**`,
       '');
+
+    // Lieux de pouvoir détaillés
+    if ((rev.powerPlaces || []).length > 0) {
+      lines.push('## Lieux de Pouvoir');
+      rev.powerPlaces.forEach(p => {
+        const a = p.assault || {};
+        const stepD = sec + malus + (p.isPersonnageNomme ? 0 : 1);
+        const icon = (v) => v === 0 ? '⏳' : (v >= stepD ? '✅' : '❌');
+        lines.push(`- **${p.name}** ${p.isQG ? '[QG]' : ''}${p.isPersonnageNomme ? '' : ' _(non nommé, D+1)_'} — ` +
+          `Atteindre ${icon(a.atteindre)} / Entrer ${icon(a.entrer)} / Dirigeant ${icon(a.dirigeant)} / Reddition ${icon(a.reddition)} — ` +
+          (p.isCaptured ? '**Capturé**' : '_en cours_'));
+      });
+      lines.push('');
+    }
+
+    // Insurrection (stellaire)
+    const quads = rev.insurrection?.quadrants || [];
+    if (quads.length > 0) {
+      lines.push('## Insurrection Générale');
+      quads.forEach(q => {
+        const t = q.tests || {};
+        const tot = (t.politique || 0) + (t.social || 0) + (t.economique || 0) + (t.securitaire || 0);
+        lines.push(`- Quadrant **${q.name}** — Politique ${t.politique || 0} / Social ${t.social || 0} / Économique ${t.economique || 0} / Sécuritaire ${t.securitaire || 0} (total **${tot}**)`);
+      });
+      lines.push('');
+    }
+
+    // Délégués (locale/stellaire)
+    const delegues = rev.delegues || [];
+    if (delegues.length > 0) {
+      lines.push('## Délégués');
+      delegues.forEach(d => {
+        lines.push(`- **${d.nom}** (${d.planete || 'planète ?'}) — dernier RDV : ${d.lastRdvMonth || 0} mois — ${d.action || '—'}`);
+      });
+      lines.push('');
+    }
+
     const appelD = sec + malus;
     lines.push('## Exécution',
       `- Appel révolte : **${rev.execution.appelSucces}** succès (diff ${appelD}) — ${rev.execution.appelSucces >= appelD ? '✅' : '❌'}`,
       `- Reddition : **${rev.execution.intimidationSucces}** succès`,
+      `- Sections perdues (assauts échoués) : **${rev.execution.sectionsLost || 0}**`,
       '');
+
+    // Contre-révolution
+    const cr = rev.contreRevolution || {};
+    if (cr.trahisonDirigeant || cr.flotteDelai !== '1mois' || cr.negociationsEnCours || cr.notes) {
+      lines.push('## Contre-Révolution',
+        `- Trahison potentielle du nouveau dirigeant : ${cr.trahisonDirigeant ? '⚠️ OUI' : 'non'}`,
+        `- Flotte de répression : **${cr.flotteDelai}**`,
+        `- Négociations en cours : ${cr.negociationsEnCours ? 'oui' : 'non'}`,
+        cr.notes ? `- Notes : ${cr.notes}` : '',
+        '');
+    }
+
+    // Nouveau dirigeant (célébration)
+    if (rev.celebration?.nouveauDirigeant) {
+      lines.push('## Nouveau Pouvoir',
+        `- Dirigeant : **${rev.celebration.nouveauDirigeant}**`,
+        rev.celebration.gouvernement ? `- Gouvernement : ${rev.celebration.gouvernement}` : '',
+        '');
+    }
+  }
+
+  // Registre PP (commun à tous les types)
+  const ledger = state.ppLedger || [];
+  if (ledger.length > 0) {
+    lines.push('## Registre des Points de Pouvoir');
+    const depTotal  = ledger.filter(e => e.kind === 'depense').reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const sacTotal  = ledger.filter(e => e.kind === 'sacrifice').reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    lines.push(`- Total dépensé : **${depTotal}** · Total sacrifié : **${sacTotal}**`);
+    ledger.forEach(e => {
+      lines.push(`  - ${e.kind === 'sacrifice' ? '🔥 Sacrifice' : '💰 Dépense'} **${e.amount}** par ${e.who}${e.reason ? ` — ${e.reason}` : ''}`);
+    });
+    lines.push('');
   }
 
   lines.push('---', `*Généré automatiquement — Metal Adventures*`);
@@ -1653,38 +1886,97 @@ function buildAssaultSection() {
     return;
   }
 
+  const malus       = getMalus();
+  const baseDiff    = state.securitePlanetaire + malus;
+
   container.innerHTML = rev.powerPlaces.map((place, i) => {
-    const assaultData = rev.execution.assaults[i] || { reachRoll: 0, enterRoll: 0 };
-    const assaultDiff = state.securitePlanetaire + getMalus();
+    // Backfill structure for legacy data
+    if (!place.assault) place.assault = {};
+    const a = Object.assign({ atteindre: 0, entrer: 0, dirigeant: 0, reddition: 0 }, place.assault);
+    if (place.isPersonnageNomme === undefined) place.isPersonnageNomme = true;
+    const nomMalus = place.isPersonnageNomme ? 0 : 1;
+    const stepDiff = baseDiff + nomMalus;
+
+    // Compute step statuses
+    const stepDone = {
+      atteindre: a.atteindre >= stepDiff,
+      entrer:    a.entrer    >= stepDiff,
+      dirigeant: a.dirigeant >= stepDiff,
+      reddition: a.reddition >= stepDiff,
+    };
+    place.isCaptured = stepDone.atteindre && stepDone.entrer && stepDone.dirigeant && stepDone.reddition;
+
+    // Sections lost on each failed step (succès manquants)
+    const lostFor = (val) => val > 0 && val < stepDiff ? (stepDiff - val) : 0;
+    const totalLostHere = lostFor(a.atteindre) + lostFor(a.entrer) + lostFor(a.dirigeant) + lostFor(a.reddition);
+
+    const stepHtml = (key, label, comp) => {
+      const v = a[key];
+      const status = v === 0 ? '⏳' : (v >= stepDiff ? '✅' : '❌');
+      return `
+        <div class="assault-step ${stepDone[key] ? 'done' : ''}">
+          <div class="assault-step-header">
+            <span class="text-xs font-semibold">${label}</span>
+            <span class="text-xs text-gray-400">${comp} · diff ${stepDiff}</span>
+            <span class="ml-auto text-xs">${status}</span>
+          </div>
+          <div class="flex items-center gap-2 mt-1">
+            <input type="number" min="0" value="${v}"
+                   class="assault-roll-input revolte-input w-20" data-index="${i}" data-action="${key}">
+            <button class="revolte-dice-btn assault-step-btn" data-index="${i}" data-action="${key}" data-comp="${comp}"
+                    title="Lancer ${comp}">🎲</button>
+          </div>
+        </div>`;
+    };
+
     return `
-      <div class="bg-gray-800 rounded p-3 text-sm">
-        <div class="font-semibold mb-2">${escHtml(place.name)} ${place.isQG ? '<span class="text-xs text-red-400">[QG]</span>' : ''}</div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs text-gray-400 mb-1">Atteindre — Tactique (diff ${assaultDiff})</label>
-            <div class="flex items-center gap-2">
-              <input type="number" min="0" value="${assaultData.reachRoll}"
-                     class="assault-roll-input revolte-input w-20" data-index="${i}" data-action="reach">
-              <button class="revolte-dice-btn assault-reach-btn" data-index="${i}" data-action="reach"
-                      title="Lancer Tactique">🎲</button>
-            </div>
+      <div class="bg-gray-800 rounded p-3 text-sm assault-card ${place.isCaptured ? 'captured' : ''}">
+        <div class="flex items-start justify-between mb-2 gap-2">
+          <div class="flex-1">
+            <div class="font-semibold">${escHtml(place.name)} ${place.isQG ? '<span class="text-xs text-red-400">[QG]</span>' : ''}</div>
+            ${place.desc ? `<div class="text-xs text-gray-400">${escHtml(place.desc)}</div>` : ''}
           </div>
-          <div>
-            <label class="block text-xs text-gray-400 mb-1">Entrer — Combat (diff ${assaultDiff})</label>
-            <div class="flex items-center gap-2">
-              <input type="number" min="0" value="${assaultData.enterRoll}"
-                     class="assault-roll-input revolte-input w-20" data-index="${i}" data-action="enter">
-              <button class="revolte-dice-btn assault-enter-btn" data-index="${i}" data-action="enter"
-                      title="Lancer Combat">🎲</button>
-            </div>
-          </div>
+          <label class="text-xs text-gray-300 flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                 title="Si non coché, D+1 à tous les tests d'assaut (personnage nommé requis pour Atteindre dirigeant / Reddition)">
+            <input type="checkbox" class="place-nomme-check revolte-input" data-index="${i}" ${place.isPersonnageNomme ? 'checked' : ''}>
+            Perso. nommé
+          </label>
         </div>
-        <div class="mt-1 text-xs ${place.isCaptured ? 'text-green-400' : 'text-gray-500'}">
-          ${place.isCaptured ? '✅ Capturé' : '⏳ Non capturé'}
+        <div class="assault-grid">
+          ${stepHtml('atteindre', '① Atteindre',         'Tactique')}
+          ${stepHtml('entrer',    '② Entrer',            'Commandement')}
+          ${stepHtml('dirigeant', '③ Atteindre dirigeant','Combat')}
+          ${stepHtml('reddition', '④ Reddition',         'Combat')}
+        </div>
+        <div class="mt-2 text-xs flex items-center justify-between">
+          <span class="${place.isCaptured ? 'text-green-400 font-semibold' : 'text-gray-500'}">
+            ${place.isCaptured ? '✅ Lieu capturé' : '⏳ En cours'}
+          </span>
+          ${totalLostHere > 0
+            ? `<span class="text-red-400">Sections perdues ici : ${totalLostHere}</span>`
+            : ''}
         </div>
       </div>
     `;
   }).join('');
+
+  // Aggregate sections lost across all places
+  let totalLost = 0;
+  rev.powerPlaces.forEach((p) => {
+    const a = p.assault || {};
+    const stepDiff = baseDiff + (p.isPersonnageNomme ? 0 : 1);
+    ['atteindre', 'entrer', 'dirigeant', 'reddition'].forEach(k => {
+      if (a[k] > 0 && a[k] < stepDiff) totalLost += (stepDiff - a[k]);
+    });
+  });
+  rev.execution.sectionsLost = totalLost;
+
+  const lostEl = document.getElementById('sections-lost-summary');
+  if (lostEl) {
+    lostEl.innerHTML = totalLost > 0
+      ? `Pertes cumulées (assauts échoués) : <strong class="text-red-400">${totalLost} sections</strong>`
+      : 'Aucune perte pour le moment.';
+  }
 }
 
 function updateRevolutionExecutionUI() {
@@ -1999,54 +2291,57 @@ function bindAll() {
   addListener('appelRevolteSucces',        'input', e => { state.revolution.execution.appelSucces       = parseInt(e.target.value, 10) || 0; updateRevolutionExecutionUI(); scheduleAutosave(); });
   addListener('intimidationRedditionSucces','input',e => { state.revolution.execution.intimidationSucces = parseInt(e.target.value, 10) || 0; updateRevolutionExecutionUI(); scheduleAutosave(); });
 
-  // Assault section (delegated)
+  // Assault section (delegated) — 4 sub-steps: atteindre / entrer / dirigeant / reddition
   document.getElementById('assault-section')?.addEventListener('input', e => {
-    if (!e.target.classList.contains('assault-roll-input')) return;    const idx    = parseInt(e.target.dataset.index, 10);
-    const action = e.target.dataset.action;
-    const value  = parseInt(e.target.value, 10) || 0;
-    if (!state.revolution.execution.assaults[idx]) {
-      state.revolution.execution.assaults[idx] = { reachRoll: 0, enterRoll: 0 };
+    if (e.target.classList.contains('assault-roll-input')) {
+      const idx    = parseInt(e.target.dataset.index, 10);
+      const action = e.target.dataset.action;
+      const value  = parseInt(e.target.value, 10) || 0;
+      const place  = state.revolution.powerPlaces[idx];
+      if (!place) return;
+      if (!place.assault) place.assault = { atteindre: 0, entrer: 0, dirigeant: 0, reddition: 0 };
+      place.assault[action] = value;
+      buildAssaultSection();
+      updateRevolutionExecutionUI();
+      scheduleAutosave();
     }
-    state.revolution.execution.assaults[idx][`${action}Roll`] = value;
-
-    const assaultData = state.revolution.execution.assaults[idx];
-    const malus = getMalus();
-    const assaultDiff = state.securitePlanetaire + malus;
-    if (assaultData.reachRoll >= assaultDiff && assaultData.enterRoll >= assaultDiff) {
-      state.revolution.powerPlaces[idx].isCaptured = true;
+  });
+  document.getElementById('assault-section')?.addEventListener('change', e => {
+    if (e.target.classList.contains('place-nomme-check')) {
+      const idx   = parseInt(e.target.dataset.index, 10);
+      const place = state.revolution.powerPlaces[idx];
+      if (!place) return;
+      place.isPersonnageNomme = e.target.checked;
+      buildAssaultSection();
+      scheduleAutosave();
     }
-    let totalLosses = 0;
-    Object.keys(state.revolution.execution.assaults).forEach(pi => {
-      const a = state.revolution.execution.assaults[pi];
-      if (a.reachRoll > 0 && a.reachRoll < assaultDiff) totalLosses += (assaultDiff - a.reachRoll);
-      if (a.enterRoll > 0 && a.enterRoll < assaultDiff) totalLosses += (assaultDiff - a.enterRoll);
-    });
-    state.revolution.execution.sectionsLost = totalLosses;
-    updateRevolutionExecutionUI();
-    scheduleAutosave();
   });
 
   // Célébration révolution
   addListener('sciencesSolairesSucces', 'input', e => { state.revolution.celebration.sciencesSolairesSucces = parseInt(e.target.value, 10) || 0; updateRevolutionCelebrationUI(); scheduleAutosave(); });
   addListener('joursDeCombatInput',     'input', e => { state.revolution.celebration.joursDeCombat           = parseInt(e.target.value, 10) || 0; updateRevolutionCelebrationUI(); scheduleAutosave(); });
+  addListener('nouveauDirigeantSelect', 'change', e => { state.revolution.celebration.nouveauDirigeant = e.target.value; scheduleAutosave(); });
 
   // 🎲 Dice roll buttons (delegated)
   document.addEventListener('click', e => {
     const btn = e.target.closest('.revolte-dice-btn');
     if (!btn || !currentSessionId) return;
 
-    // Assault section buttons (data-action = reach | enter)
+    // Assault section buttons (4 steps: atteindre / entrer / dirigeant / reddition)
     const action = btn.dataset.action;
-    if (action === 'reach' || action === 'enter') {
+    if (['atteindre', 'entrer', 'dirigeant', 'reddition'].includes(action)) {
       const idx        = parseInt(btn.dataset.index, 10);
+      const place      = state.revolution.powerPlaces[idx];
       const malus      = getMalus();
-      const assaultDiff = state.securitePlanetaire + malus;
-      const compLabel  = action === 'reach' ? 'Tactique' : 'Combat';
-      const placeName  = state.revolution.powerPlaces[idx]?.name || `Lieu ${idx + 1}`;
+      const nomMalus   = place && !place.isPersonnageNomme ? 1 : 0;
+      const stepDiff   = state.securitePlanetaire + malus + nomMalus;
+      const compLabel  = btn.dataset.comp || 'Combat';
+      const placeName  = place?.name || `Lieu ${idx + 1}`;
+      const stepLabels = { atteindre: 'Atteindre', entrer: 'Entrer', dirigeant: 'Atteindre dirigeant', reddition: 'Reddition' };
       getRoller().open({
-        title:    `${compLabel} — ${placeName}`,
-        context:  `Diff ${assaultDiff}`,
-        diff:     assaultDiff,
+        title:    `${stepLabels[action]} — ${placeName}`,
+        context:  `${compLabel} · diff ${stepDiff}${nomMalus ? ' (perso. non nommé)' : ''}`,
+        diff:     stepDiff,
         lockDiff: true,
         onResult: (result) => {
           const inp = document.querySelector(`.assault-roll-input[data-index="${idx}"][data-action="${action}"]`);
@@ -2153,6 +2448,134 @@ function bindAll() {
   document.getElementById('mobile-back-btn')?.addEventListener('click', showSessionsPanelMobile);
   document.getElementById('editor-status')?.addEventListener('change', scheduleAutosave);
   document.getElementById('session-filter')?.addEventListener('change', loadSessionList);
+
+  // ── Nouveaux bindings (Lot B + C) ──────────────────────────────────────────
+
+  // QG factions hors lieux assaillis (révolution)
+  addListener('qgFactionsPlanetInput', 'input', e => {
+    state.qgFactionsOnPlanet = parseInt(e.target.value, 10) || 0;
+    updateUI();
+    scheduleAutosave();
+  });
+
+  // Registre PP — toggle panel + ajouter/retirer entrée
+  document.getElementById('ppLedgerLegend')?.addEventListener('click', () => {
+    document.getElementById('ppLedgerWrap')?.classList.toggle('hidden');
+  });
+  document.getElementById('ppEntryAddBtn')?.addEventListener('click', () => {
+    const who    = document.getElementById('ppEntryWho')?.value.trim();
+    const kind   = document.getElementById('ppEntryKind')?.value || 'depense';
+    const amount = parseInt(document.getElementById('ppEntryAmount')?.value, 10) || 0;
+    const reason = document.getElementById('ppEntryReason')?.value.trim() || '';
+    if (!who || amount <= 0) return;
+    state.ppLedger.push({ id: 'pp_' + Date.now(), who, kind, amount, reason, when: new Date().toISOString() });
+    ['ppEntryWho', 'ppEntryAmount', 'ppEntryReason'].forEach(id => { const el = document.getElementById(id); if (el) el.value = id === 'ppEntryAmount' ? '1' : ''; });
+    renderPPLedger();
+    updatePPCounter();
+    scheduleAutosave();
+  });
+  document.getElementById('pp-ledger-list')?.addEventListener('click', e => {
+    const btn = e.target.closest('.pp-ledger-remove');
+    if (!btn) return;
+    const idx = parseInt(btn.dataset.idx, 10);
+    if (!Number.isNaN(idx)) state.ppLedger.splice(idx, 1);
+    renderPPLedger();
+    updatePPCounter();
+    scheduleAutosave();
+  });
+
+  // Délégués
+  document.getElementById('addDelegueBtn')?.addEventListener('click', () => {
+    const nom     = document.getElementById('delegueNom')?.value.trim();
+    const planete = document.getElementById('deleguePlanete')?.value.trim();
+    const last    = parseInt(document.getElementById('delegueLastRdv')?.value, 10) || 0;
+    const action  = document.getElementById('delegueAction')?.value.trim() || '';
+    if (!nom) return;
+    state.revolution.delegues.push({ nom, planete, lastRdvMonth: last, action });
+    ['delegueNom', 'deleguePlanete', 'delegueAction'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const lastEl = document.getElementById('delegueLastRdv'); if (lastEl) lastEl.value = '0';
+    renderDelegues();
+    scheduleAutosave();
+  });
+  document.getElementById('delegues-list')?.addEventListener('click', e => {
+    const btn = e.target.closest('.delegue-remove');
+    if (!btn) return;
+    const idx = parseInt(btn.dataset.idx, 10);
+    if (!Number.isNaN(idx)) state.revolution.delegues.splice(idx, 1);
+    renderDelegues();
+    scheduleAutosave();
+  });
+
+  // Insurrection Générale
+  document.getElementById('addQuadrantBtn')?.addEventListener('click', () => {
+    const name = document.getElementById('insurrectionQuadrantName')?.value.trim();
+    if (!name) return;
+    state.revolution.insurrection.quadrants.push({
+      name, tests: { politique: 0, social: 0, economique: 0, securitaire: 0 },
+    });
+    document.getElementById('insurrectionQuadrantName').value = '';
+    renderInsurrection();
+    scheduleAutosave();
+  });
+  document.getElementById('insurrection-list')?.addEventListener('click', e => {
+    const btn = e.target.closest('.insurrection-remove');
+    if (!btn) return;
+    const idx = parseInt(btn.dataset.idx, 10);
+    if (!Number.isNaN(idx)) state.revolution.insurrection.quadrants.splice(idx, 1);
+    renderInsurrection();
+    scheduleAutosave();
+  });
+  document.getElementById('insurrection-list')?.addEventListener('input', e => {
+    const inp = e.target.closest('.insurrection-test-input');
+    if (!inp) return;
+    const idx = parseInt(inp.dataset.idx, 10);
+    const key = inp.dataset.key;
+    const q   = state.revolution.insurrection.quadrants[idx];
+    if (q) {
+      q.tests = q.tests || {};
+      q.tests[key] = parseInt(inp.value, 10) || 0;
+      renderInsurrection();
+      scheduleAutosave();
+    }
+  });
+
+  // Contre-Révolution
+  addListener('crTrahisonDirigeantCheck', 'change', e => { state.revolution.contreRevolution.trahisonDirigeant = e.target.checked; scheduleAutosave(); });
+  addListener('crFlotteDelaiSelect',      'change', e => { state.revolution.contreRevolution.flotteDelai      = e.target.value;   scheduleAutosave(); });
+  addListener('crNegociationsCheck',      'change', e => { state.revolution.contreRevolution.negociationsEnCours = e.target.checked; scheduleAutosave(); });
+  addListener('crNotesInput',             'input',  e => { state.revolution.contreRevolution.notes           = e.target.value;   scheduleAutosave(); });
+
+  // Glossaire flottant
+  document.getElementById('glossaryToggleBtn')?.addEventListener('click', () => {
+    document.getElementById('glossaryPanel')?.classList.toggle('hidden');
+  });
+}
+
+// ── Confirm modal (remplace window.confirm) ────────────────────────────────
+function showConfirm({ title = 'Confirmation requise', message = 'Êtes-vous sûr ?' } = {}) {
+  return new Promise(resolve => {
+    const modal = document.getElementById('confirmModal');
+    if (!modal) { resolve(window.confirm(message)); return; }
+    const tEl = document.getElementById('confirmModalTitle');
+    const mEl = document.getElementById('confirmModalMessage');
+    const ok  = document.getElementById('confirmModalOk');
+    const cn  = document.getElementById('confirmModalCancel');
+    if (tEl) tEl.textContent = title;
+    if (mEl) mEl.textContent = message;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    const cleanup = (val) => {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      ok?.removeEventListener('click', onOk);
+      cn?.removeEventListener('click', onCancel);
+      resolve(val);
+    };
+    const onOk     = () => cleanup(true);
+    const onCancel = () => cleanup(false);
+    ok?.addEventListener('click', onOk);
+    cn?.addEventListener('click', onCancel);
+  });
 }
 
 function handleBonusDistribution(changedInput) {
