@@ -554,6 +554,16 @@ function renderSessionList(sessions) {
     return;
   }
 
+  // Source de vérité = options du <select id="revolteType"> du panneau Paramétrage.
+  const typeLabelFromSelect = (() => {
+    const sel = document.getElementById('revolteType');
+    if (!sel) return null;
+    const map = {};
+    Array.from(sel.options).forEach(o => { map[o.value] = o.textContent.trim(); });
+    return map;
+  })();
+  const labelOf = (t) => (typeLabelFromSelect && typeLabelFromSelect[t]) || TYPE_LABELS[t] || t;
+
   container.innerHTML = '<div class="p-2 space-y-1.5">' + sessions.map(s => {
     const isActive = s.id === currentSessionId;
     const typeColor = TYPE_COLORS[s.type] || 'text-gray-400';
@@ -564,7 +574,7 @@ function renderSessionList(sessions) {
            data-id="${s.id}">
         <div class="flex items-start justify-between gap-1">
           <span class="font-medium text-sm truncate flex-1" style="color:var(--text)">${escHtml(s.name)}</span>
-          <span class="text-xs flex-shrink-0 ${typeColor}">${TYPE_LABELS[s.type] || s.type}</span>
+          <span class="text-xs flex-shrink-0 ${typeColor}">${labelOf(s.type)}</span>
         </div>
         ${location}
         <div class="flex items-center justify-between mt-1.5">
