@@ -8,7 +8,10 @@
       "description": "Permet d'accomplir des prouesses physiques liées à la souplesse, la coordination et le sens de l'équilibre.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Funambule", "Contorsionniste"]
+      "specialites": [
+        "Funambule",
+        "Contorsionniste"
+      ]
     },
     {
       "id": "competence-analyse",
@@ -18,7 +21,11 @@
       "description": "Permet de trier les informations, de déterminer leur véritable sens, y compris lorsqu'il a été volontairement dissimulé.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Cryptographie", "Mémoire", "Recoupements"]
+      "specialites": [
+        "Cryptographie",
+        "Mémoire",
+        "Recoupements"
+      ]
     },
     {
       "id": "competence-armes-de-jet",
@@ -82,7 +89,10 @@
       "description": "Permet de confectionner, d'entretenir et de réparer des objets primitifs.",
       "is_closed": true,
       "is_violent": false,
-      "specialites": ["Artiste", "Bricoleur"]
+      "specialites": [
+        "Artiste",
+        "Bricoleur"
+      ]
     },
     {
       "id": "competence-arts",
@@ -101,7 +111,15 @@
       "description": "Permet d'accomplir des prouesses physiques requérant de la puissance ou de l'endurance.",
       "is_closed": false,
       "is_violent": true,
-      "specialites": ["Endurance", "Escalade", "Natation", "Récupération", "Résistance", "Sauts", "Sprint"]
+      "specialites": [
+        "Endurance",
+        "Escalade",
+        "Natation",
+        "Récupération",
+        "Résistance",
+        "Sauts",
+        "Sprint"
+      ]
     },
     {
       "id": "competence-baratin",
@@ -111,7 +129,10 @@
       "description": "Permet de convaincre (et de mentir) par l'habileté des arguments et la ruse.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Embrouille", "Langue de vipère"]
+      "specialites": [
+        "Embrouille",
+        "Langue de vipère"
+      ]
     },
     {
       "id": "competence-bureaucratie",
@@ -130,7 +151,13 @@
       "description": "Permet d'effectuer les relevés nécessaires à l'établissement de cartes précises, et la réalisation de celles-ci.",
       "is_closed": true,
       "is_violent": false,
-      "specialites": ["Aérienne", "Hyperspatiale", "Maritime", "Spatiale", "Terrestre"]
+      "specialites": [
+        "Aérienne",
+        "Hyperspatiale",
+        "Maritime",
+        "Spatiale",
+        "Terrestre"
+      ]
     },
     {
       "id": "competence-comedie",
@@ -140,7 +167,11 @@
       "description": "Permet de simuler ou de dissimuler des émotions ou un état d'esprit.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Impassible", "Exubérant", "Subtil"]
+      "specialites": [
+        "Impassible",
+        "Exubérant",
+        "Subtil"
+      ]
     },
     {
       "id": "competence-commandement",
@@ -150,7 +181,12 @@
       "description": "Permet de donner des ordres à des subordonnés avec l'assurance qu'ils seront compris et exécutés.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Chantier", "Combat", "Compagnie", "Voyage"]
+      "specialites": [
+        "Chantier",
+        "Combat",
+        "Compagnie",
+        "Voyage"
+      ]
     },
     {
       "id": "competence-commerce",
@@ -178,7 +214,11 @@
       "description": "Permet d'effectuer des pas de danse plaisants à regarder ou à suivre, et sensuels.",
       "is_closed": false,
       "is_violent": true,
-      "specialites": ["Valse solaire", "Danse galactique", "Danse havanaise"]
+      "specialites": [
+        "Valse solaire",
+        "Danse galactique",
+        "Danse havanaise"
+      ]
     },
     {
       "id": "competence-deguisement",
@@ -197,7 +237,9 @@
       "description": "Permet de placer, manipuler ou désamorcer des explosifs.",
       "is_closed": false,
       "is_violent": true,
-      "specialites": ["Démineur"]
+      "specialites": [
+        "Démineur"
+      ]
     },
     {
       "id": "competence-determination",
@@ -207,7 +249,11 @@
       "description": "Permet de garder la tête froide, de résister à la peur et aux tentatives d'intimidation.",
       "is_closed": false,
       "is_violent": true,
-      "specialites": ["Peur", "Intimidation", "Torture"]
+      "specialites": [
+        "Peur",
+        "Intimidation",
+        "Torture"
+      ]
     },
     {
       "id": "competence-discretion",
@@ -217,7 +263,11 @@
       "description": "Permet de se cacher, d'agir sans être repéré, de s'infiltrer dans un lieu surveillé ou de prendre quelqu'un en filature.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Infiltration", "Passe-partout", "Pickpocket"]
+      "specialites": [
+        "Infiltration",
+        "Passe-partout",
+        "Pickpocket"
+      ]
     },
     {
       "id": "competence-dressage",
@@ -236,7 +286,10 @@
       "description": "Permet de convaincre (et d'émouvoir) par la force de conviction et son charisme personnel.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Discours", "Face-à-face"]
+      "specialites": [
+        "Discours",
+        "Face-à-face"
+      ]
     },
     {
       "id": "competence-empathie",
@@ -246,7 +299,10 @@
       "description": "Permet de discerner les émotions des individus et de comprendre l'âme humaine.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Entretien", "Perspicacité"]
+      "specialites": [
+        "Entretien",
+        "Perspicacité"
+      ]
     },
     {
       "id": "competence-environnement",
@@ -256,7 +312,11 @@
       "description": "Permet de survivre dans un environnement hostile (Arctique, Désert, Espace, Jungle, etc.).",
       "is_closed": true,
       "is_violent": false,
-      "specialites": ["Campeur", "Pourvoyeur", "Inoxydable"]
+      "specialites": [
+        "Campeur",
+        "Pourvoyeur",
+        "Inoxydable"
+      ]
     },
     {
       "id": "competence-equitation",
@@ -275,7 +335,11 @@
       "description": "Offre une lecture symbolique et métaphysique de la réalité, ainsi que la connaissance des symboles occultes et de leur signification.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Groupements occultes", "Magie", "Métaphysique"]
+      "specialites": [
+        "Groupements occultes",
+        "Magie",
+        "Métaphysique"
+      ]
     },
     {
       "id": "competence-etiquette",
@@ -285,7 +349,9 @@
       "description": "Permet de respecter les conventions sociales de la haute société.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Protocole"]
+      "specialites": [
+        "Protocole"
+      ]
     },
     {
       "id": "competence-falsification",
@@ -295,7 +361,13 @@
       "description": "Permet de reproduire frauduleusement des documents officiels ou d'en créer de toutes pièces.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Calligraphie", "Documents commerciaux", "Documents militaires", "Documents officiels", "Documents scientifiques"]
+      "specialites": [
+        "Calligraphie",
+        "Documents commerciaux",
+        "Documents militaires",
+        "Documents officiels",
+        "Documents scientifiques"
+      ]
     },
     {
       "id": "competence-histoire",
@@ -323,7 +395,14 @@
       "description": "Permet d'analyser, d'entretenir, de réparer, de modifier ou de fabriquer des objets de haute technologie.",
       "is_closed": true,
       "is_violent": false,
-      "specialites": ["Armement", "Electronique", "Industrie lourde", "Mécanique", "Propulsion", "Senseurs"]
+      "specialites": [
+        "Armement",
+        "Electronique",
+        "Industrie lourde",
+        "Mécanique",
+        "Propulsion",
+        "Senseurs"
+      ]
     },
     {
       "id": "competence-intimidation",
@@ -333,7 +412,11 @@
       "description": "Permet de faire peur, par la parole ou la violence.",
       "is_closed": false,
       "is_violent": true,
-      "specialites": ["Regard", "Chantage", "Brutal"]
+      "specialites": [
+        "Regard",
+        "Chantage",
+        "Brutal"
+      ]
     },
     {
       "id": "competence-jeux",
@@ -343,7 +426,9 @@
       "description": "Permet de pratiquer un jeu conformément à ses règles... ou pas!",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Poker havanais"]
+      "specialites": [
+        "Poker havanais"
+      ]
     },
     {
       "id": "competence-langue",
@@ -362,7 +447,11 @@
       "description": "Regroupe toutes les sciences médicales: Traitement des maladies, opérations chirurgicales et connaissance des pathologies.",
       "is_closed": true,
       "is_violent": false,
-      "specialites": ["Chirurgien", "Généraliste", "Spécialiste"]
+      "specialites": [
+        "Chirurgien",
+        "Généraliste",
+        "Spécialiste"
+      ]
     },
     {
       "id": "competence-melee",
@@ -372,7 +461,12 @@
       "description": "Permet de se servir efficacement des armes blanches, contondantes et de ses armes naturelles.",
       "is_closed": false,
       "is_violent": true,
-      "specialites": ["Combat à mains nues", "Contondantes", "Technologiques", "Tranchantes"]
+      "specialites": [
+        "Combat à mains nues",
+        "Contondantes",
+        "Technologiques",
+        "Tranchantes"
+      ]
     },
     {
       "id": "competence-navigation",
@@ -382,7 +476,14 @@
       "description": "Permet de lire une carte, de se repérer grâce au paysage alentour et, globalement, de trouver son chemin.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Aérienne", "Combat", "Maritime", "Spatiale", "Terrestre", "Hyperespace"]
+      "specialites": [
+        "Aérienne",
+        "Combat",
+        "Maritime",
+        "Spatiale",
+        "Terrestre",
+        "Hyperespace"
+      ]
     },
     {
       "id": "competence-pilotage",
@@ -401,7 +502,11 @@
       "description": "Permet d'effectuer les gestes qui sauvent et de soigner les blessures en plein combat sans perdre son calme.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Blessures de guerre", "Généraliste", "Médecin de campagne"]
+      "specialites": [
+        "Blessures de guerre",
+        "Généraliste",
+        "Médecin de campagne"
+      ]
     },
     {
       "id": "competence-propagande",
@@ -411,7 +516,10 @@
       "description": "Permet d'influencer durablement un grand nombre d'individus.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Homme de l'ombre", "Homme des foules"]
+      "specialites": [
+        "Homme de l'ombre",
+        "Homme des foules"
+      ]
     },
     {
       "id": "competence-recherche",
@@ -421,7 +529,13 @@
       "description": "Confère un ensemble de méthodes pour obtenir des informations et des indices, ainsi que la capacité de suivre des traces.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Bibliothécaire", "Enquêteur", "Explorateur", "Fouineur", "Pisteur"]
+      "specialites": [
+        "Bibliothécaire",
+        "Enquêteur",
+        "Explorateur",
+        "Fouineur",
+        "Pisteur"
+      ]
     },
     {
       "id": "competence-sciences-solaires",
@@ -431,7 +545,12 @@
       "description": "Regroupe les disciplines scientifiques concernant la société et l'âme humaine.",
       "is_closed": true,
       "is_violent": false,
-      "specialites": ["Droit", "Humanités", "Psychologie", "Sociologie"]
+      "specialites": [
+        "Droit",
+        "Humanités",
+        "Psychologie",
+        "Sociologie"
+      ]
     },
     {
       "id": "competence-sciences-stellaires",
@@ -441,7 +560,13 @@
       "description": "Regroupe toutes les disciplines scientifiques concernant les phénomènes physiques, chimiques et l'étude des mathématiques.",
       "is_closed": true,
       "is_violent": false,
-      "specialites": ["Astrophysique", "Biogéologie", "Chimie", "Mathématiques", "Physique"]
+      "specialites": [
+        "Astrophysique",
+        "Biogéologie",
+        "Chimie",
+        "Mathématiques",
+        "Physique"
+      ]
     },
     {
       "id": "competence-seduction",
@@ -451,7 +576,10 @@
       "description": "Permet de plaire à autrui, soit juste pour s'attirer ses bonnes grâces soit pour lier une relation romantique ou sexuelle.",
       "is_closed": false,
       "is_violent": true,
-      "specialites": ["Mignonneries", "Flamboyant"]
+      "specialites": [
+        "Mignonneries",
+        "Flamboyant"
+      ]
     },
     {
       "id": "competence-senseurs",
@@ -461,7 +589,11 @@
       "description": "Permet de se servir efficacement des moyens de détection et des contre-mesures électroniques (CME).",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Ciblage", "Détection", "Furtivité"]
+      "specialites": [
+        "Ciblage",
+        "Détection",
+        "Furtivité"
+      ]
     },
     {
       "id": "competence-strategie",
@@ -471,7 +603,12 @@
       "description": "Permet de planifier une opération, militaire ou non, à grande échelle et d'analyser les plans adverses.",
       "is_closed": true,
       "is_violent": false,
-      "specialites": ["Commerciale", "Militaire", "Politique", "Spatiale"]
+      "specialites": [
+        "Commerciale",
+        "Militaire",
+        "Politique",
+        "Spatiale"
+      ]
     },
     {
       "id": "competence-sorcellerie",
@@ -481,7 +618,10 @@
       "description": "Permet de pratiquer la forme de magie spécifiée et, si les légendes sont vraies, de jeter des sorts.",
       "is_closed": true,
       "is_violent": true,
-      "specialites": ["Découvreur", "Sage"]
+      "specialites": [
+        "Découvreur",
+        "Sage"
+      ]
     },
     {
       "id": "competence-systeme-de-securite",
@@ -491,7 +631,11 @@
       "description": "Permet de contourner ou de désamorcer les serrures, les alarmes et les pièges, technologiques ou non.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Alarmes", "Pièges", "Serrures"]
+      "specialites": [
+        "Alarmes",
+        "Pièges",
+        "Serrures"
+      ]
     },
     {
       "id": "competence-tactiques",
@@ -501,7 +645,13 @@
       "description": "Permet d'analyser ou de préparer un combat et de déterminer le meilleur moyen pour gagner sur le terrain.",
       "is_closed": false,
       "is_violent": true,
-      "specialites": ["Assaut", "Capture", "Extraction", "Progression", "Réaction"]
+      "specialites": [
+        "Assaut",
+        "Capture",
+        "Extraction",
+        "Progression",
+        "Réaction"
+      ]
     },
     {
       "id": "competence-technocog",
@@ -520,7 +670,13 @@
       "description": "Permet d'entretenir, de réparer, de modifier ou de fabriquer des mécanismes et des appareils électroniques simples.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Armement", "Electronique", "Domestique", "Mécanique", "Senseurs"]
+      "specialites": [
+        "Armement",
+        "Electronique",
+        "Domestique",
+        "Mécanique",
+        "Senseurs"
+      ]
     },
     {
       "id": "competence-vigilance",
@@ -530,7 +686,10 @@
       "description": "Permet de remarquer les mouvements et les détails dans son environnement immédiat.",
       "is_closed": false,
       "is_violent": false,
-      "specialites": ["Actif", "Passif"]
+      "specialites": [
+        "Actif",
+        "Passif"
+      ]
     },
     {
       "id": "competence-connaissance-barrens",
@@ -1239,7 +1398,7 @@
         "B&B p.20)"
       ],
       "nation": "Aucune",
-      "restriction": null
+      "restriction": "Mutant uniquement"
     },
     {
       "id": "qualite-mutant-furtif",
@@ -1253,7 +1412,7 @@
         "B&B p.20)"
       ],
       "nation": "Aucune",
-      "restriction": null
+      "restriction": "Mutant uniquement"
     },
     {
       "id": "qualite-mystique",
@@ -1747,17 +1906,16 @@
     {
       "id": "qualite-customisation-x",
       "type": "Qualité",
-      "name": "Customisation X",
-      "cost": "+1",
-      "description": "Le PNJ dispose de points d'investissement dans les customisations (1x = 1000 PX).",
-      "effects": "1000 PX à investir dans les customisations par point alloué.",
-      "prerequisites": "PNJ uniquement.",
+      "name": "Customisation",
+      "cost": "+X",
+      "description": "Le personnage dispose de points d'investissement dans les customisations (1 niveau = 1000 PX).",
+      "effects": "1000 PX à investir dans les customisations par niveau.",
+      "prerequisites": null,
       "references": [
         "GdM"
       ],
       "nation": "Aucune",
-      "restriction": null,
-      "pnj_only": true
+      "restriction": null
     },
     {
       "id": "qualite-discret-3",
@@ -2398,7 +2556,7 @@
       "effects": "Le personnage subit e2f pour les tests d’Empathie, d’Eloquence, de Séduction et d’Etiquette face aux personnages dont le score de Gloire est strictement inférieur au sien.",
       "prerequisites": null,
       "references": [],
-      "nation": "Aucune",
+      "nation": "Empire de Sol",
       "restriction": null
     },
     {
@@ -2414,7 +2572,7 @@
       "restriction": null
     },
     {
-      "id": "defaut-hook ",
+      "id": "defaut-hook",
       "type": "Défaut",
       "name": "Hook !",
       "cost": "-X",
@@ -2545,7 +2703,7 @@
       "prerequisites": null,
       "references": [],
       "nation": "Aucune",
-      "restriction": null
+      "restriction": "Mutant uniquement"
     },
     {
       "id": "defaut-mauvais-payeur",
@@ -2758,7 +2916,7 @@
       "restriction": null
     },
     {
-      "id": "defaut-vengeance ",
+      "id": "defaut-vengeance",
       "type": "Défaut",
       "name": "Vengeance !",
       "cost": "-X",

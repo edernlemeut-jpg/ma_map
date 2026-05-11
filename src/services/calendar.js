@@ -112,19 +112,36 @@ export function getEvents(tableId, year, isMJ) {
   return db.prepare(sql).all(tableId, y);
 }
 
-export function createEvent(tableId, userId, { title, description, category_id, color, date_start, date_end, galactic_year, is_public }) {
+export function createEvent(tableId, userId, { title, description, category_id, color, date_start, date_end, galactic_year, is_public }, isMJ = false, userName = null) {
   if (!title?.trim()) throw Object.assign(new Error('Titre requis'), { status: 400 });
   if (!isValidDate(date_start)) throw Object.assign(new Error('date_start invalide'), { status: 400 });
   if (date_end && !isValidDate(date_end)) throw Object.assign(new Error('date_end invalide'), { status: 400 });
   const y = Number(galactic_year);
   if (!Number.isInteger(y) || y < 1) throw Object.assign(new Error('Année invalide'), { status: 400 });
 
+  // Joueurs : is_public forcé à 1, catégorie automatique basée sur leur nom
+  let resolvedCategoryId = category_id || null;
+  let resolvedIsPublic   = is_public ? 1 : 0;
+  if (!isMJ) {
+    resolvedIsPublic = 1;
+    if (userName) {
+      const catName = userName.trim();
+      let existingCat = db.prepare('SELECT id FROM calendar_categories WHERE table_id = ? AND name = ?').get(tableId, catName);
+      if (!existingCat) {
+        const r = db.prepare('INSERT INTO calendar_categories (table_id, name, color, is_system) VALUES (?, ?, ?, 0)')
+          .run(tableId, catName, '#3b82f6');
+        existingCat = { id: r.lastInsertRowid };
+      }
+      resolvedCategoryId = existingCat.id;
+    }
+  }
+
   const id = randomUUID();
   db.prepare(
     `INSERT INTO calendar_events (id, table_id, title, description, category_id, color, date_start, date_end, galactic_year, is_public, created_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, tableId, title.trim(), description?.trim() || null, category_id || null, color || null,
-        date_start, date_end || null, y, is_public ? 1 : 0, userId);
+  ).run(id, tableId, title.trim(), description?.trim() || null, resolvedCategoryId, color || null,
+        date_start, date_end || null, y, resolvedIsPublic, userId);
 
   return db.prepare(
     `SELECT e.*, c.name AS category_name, c.color AS category_color
@@ -172,4 +189,8 @@ export function deleteEvent(eventId, tableId) {
   const ev = db.prepare('SELECT id FROM calendar_events WHERE id = ? AND table_id = ?').get(eventId, tableId);
   if (!ev) throw Object.assign(new Error('Événement introuvable'), { status: 404 });
   db.prepare('DELETE FROM calendar_events WHERE id = ?').run(eventId);
+}
+
+export function getEventById(eventId, tableId) {
+  return db.prepare('SELECT * FROM calendar_events WHERE id = ? AND table_id = ?').get(eventId, tableId) || null;
 }

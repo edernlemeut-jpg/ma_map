@@ -171,19 +171,21 @@ const VARIABLE_TRAIT_LEVELS = {
   'qualite-grand-voyageur-2': [1, 2, 3, 4, 5],
   'defaut-dettes':           [1, 2, 3, 4, 5],
   'defaut-dette-dhonneur':   [1, 2, 3, 4, 5],
-  'defaut-hook ':            [1, 3, 5],
+  'defaut-hook':             [1, 3, 5],
   'defaut-signe-distinctif': [1, 3, 5],
-  'defaut-vengeance ':       [1, 3, 5],
+  'defaut-vengeance':        [1, 3, 5],
   'defaut-wanted':           [1, 3, 5],
   // Traits groupés (plusieurs entrées DB → un sélecteur de niveau)
   'defaut-desespoir':             [1, 3, 5],
   'defaut-amarres':               [1, 3, 5],
+  'defaut-subordonne':            [1, 3, 5],
   'qualite-celebrite-galactique': [1, 2, 3, 4, 5],
   'qualite-discret':              [3, 5],
   'qualite-equipement-special':   [1, 3, 5],
   'qualite-grade':                [1, 3, 5],
   'qualite-specialite':           [1, 3, 5],
   'qualite-statut-social':        [1, 3, 5],
+  'qualite-customisation-x':      [1, 2, 3, 4, 5],
 };
 
 // Traits dont les niveaux sont en suffixe dans la DB (ex: defaut-desespoir-3)
@@ -191,7 +193,6 @@ const VARIABLE_TRAIT_LEVELS = {
 const GROUPED_TRAITS = [
   { base: 'defaut-desespoir',             section: 'defauts',  levels: [1, 3, 5] },
   { base: 'defaut-amarres',               section: 'defauts',  levels: [1, 3, 5] },
-  { base: 'defaut-vengeance',             section: 'defauts',  levels: [1, 3, 5] },
   { base: 'defaut-subordonne',            section: 'defauts',  levels: [1, 3, 5] },
   { base: 'qualite-celebrite-galactique', section: 'qualites', levels: [1, 2, 3, 4, 5] },
   { base: 'qualite-discret',              section: 'qualites', levels: [3, 5] },
@@ -893,6 +894,23 @@ function attachSheetEditListeners(container, char) {
       patchSheet(char);
     });
   }
+
+  // Fiché — nation stellaire select
+  const ficheNationSheetSel = container.querySelector('#sheet-fiche-nation');
+  if (ficheNationSheetSel) {
+    ficheNationSheetSel.addEventListener('change', () => {
+      char.data.fiche_nation = ficheNationSheetSel.value;
+      // Update icon live
+      const iconEl = container.querySelector('#fiche-nation-icon');
+      if (iconEl) {
+        const iconUrl = ficheNationSheetSel.value
+          ? (REF?.nations || []).find(n => n.name === ficheNationSheetSel.value)?.faction_icon_url || null : null;
+        if (iconUrl) { iconEl.src = iconUrl; iconEl.classList.remove('hidden'); }
+        else { iconEl.classList.add('hidden'); }
+      }
+      patchSheet(char);
+    });
+  }
 }
 
 function renderSheet(char) {
@@ -936,7 +954,7 @@ function renderSheet(char) {
   let content = '';
   switch (SHEET_TAB) {
     case 'competences': content = renderSheetTabCompetences(competences, finalAttrs, domPriv); break;
-    case 'traits':      content = renderSheetTabTraits(d); break;
+    case 'traits':      content = renderSheetTabTraits(d, editable); break;
     case 'background':  content = renderSheetTabBackground(d, editable); break;
     case 'notes':       content = renderSheetTabNotes(d, editable); break;
     case 'inventaire':  content = renderSheetTabInventaire(d, editable); break;
@@ -1388,6 +1406,11 @@ function renderTraitsSheet(d) {
     </div>
     ${t.description ? `<p class="text-gray-400 mb-1">${esc(t.description)}</p>` : ''}
     ${t.effects     ? `<p class="text-gray-300 mt-0.5"><span class="text-gray-500">Effet : </span>${esc(t.effects)}</p>` : ''}
+    ${t.id === 'qualite-customisation-x' && niv ? `<p class="text-blue-300 font-medium mt-1">Customisation : ${niv * 1000} PX</p>` : ''}
+    ${t.id === 'defaut-fiche' && d.fiche_nation ? (() => {
+      const iconUrl = (REF?.nations || []).find(n => n.name === d.fiche_nation)?.faction_icon_url || null;
+      return `<p class="text-yellow-300 font-medium mt-1 flex items-center gap-1.5">${iconUrl ? `<img src="${esc(iconUrl)}" alt="" class="w-4 h-4 object-contain inline-block rounded-sm">` : ''}Fichier : ${esc(d.fiche_nation)}</p>`;
+    })() : ''}
     ${t.prerequisites ? `<p class="text-gray-500 mt-0.5"><span class="text-gray-600">Prérequis : </span>${esc(t.prerequisites)}</p>` : ''}
     ${t.restriction ? `<p class="text-gray-500 mt-0.5"><span class="text-gray-600">Restriction : </span>${esc(t.restriction)}</p>` : ''}
     ${Array.isArray(t.references) && t.references.length ? `<p class="text-gray-600 mt-0.5">${t.references.map(r => esc(r)).join(', ')}</p>` : ''}
@@ -1542,8 +1565,35 @@ function renderSheetTabCompetences(competences, finalAttrs, domPriv) {
   </div>`;
 }
 
-function renderSheetTabTraits(d) {
+function renderSheetTabTraits(d, editable = false) {
   const traitsHtml = renderTraitsSheet(d);
+  const hasFiche = (d.defauts_ids || []).includes('defaut-fiche');
+  const ficheNationHtml = hasFiche ? (() => {
+    const FICHE_NATIONS = ['Omni-cartel Galactique', 'Empire Galactique', 'Empire de Sol', 'Ligue des planètes libres', 'Barrens'];
+    const chosen = d.fiche_nation || '';
+    const iconUrl = chosen ? (REF?.nations || []).find(n => n.name === chosen)?.faction_icon_url || null : null;
+    if (!editable && chosen) {
+      return `<div class="mt-3 bg-gray-800 border border-yellow-800/40 rounded-lg px-4 py-3">
+        <p class="text-xs text-yellow-300 font-semibold flex items-center gap-1.5">
+          ${iconUrl ? `<img src="${esc(iconUrl)}" alt="" class="w-5 h-5 object-contain rounded-sm">` : '🪪'}
+          Fiché auprès de : <span class="text-white">${esc(chosen)}</span>
+        </p>
+      </div>`;
+    } else if (editable) {
+      return `<div class="mt-3 bg-gray-800 border border-yellow-800/40 rounded-lg px-4 py-3">
+        <p class="text-xs text-yellow-300 font-semibold mb-1">🪪 Nation stellaire — Fiché</p>
+        <div class="flex items-center gap-2">
+          ${iconUrl ? `<img id="fiche-nation-icon" src="${esc(iconUrl)}" alt="" class="w-6 h-6 object-contain rounded-sm flex-shrink-0">` : `<span id="fiche-nation-icon" class="hidden"></span>`}
+          <select id="sheet-fiche-nation"
+            class="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200">
+            <option value="">— Choisir la nation —</option>
+            ${FICHE_NATIONS.map(n => `<option value="${esc(n)}" ${chosen === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}
+          </select>
+        </div>
+      </div>`;
+    }
+    return '';
+  })() : '';
   // Coordonnées hyperspatiales mémorisables : Navigation + bonus Grand Voyageur 2
   const competences = buildCompetences(d);
   const navTotal = competences['Navigation']?.total ?? 0;
@@ -1584,7 +1634,7 @@ function renderSheetTabTraits(d) {
     <p class="text-xs text-purple-300 font-semibold mb-2">⚙ Règles spéciales</p>
     <ul class="space-y-1">${d.tags_regles.map(t => `<li class="text-xs text-gray-300">• ${esc(t)}</li>`).join('')}</ul>
   </div>` : '';
-  return (traitsHtml || '<p class="text-gray-500 text-xs py-4">Aucun trait sélectionné.</p>') + mutHtml + coordHtml + tagsHtml;
+  return (traitsHtml || '<p class="text-gray-500 text-xs py-4">Aucun trait sélectionné.</p>') + ficheNationHtml + mutHtml + coordHtml + tagsHtml;
 }
 
 function renderSheetTabBackground(d, editable) {
@@ -2919,7 +2969,8 @@ function renderStepTraits() {
             .join('');
         }
         return (t.description ? `<p class="text-xs text-gray-500">${esc(t.description)}</p>` : '')
-             + (t.effects     ? `<p class="text-xs text-gray-400 mt-0.5"><span class="text-gray-500">Effet : </span>${esc(t.effects)}</p>` : '');
+             + (t.effects     ? `<p class="text-xs text-gray-400 mt-0.5"><span class="text-gray-500">Effet : </span>${esc(t.effects)}</p>` : '')
+             + (t.id === 'qualite-customisation-x' && chosen ? `<p class="text-xs text-blue-300 font-medium mt-0.5">Customisation : ${chosen * 1000} PX</p>` : '');
       })()}
     </div>`;
     }
@@ -2951,6 +3002,20 @@ function renderStepTraits() {
           class="bg-gray-700 border border-yellow-700/60 rounded px-2 py-1 text-xs text-gray-200 w-full">
           <option value="">— Choisir la caractéristique —</option>
           ${CARAC_EXCEPTIONNEL_ATTRS.map(c => `<option value="${c.id}" ${chosen === c.id ? 'selected' : ''}>${c.label}</option>`).join('')}
+        </select>
+      </div></div>`;
+    }
+    // Défaut spécial : Fiché → dropdown de nation stellaire
+    if (t.id === 'defaut-fiche' && sel) {
+      const ficheNation = DRAFT.fiche_nation || '';
+      const FICHE_NATIONS = ['Omni-cartel Galactique', 'Empire Galactique', 'Empire de Sol', 'Ligue des planètes libres', 'Barrens'];
+      return `<div>${btnHtml}
+      <div class="mt-1 px-1 pb-1">
+        <label class="block text-xs text-gray-500 mb-0.5">Nation stellaire concernée :</label>
+        <select id="trait-fiche-nation-select"
+          class="bg-gray-700 border border-yellow-700/60 rounded px-2 py-1 text-xs text-gray-200 w-full">
+          <option value="">— Choisir la nation —</option>
+          ${FICHE_NATIONS.map(n => `<option value="${esc(n)}" ${ficheNation === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}
         </select>
       </div></div>`;
     }
@@ -3972,6 +4037,14 @@ function attachStepListeners() {
     });
   }
 
+  // Fiché — dropdown de nation stellaire dans le wizard
+  const ficheNationSel = step.querySelector('#trait-fiche-nation-select');
+  if (ficheNationSel) {
+    ficheNationSel.addEventListener('change', () => {
+      DRAFT.fiche_nation = ficheNationSel.value;
+    });
+  }
+
   // Traits — sélection du niveau pour traits à coût variable
   step.querySelectorAll('[data-trait-level]').forEach(sel => {
     sel.addEventListener('change', () => {
@@ -4715,3 +4788,21 @@ function generateRandomName() {
 
   return nom ? `${prenom} ${nom.trimStart()}` : prenom;
 }
+
+// ── Lightbox (clic sur une image pour agrandir) ───────────────────────────────
+document.addEventListener('click', e => {
+  const img = e.target.closest('img');
+  if (!img || img.dataset.noLightbox !== undefined) return;
+  if (img.width < 60 && img.height < 60) return;
+  const lb = document.createElement('div');
+  lb.className = 'fixed inset-0 z-[200] bg-black/92 flex items-center justify-center cursor-zoom-out';
+  lb.style.backdropFilter = 'blur(4px)';
+  lb.innerHTML = `
+    <button style="position:absolute;top:1rem;right:1rem;font-size:1.75rem;color:#fff;background:rgba(0,0,0,.5);border:none;cursor:pointer;line-height:1;padding:0 0.4rem;border-radius:0.375rem;" aria-label="Fermer">✕</button>
+    <img src="${img.src}" alt="${img.alt || ''}" style="max-width:90vw;max-height:90vh;object-fit:contain;border-radius:0.5rem;box-shadow:0 0 40px rgba(0,0,0,.8);">`;
+  const removeLb = () => lb.remove();
+  lb.addEventListener('click', removeLb);
+  lb.querySelector('button').addEventListener('click', ev => { ev.stopPropagation(); removeLb(); });
+  document.addEventListener('keydown', function esc(ev) { if (ev.key === 'Escape') { removeLb(); document.removeEventListener('keydown', esc); } });
+  document.body.appendChild(lb);
+});

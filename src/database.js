@@ -309,14 +309,14 @@ function ensureRevolteTables() {
       updated_at   TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_revolte_table ON revolte_sessions(table_id, status);
-    CREATE INDEX IF NOT EXISTS idx_revolte_parent ON revolte_sessions(parent_id);
   `);
   // Migration in place: ajouter parent_id si l'ancienne table existait sans
   const cols = new Set(db.prepare("PRAGMA table_info('revolte_sessions')").all().map(c => c.name));
   if (!cols.has('parent_id')) {
     db.exec("ALTER TABLE revolte_sessions ADD COLUMN parent_id TEXT REFERENCES revolte_sessions(id) ON DELETE CASCADE");
-    db.exec("CREATE INDEX IF NOT EXISTS idx_revolte_parent ON revolte_sessions(parent_id)");
   }
+  // Index sur parent_id (créé après l'ALTER éventuel pour éviter SQLITE_ERROR)
+  db.exec("CREATE INDEX IF NOT EXISTS idx_revolte_parent ON revolte_sessions(parent_id)");
   // Reset des sessions existantes : l'utilisateur a confirm\u00e9 qu'il n'y a rien
   // d'important en base avant le refactor d'alignement r\u00e8gles (mai 2026).
   // Idempotent : ne d\u00e9clenche le wipe qu'une fois via un flag dans meta_kv.

@@ -18,6 +18,7 @@ let viewMonth = 1;
 let categories = [];
 let events = [];
 let isMJ = false;
+let currentUserId = null;
 
 // ── Date helpers ───────────────────────────────────────────────────────────────
 const DATE_RE = /^(\d{2})(\d{2})\.(\d{2})$/;
@@ -85,6 +86,7 @@ async function init() {
   // Detect MJ from header
   const roleEl = document.getElementById('header-table-role');
   isMJ = roleEl?.textContent?.includes('MJ') === true;
+  currentUserId = user.id ?? null;
 
   try {
     // Load calendar state + categories + events in parallel
@@ -96,10 +98,11 @@ async function init() {
     state = { currentDate: calState.date || '0101.01', currentYear: calState.year || 50429 };
     categories = cats;
 
-    // Set initial view to current campaign month/year
+    // Set initial view: ?year= override > campaign year
+    const urlYear = parseInt(new URLSearchParams(location.search).get('year') || '', 10);
     const parsed = parseDate(state.currentDate);
     viewMonth = parsed ? parsed.month : 1;
-    viewYear = state.currentYear;
+    viewYear = Number.isInteger(urlYear) && urlYear > 0 ? urlYear : state.currentYear;
 
     events = await apiFetch(`/api/calendar/events?year=${viewYear}`);
 
@@ -123,6 +126,15 @@ function setupMJControls() {
   document.getElementById('btn-next-month').addEventListener('click', () => navigateMonth(1));
   document.getElementById('btn-prev-year').addEventListener('click', () => navigateYear(-1));
   document.getElementById('btn-next-year').addEventListener('click', () => navigateYear(1));
+
+  // Player add event button (always visible for authenticated users)
+  const playerAddBtn = document.getElementById('btn-add-player-event');
+  if (playerAddBtn) {
+    playerAddBtn.classList.remove('hidden');
+    playerAddBtn.addEventListener('click', () => isMJ
+      ? openEventModal(null, null)
+      : openPlayerEventModal(null));
+  }
 
   if (!isMJ) return;
 
@@ -159,7 +171,7 @@ function setupMJControls() {
   // Manage categories
   document.getElementById('btn-manage-cats').addEventListener('click', openCatModal);
 
-  // Add event
+  // Add event (MJ)
   document.getElementById('btn-add-event').addEventListener('click', () => openEventModal(null, null));
 }
 
@@ -296,6 +308,7 @@ function renderEventRow(ev) {
   const catBadge = ev.category_name
     ? `<span class="text-xs rounded px-1.5 py-0.5 font-medium" style="background:${color}33;color:${color};border:1px solid ${color}55">${ev.category_name}</span>`
     : '';
+  const isOwner = currentUserId && ev.created_by === currentUserId;
   const mjBtns = isMJ
     ? `<div class="flex gap-1 mt-2">
          <button class="ev-edit text-xs bg-blue-800/60 hover:bg-blue-700 text-blue-200 px-2 py-1 rounded transition-colors" data-id="${ev.id}">Modifier</button>
@@ -303,6 +316,11 @@ function renderEventRow(ev) {
            ${ev.is_public ? '🔒 Masquer' : '👁️ Montrer'}
          </button>
          <button class="ev-del text-xs bg-red-900/50 hover:bg-red-800 text-red-300 px-2 py-1 rounded transition-colors" data-id="${ev.id}">Supprimer</button>
+       </div>`
+    : isOwner
+    ? `<div class="flex gap-1 mt-2">
+         <button class="ev-edit-player text-xs bg-blue-800/60 hover:bg-blue-700 text-blue-200 px-2 py-1 rounded transition-colors" data-id="${ev.id}">Modifier</button>
+         <button class="ev-del-player text-xs bg-red-900/50 hover:bg-red-800 text-red-300 px-2 py-1 rounded transition-colors" data-id="${ev.id}">Supprimer</button>
        </div>`
     : '';
   return `<div class="border border-gray-700 rounded-lg p-3 bg-gray-800/50">
@@ -329,6 +347,10 @@ function attachEventRowListeners(container) {
     btn.addEventListener('click', () => toggleEventVisibility(btn.dataset.id, btn.dataset.public === '1')));
   container.querySelectorAll('.ev-del').forEach(btn =>
     btn.addEventListener('click', () => deleteEvent(btn.dataset.id)));
+  container.querySelectorAll('.ev-edit-player').forEach(btn =>
+    btn.addEventListener('click', () => openPlayerEventModal(null, events.find(e => e.id === btn.dataset.id))));
+  container.querySelectorAll('.ev-del-player').forEach(btn =>
+    btn.addEventListener('click', () => deletePlayerEvent(btn.dataset.id)));
 }
 
 // ── Day modal ─────────────────────────────────────────────────────────────────
@@ -352,13 +374,21 @@ function openDayModal(dateStr, year, dayEvs) {
       <button id="day-add-ev" class="text-sm bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded transition-colors">＋ Ajouter un événement</button>
       <button id="day-set-date" class="text-sm bg-yellow-700/60 hover:bg-yellow-700 text-yellow-200 px-3 py-1.5 rounded transition-colors">📅 Définir comme date actuelle</button>
     </div>`;
+  } else {
+    h += `<div class="mt-4 border-t border-gray-700 pt-4">
+      <button id="day-add-ev" class="text-sm bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded transition-colors">＋ Ajouter un événement</button>
+    </div>`;
   }
 
   body.innerHTML = h;
   attachEventRowListeners(body);
 
+  document.getElementById('day-add-ev')?.addEventListener('click', () => {
+    closeModal();
+    if (isMJ) openEventModal(null, dateStr);
+    else openPlayerEventModal(dateStr);
+  });
   if (isMJ) {
-    document.getElementById('day-add-ev')?.addEventListener('click', () => { closeModal(); openEventModal(null, dateStr); });
     document.getElementById('day-set-date')?.addEventListener('click', async () => {
       try {
         const res = await apiFetch('/api/calendar/state', {
@@ -481,6 +511,105 @@ async function saveEvent(existingId) {
   } catch (e) {
     alert('Erreur : ' + e.message);
   }
+}
+
+// ── Player simplified event modal ─────────────────────────────────────────────
+function openPlayerEventModal(prefillDate, existingEvent = null) {
+  const body = document.getElementById('modal-body');
+  const isEdit = !!existingEvent;
+  const defaultDateStart = existingEvent?.date_start || prefillDate || state.currentDate;
+  const defaultDateEnd   = existingEvent?.date_end || '';
+  const defaultYear      = existingEvent?.galactic_year || state.currentYear;
+  const defaultTitle     = existingEvent?.title || '';
+  const defaultDesc      = existingEvent?.description || '';
+
+  body.innerHTML = `
+    <h2 class="text-base font-semibold text-gray-200 mb-1">${isEdit ? 'Modifier l\'événement' : 'Ajouter un événement'}</h2>
+    ${!isEdit ? `<p class="text-xs text-gray-500 mb-4">L'événement sera visible par toute la table et associé à votre compte.</p>` : '<div class="mb-4"></div>'}
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Titre *</label>
+        <input id="pev-title" type="text" value="${escAttr(defaultTitle)}" placeholder="Titre de l'événement"
+               class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Date début (XXYY.ZZ) *</label>
+          <input id="pev-date-start" type="text" maxlength="7" value="${escAttr(defaultDateStart)}" placeholder="0101.01"
+                 class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 font-mono focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Date fin (optionnel)</label>
+          <input id="pev-date-end" type="text" maxlength="7" value="${escAttr(defaultDateEnd)}" placeholder="0101.01"
+                 class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 font-mono focus:outline-none focus:border-blue-500">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Année galactique *</label>
+        <input id="pev-year" type="number" min="1" value="${defaultYear}"
+               class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Description</label>
+        <textarea id="pev-desc" rows="3" placeholder="Description optionnelle…"
+                  class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500 resize-none">${escHtml(defaultDesc)}</textarea>
+      </div>
+    </div>
+    <div class="mt-5 flex gap-2 justify-end">
+      <button id="pev-cancel" class="text-sm text-gray-400 hover:text-gray-200 px-3 py-2 rounded transition-colors">Annuler</button>
+      <button id="pev-save" class="text-sm bg-blue-700 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors">${isEdit ? 'Enregistrer' : 'Créer'}</button>
+    </div>`;
+
+  document.getElementById('pev-cancel').addEventListener('click', closeModal);
+  document.getElementById('pev-save').addEventListener('click', () => savePlayerEvent(existingEvent?.id || null));
+  openModal();
+}
+
+async function savePlayerEvent(editId = null) {
+  const title     = document.getElementById('pev-title').value.trim();
+  const dateStart = document.getElementById('pev-date-start').value.trim();
+  const dateEnd   = document.getElementById('pev-date-end').value.trim();
+  const year      = parseInt(document.getElementById('pev-year').value);
+  const desc      = document.getElementById('pev-desc').value.trim();
+
+  if (!title) { alert('Le titre est requis.'); return; }
+  if (!isValidDate(dateStart)) { alert('Date début invalide. Utilisez le format XXYY.ZZ.'); return; }
+  if (dateEnd && !isValidDate(dateEnd)) { alert('Date fin invalide. Utilisez le format XXYY.ZZ.'); return; }
+  if (!Number.isInteger(year) || year < 1) { alert('Année invalide.'); return; }
+
+  const payload = { title, date_start: dateStart, date_end: dateEnd || null, galactic_year: year, description: desc || null };
+
+  try {
+    if (editId) {
+      const updated = await apiFetch(`/api/calendar/events/${editId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const idx = events.findIndex(e => e.id === editId);
+      if (idx !== -1) events[idx] = updated;
+    } else {
+      const created = await apiFetch('/api/calendar/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      events.push(created);
+    }
+    closeModal();
+    render();
+  } catch (e) {
+    alert('Erreur : ' + e.message);
+  }
+}
+
+async function deletePlayerEvent(id) {
+  if (!confirm('Supprimer cet événement ?')) return;
+  try {
+    await apiFetch(`/api/calendar/events/${id}`, { method: 'DELETE' });
+    events = events.filter(e => e.id !== id);
+    render();
+  } catch (e) { alert('Erreur : ' + e.message); }
 }
 
 async function toggleEventVisibility(id, currentlyPublic) {

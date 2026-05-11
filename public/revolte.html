@@ -120,19 +120,31 @@
     }
 
     /* ── Tracker-first styles ────────────────────────────────────────────── */
+    .tracker-row.hidden,
+    .tracker-type-block.hidden,
+    [data-types].hidden,
+    [data-scope].hidden { display: none !important; }
     .tracker-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-      padding: 0.4rem 0.5rem;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto auto;
+      grid-template-areas:
+        "label  badge"
+        "ctrl   status";
+      gap: 0.35rem 0.6rem;
+      padding: 0.55rem 0.65rem;
       border-radius: 0.375rem;
-      border: 1px solid transparent;
+      border: 1px solid var(--border);
+      background: rgba(17,24,39,0.35);
+      margin-bottom: 0.4rem;
+      align-items: center;
     }
-    .tracker-row:not(.tracker-subresult):hover { background: var(--gold-glow); border-color: var(--border); }
-    .tracker-row-label { display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0; }
-    .tracker-test-name { font-size: 0.875rem; color: var(--text); white-space: nowrap; }
+    .tracker-row:not(.tracker-subresult):hover { background: var(--gold-glow); border-color: var(--gold); }
+    .tracker-row-label { grid-area: label; display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; min-width: 0; }
+    .tracker-test-name { font-size: 0.95rem; font-weight: 600; color: var(--gold); white-space: normal; }
+    .tracker-skill { font-size: 0.75rem; color: var(--text-muted); font-style: italic; }
     .tracker-diff-badge {
+      grid-area: badge;
       font-size: 0.7rem;
       color: var(--primary);
       background: rgba(91,176,208,0.1);
@@ -140,12 +152,23 @@
       border-radius: 999px;
       padding: 0.05rem 0.45rem;
       white-space: nowrap;
-      flex-shrink: 0;
+      justify-self: end;
     }
-    .tracker-row-controls { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
-    .tracker-status { font-size: 1rem; width: 1.5rem; text-align: center; flex-shrink: 0; }
+    .tracker-row-controls { grid-area: ctrl; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+    .tracker-status { grid-area: status; font-size: 1rem; min-width: 1.5rem; text-align: right; justify-self: end; }
     .tracker-status.success { color: var(--success); }
     .tracker-status.failure { color: var(--danger); }
+    .tracker-help {
+      grid-area: 3 / 1 / 4 / 3;
+      width: 100%;
+      font-size: 0.72rem;
+      line-height: 1.4;
+      color: var(--text-muted);
+      font-style: italic;
+      padding: 0.25rem 0 0 0;
+      border-top: 1px dashed rgba(212,175,55,0.18);
+      margin-top: 0.15rem;
+    }
     .tracker-subresult {
       background: var(--bg2);
       border-left: 3px solid var(--primary);
@@ -263,34 +286,11 @@
       <!-- New session form -->
       <div id="new-session-form" class="hidden max-w-lg">
         <h3 style="font-family:'Russo One',sans-serif;color:var(--gold);" class="text-lg mb-4">Nouvelle session de révolte</h3>
+        <p class="text-xs text-gray-400 mb-3 italic">Donnez juste un nom. Type de Révolte, portée et lieu se configurent ensuite dans le panneau « Paramétrage » de la session.</p>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm text-gray-400 mb-1">Nom *</label>
+            <label class="block text-sm text-gray-400 mb-1">Nom de la session *</label>
             <input id="ns-name" type="text" placeholder="Ex: Révolution d'Havana" class="revolte-input w-full">
-          </div>
-          <div>
-            <label class="block text-sm text-gray-400 mb-1">Type *</label>
-            <select id="ns-type" class="revolte-select w-full">
-              <option value="emeute">Émeute Pirate</option>
-              <option value="festive">Révolution Festive</option>
-              <option value="mutinerie">Mutinerie</option>
-              <option value="revolution">Révolution</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm text-gray-400 mb-1">Portée</label>
-            <select id="ns-scope" class="revolte-select w-full">
-              <option value="">— N/A —</option>
-              <option value="vaisseau">Vaisseau</option>
-              <option value="lieu">Lieu spécifique</option>
-              <option value="planetaire">Planétaire</option>
-              <option value="locale">Locale (Système)</option>
-              <option value="stellaire">Stellaire (Secteur)</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm text-gray-400 mb-1">Localisation (planète / système / quadrant)</label>
-            <input id="ns-location" type="text" placeholder="Ex: Havana, Système Alpha-7, Quadrant Bleu..." class="revolte-input w-full">
           </div>
           <div class="flex gap-2 pt-2">
             <button id="ns-create-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded transition-colors">Créer</button>
@@ -604,6 +604,7 @@
                   </div>
                 </div>
                 <div id="mutinerieCostResult" class="info-box mt-3"></div>
+                <div id="mutinerie-ship-info" class="info-box hidden mt-2 text-xs text-blue-300"></div>
               </fieldset>
             </div>
             <!-- Révolution -->
@@ -670,7 +671,7 @@
               </fieldset>
 
               <!-- Délégués (révolution locale/stellaire) -->
-              <fieldset class="revolte-fieldset" data-types="revolution" id="deleguesFieldset">
+              <fieldset class="revolte-fieldset" data-types="revolution" data-scope="locale,stellaire" id="deleguesFieldset">
                 <legend class="revolte-legend">Délégués (Révolution locale/stellaire)</legend>
                 <p class="text-xs italic mb-2" style="color:var(--text-muted)">
                   Désignez un délégué par planète. Bonus selon délai depuis le dernier RDV : 1 mois = +1d, 6 mois = TF.
@@ -686,7 +687,7 @@
               </fieldset>
 
               <!-- Insurrection générale (révolution stellaire) -->
-              <fieldset class="revolte-fieldset" data-types="revolution" id="insurrectionFieldset">
+              <fieldset class="revolte-fieldset" data-types="revolution" data-scope="stellaire" id="insurrectionFieldset">
                 <legend class="revolte-legend">Insurrection Générale <span class="text-xs text-gray-500">(stellaire uniquement)</span></legend>
                 <p class="text-xs italic mb-2" style="color:var(--text-muted)">
                   Préalable obligatoire à la Révolution stellaire. 4 tests par quadrant (politique, social, économique, sécuritaire). 6+ tests cumulés = instabilité −1 ; 12+ = −2.
@@ -737,16 +738,17 @@
             <!-- TEST CHECKLIST -->
             <fieldset class="revolte-fieldset">
               <legend class="revolte-legend">Tests de Préparation</legend>
-              <p class="text-xs italic mb-2 leading-relaxed" style="color:var(--text-muted)" data-types="emeute">Sondez la foule (Empathie) pour identifier les meneurs naturels, puis planifiez la sécurité (Tactique) pour limiter le Retour de Flamme. Chaque succès excédentaire s'accumule en bonus pour le Discours.</p>
-              <p class="text-xs italic mb-2 leading-relaxed" style="color:var(--text-muted)" data-types="festive">Obtenez les autorisations requises, réunissez les invités et préparez le lieu. Les succès excédentaires s'ajoutent en bonus à l'Appel Révolutionnaire.</p>
-              <p class="text-xs italic mb-2 leading-relaxed" style="color:var(--text-muted)" data-types="mutinerie">Ralliez l'équipage à la cambuse et les sous-officiers au poste (Éloquence), opérez discrètement (Discrétion), puis planifiez le coup (Tactique). Chaque test réussi réduit la difficulté de l'Appel final.</p>
-              <p class="text-xs italic mb-2 leading-relaxed" style="color:var(--text-muted)" data-types="revolution">Recrutez des sections d'insurgés (Éloquence), puis sensibilisez le peuple par le discours public, les tracts et la compréhension sociale. Chaque action réussie renforce la force de frappe de l'Exécution.</p>
+              <div class="info-box mb-3" data-types="emeute" style="border-left-color:var(--gold)"><strong>Émeute — méthode :</strong> Sondez la foule (<em>Empathie</em>) pour repérer meneurs et sympathisants, puis planifiez la sécurité (<em>Tactique</em>) pour limiter le Retour de Flamme. Chaque succès excédentaire s'accumule en bonus pour le Discours d'exécution.</div>
+              <div class="info-box mb-3" data-types="festive" style="border-left-color:var(--gold)"><strong>Fête révolutionnaire — méthode :</strong> Obtenez les autorisations requises (<em>Étiquette / Illégalités</em>), réunissez les invités (<em>Rassemblement</em>) et préparez le lieu. Les succès excédentaires s'ajoutent en bonus à l'Appel Révolutionnaire.</div>
+              <div class="info-box mb-3" data-types="mutinerie" style="border-left-color:var(--gold)"><strong>Mutinerie — méthode :</strong> Ralliez l'équipage de la cambuse et les sous-officiers du poste (<em>Éloquence</em>), opérez discrètement (<em>Discrétion</em>), planifiez le coup (<em>Tactique</em>). Chaque test réussi réduit la difficulté de l'Appel final.</div>
+              <div class="info-box mb-3" data-types="revolution" style="border-left-color:var(--gold)"><strong>Révolution — méthode :</strong> Recrutez des sections d'insurgés (<em>Éloquence</em>), puis sensibilisez le peuple par le discours public, les tracts et la compréhension sociale (<em>Sciences Solaires</em>). Chaque action réussie renforce votre force de frappe pour l'Exécution.</div>
               <div class="tracker-checklist space-y-1">
 
                 <!-- Émeute prep -->
                 <div class="tracker-row" data-input="empathieTestInput" data-types="emeute">
                   <div class="tracker-row-label">
                     <span id="empathieTestLabel" class="tracker-test-name">Empathie</span>
+                    <span class="tracker-skill">(Empathie)</span>
                     <abbr class="rule-tip" title="Sonder la foule pour identifier meneurs naturels et sympathisants. Diff 1+malus. Chaque succès exc. = +1d bonus au Discours. Grand Lieu = +1d suppl.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="empathieDiffBadge"></span>
                   </div>
@@ -761,6 +763,7 @@
                 <div class="tracker-row" data-input="tactiqueTestInput" data-types="emeute">
                   <div class="tracker-row-label">
                     <span id="tactiqueTestLabel" class="tracker-test-name">Tactique</span>
+                    <span class="tracker-skill">(Tactique)</span>
                     <abbr class="rule-tip" title="Planifier la stratégie de l'émeute pour limiter l'intervention policière. Diff 1+malus. Chaque succès exc. réduit le malus de Propagande de 1.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="tactiqueDiffBadge"></span>
                   </div>
@@ -775,6 +778,7 @@
                 <div class="tracker-row" data-input="autorisationTestSucces" data-types="festive" id="autorisationRow">
                   <div class="tracker-row-label">
                     <span id="autorisationTestLabel" class="tracker-test-name">Autorisation</span>
+                    <span class="tracker-skill">(Étiquette / Illégalités)</span>
                     <abbr class="rule-tip" title="Obtenir (ou contourner) l'autorisation pour tenir la réunion. Diff Sécurité+malus. Étiquette en lieu public, Illégalités en lieu clandestin. Non requis sur vaisseau.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="autorisationDiffBadge"></span>
                   </div>
@@ -787,6 +791,7 @@
                 <div class="tracker-row" data-input="rassemblementTestSucces" data-types="festive">
                   <div class="tracker-row-label">
                     <span id="rassemblementTestLabel" class="tracker-test-name">Rassemblement</span>
+                    <span class="tracker-skill">(Étiquette / Illégalités)</span>
                     <abbr class="rule-tip" title="Contacter et mobiliser les invités de la révolution. Diff 3+malus. Chaque invité est rallié si les succès atteignent sa diff individuelle.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="rassemblementDiffBadge"></span>
                   </div>
@@ -799,6 +804,7 @@
                 <div class="tracker-row" data-input="preparerLieuTestSucces" data-types="festive">
                   <div class="tracker-row-label">
                     <span id="preparerLieuTestLabel" class="tracker-test-name">Préparer le lieu</span>
+                    <span class="tracker-skill">(Environnement / Étiquette / Illégalités)</span>
                     <abbr class="rule-tip" title="Aménager et décorer le lieu de rassemblement. Succès = lieu prêt. Succès excédentaires = +1d bonus à l'Appel Révolutionnaire.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="preparerLieuDiffBadge"></span>
                   </div>
@@ -813,7 +819,8 @@
                 <!-- Mutinerie prep -->
                 <div class="tracker-row" data-input="mutinerieEloquencePoste" data-types="mutinerie">
                   <div class="tracker-row-label">
-                    <span class="tracker-test-name">Éloquence (poste)</span>
+                    <span class="tracker-test-name">Ralliement du poste</span>
+                    <span class="tracker-skill">(Éloquence)</span>
                     <abbr class="rule-tip" title="Convaincre les sous-officiers du poste de rejoindre la mutinerie. Diff 3. Succès = ralliement, réduit la diff de l'Appel de 1.">ⓘ</abbr>
                     <span class="tracker-diff-badge">diff 3</span>
                   </div>
@@ -825,7 +832,8 @@
                 </div>
                 <div class="tracker-row" data-input="mutinerieEloquenceCambuse" data-types="mutinerie">
                   <div class="tracker-row-label">
-                    <span class="tracker-test-name">Éloquence (cambuse)</span>
+                    <span class="tracker-test-name">Ralliement de la cambuse</span>
+                    <span class="tracker-skill">(Éloquence)</span>
                     <abbr class="rule-tip" title="Convaincre l'équipage de la cambuse de rejoindre la mutinerie. Diff 2. Succès = ralliement, réduit la diff de l'Appel de 1.">ⓘ</abbr>
                     <span class="tracker-diff-badge">diff 2</span>
                   </div>
@@ -838,6 +846,7 @@
                 <div class="tracker-row" data-input="mutinerieDiscretion" data-types="mutinerie">
                   <div class="tracker-row-label">
                     <span class="tracker-test-name">Discrétion</span>
+                    <span class="tracker-skill">(Discrétion)</span>
                     <abbr class="rule-tip" title="Agir sans alerter les officiers loyaux. Diff 1. Succès = +1d bonus à l'Appel. Échec = +1 à la diff de l'Appel.">ⓘ</abbr>
                     <span class="tracker-diff-badge">diff 1</span>
                   </div>
@@ -851,7 +860,8 @@
 
                 <div class="tracker-row" data-input="mutinerieTactique" data-types="mutinerie">
                   <div class="tracker-row-label">
-                    <span class="tracker-test-name">Tactique (planification)</span>
+                    <span class="tracker-test-name">Planification du coup</span>
+                    <span class="tracker-skill">(Tactique)</span>
                     <abbr class="rule-tip" title="Planifier le timing et la coordination du coup. Diff 3. Succès excédentaires = +1d bonus par exc. à l'Appel final.">ⓘ</abbr>
                     <span class="tracker-diff-badge">diff 3</span>
                   </div>
@@ -866,7 +876,8 @@
                 <!-- Révolution prep -->
                 <div class="tracker-row" data-input="recrutementSucces" data-types="revolution">
                   <div class="tracker-row-label">
-                    <span id="recrutementLabel" class="tracker-test-name">Recrutement (Éloquence)</span>
+                    <span id="recrutementLabel" class="tracker-test-name">Recrutement</span>
+                    <span class="tracker-skill">(Éloquence)</span>
                     <abbr class="rule-tip" title="Éloquence (diff Sécurité+malus). Succès excédentaires = sections d'insurgés recrutées ce mois. Sections actuelles + recrutées = forces totales.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="recrutementDiffBadge"></span>
                   </div>
@@ -889,6 +900,7 @@
                 <div class="tracker-row" data-input="discoursPeupleSucces" data-types="revolution">
                   <div class="tracker-row-label">
                     <span id="discoursPeupleLabel" class="tracker-test-name">Discours de rue</span>
+                    <span class="tracker-skill">(Éloquence)</span>
                     <abbr class="rule-tip" title="Éloquence. Haranguer le peuple en public pour gagner leur soutien. Diff Sécurité+malus. Chaque succès exc. = +1 section sensibilisée ajoutant +1d à l'Appel.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="discoursPeupleDiffBadge"></span>
                   </div>
@@ -901,6 +913,7 @@
                 <div class="tracker-row" data-input="tractsPeupleSucces" data-types="revolution">
                   <div class="tracker-row-label">
                     <span id="tractsPeupleLabel" class="tracker-test-name">Tracts et affiches</span>
+                    <span class="tracker-skill">(Propagande)</span>
                     <abbr class="rule-tip" title="Propagande. Diffuser des tracts et affiches révolutionnaires dans les rues. Diff Sécurité+malus. Chaque succès exc. = +1 section sensibilisée.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="tractsPeupleDiffBadge"></span>
                   </div>
@@ -913,6 +926,7 @@
                 <div class="tracker-row" data-input="comprehensionPeupleSucces" data-types="revolution">
                   <div class="tracker-row-label">
                     <span id="comprehensionPeupleLabel" class="tracker-test-name">Compréhension du peuple</span>
+                    <span class="tracker-skill">(Sciences Solaires)</span>
                     <abbr class="rule-tip" title="Sciences Solaires. Analyser les dynamiques sociales pour cibler la propagande. Diff 3+malus. Chaque succès exc. = +1 section sensibilisée.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="comprehensionPeupleDiffBadge"></span>
                   </div>
@@ -970,16 +984,17 @@
             <!-- TEST CHECKLIST EXÉCUTION -->
             <fieldset class="revolte-fieldset">
               <legend class="revolte-legend">Tests d'Exécution</legend>
-              <p class="text-xs italic mb-2 leading-relaxed" style="color:var(--text-muted)" data-types="emeute">Prononcez le Discours déclencheur (Éloquence, diff Sécurité+malus). Si réussi, l'émeute éclate. Durée = 5×(1+succès exc.) min. Coût : 3 PP à répartir.</p>
-              <p class="text-xs italic mb-2 leading-relaxed" style="color:var(--text-muted)" data-types="festive">Lancez l'Appel révolutionnaire (Éloquence) devant les invités réunis. Succès = révolution déclenchée pour 6–10h. Coût : 3 PP.</p>
-              <p class="text-xs italic mb-2 leading-relaxed" style="color:var(--text-muted)" data-types="mutinerie">L'Appel (Éloquence) déclenche le soulèvement à bord. La difficulté dépend de la localisation du vaisseau et est réduite par la préparation.</p>
-              <p class="text-xs italic mb-2 leading-relaxed" style="color:var(--text-muted)" data-types="revolution">L'Appel à la Révolte (Éloquence) déclenche l'insurrection finale. La Reddition (Intimidation) peut abréger les combats au prix de récompenses réduites.</p>
+              <div class="info-box mb-3" data-types="emeute" style="border-left-color:var(--danger)"><strong>Émeute — déclenchement :</strong> Prononcez le <em>Discours déclencheur</em> (Éloquence, diff Sécurité+malus). Succès = l'émeute éclate, durée = 5×(1+succès exc.) min. Coût : <strong>3 PP</strong> à répartir.</div>
+              <div class="info-box mb-3" data-types="festive" style="border-left-color:var(--danger)"><strong>Fête — déclenchement :</strong> Lancez l'<em>Appel révolutionnaire</em> (Éloquence) devant les invités réunis. Succès = révolution déclenchée pour 6–10h. Coût : <strong>3 PP</strong>.</div>
+              <div class="info-box mb-3" data-types="mutinerie" style="border-left-color:var(--danger)"><strong>Mutinerie — déclenchement :</strong> L'<em>Appel</em> (Éloquence) déclenche le soulèvement à bord. La difficulté dépend de la localisation du vaisseau et est réduite par la préparation.</div>
+              <div class="info-box mb-3" data-types="revolution" style="border-left-color:var(--danger)"><strong>Révolution — déclenchement :</strong> L'<em>Appel à la Révolte</em> (Éloquence) déclenche l'insurrection finale. La <em>Reddition</em> (Intimidation) peut abréger les combats au prix de récompenses réduites.</div>
               <div class="tracker-checklist space-y-1">
 
                 <!-- Émeute -->
                 <div class="tracker-row" data-input="discoursTestInput" data-types="emeute">
                   <div class="tracker-row-label">
-                    <span id="discoursTestLabel" class="tracker-test-name">Éloquence (Discours)</span>
+                    <span id="discoursTestLabel" class="tracker-test-name">Discours déclencheur</span>
+                    <span class="tracker-skill">(Éloquence)</span>
                     <abbr class="rule-tip" title="Diff Sécurité+malus. Si réussi : l'émeute débute, durée = 5×(1+succès exc.) min. Coût : 3 PP à répartir.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="discoursDiffBadge"></span>
                   </div>
@@ -996,6 +1011,7 @@
                 <div class="tracker-row" data-input="appelFestiveSucces" data-types="festive">
                   <div class="tracker-row-label">
                     <span id="appelFestiveLabel" class="tracker-test-name">Appel Révolution Festive</span>
+                    <span class="tracker-skill">(Éloquence)</span>
                     <abbr class="rule-tip" title="Éloquence. Déclarer publiquement la Révolution devant la foule réunie. Diff selon nb d'invités (10→1, 100→3, 1000→5, 10000→8). Coût : 3 PP. Succès = la fête révolutionnaire dure 6–10h.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="appelFestiveDiffBadge"></span>
                   </div>
@@ -1012,6 +1028,7 @@
                 <div class="tracker-row" data-input="mutinerieAppelSucces" data-types="mutinerie">
                   <div class="tracker-row-label">
                     <span id="mutinerieAppelLabel" class="tracker-test-name">Appel à la Mutinerie</span>
+                    <span class="tracker-skill">(Éloquence)</span>
                     <abbr class="rule-tip" title="Éloquence. Lancer publiquement l'appel devant l'équipage rallié. Diff selon localisation du vaisseau (1–10). Conditions favorables = +1d bonus. Durée = 5×succès exc. min.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="mutinerieAppelDiffBadge"></span>
                   </div>
@@ -1027,6 +1044,7 @@
                 <div class="tracker-row" data-input="appelRevolteSucces" data-types="revolution">
                   <div class="tracker-row-label">
                     <span id="appelRevolteLabel" class="tracker-test-name">Appel à la Révolte</span>
+                    <span class="tracker-skill">(Éloquence)</span>
                     <abbr class="rule-tip" title="Éloquence (diff Sécurité+malus). Déclenche l'insurrection. Coût : 5/10/25 PP (planétaire/système/secteur).">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="appelRevolteDiffBadge"></span>
                   </div>
@@ -1041,6 +1059,7 @@
                 <div class="tracker-row" data-input="intimidationRedditionSucces" data-types="revolution">
                   <div class="tracker-row-label">
                     <span id="intimidationRedditionLabel" class="tracker-test-name">Reddition des Autorités</span>
+                    <span class="tracker-skill">(Intimidation)</span>
                     <abbr class="rule-tip" title="Intimidation. Forcer les autorités à capituler sans assaut prolongé. Si réussi : victoire politique rapide, pertes humaines réduites. Diff variable (TD si forces insuffisantes).">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="intimidationDiffBadge"></span>
                   </div>
@@ -1074,7 +1093,8 @@
                 <!-- Sciences Solaires (révolution uniquement) -->
                 <div class="tracker-row" data-input="sciencesSolairesSucces" data-types="revolution">
                   <div class="tracker-row-label">
-                    <span id="sciencesSolairesLabel" class="tracker-test-name">Sciences Solaires (prévisions)</span>
+                    <span id="sciencesSolairesLabel" class="tracker-test-name">Prévisions astronomiques</span>
+                    <span class="tracker-skill">(Sciences Solaires)</span>
                     <abbr class="rule-tip" title="Analyser les données astronomiques pour prévoir le meilleur moment d'insurrection. Succès excédentaires = bonus de stabilité post-révolution et réduction des pertes estimées.">ⓘ</abbr>
                     <span class="tracker-diff-badge" id="sciencesSolairsDiffBadge"></span>
                   </div>

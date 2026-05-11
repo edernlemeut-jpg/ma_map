@@ -89,11 +89,12 @@ router.get('/events', (req, res) => {
 
 // POST /api/calendar/events
 router.post('/events', (req, res) => {
-  if (!isMJOrAdmin(req)) return forbidden(res);
+  if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
   const tableId = getTableId(req);
   if (!tableId) return validationError(res, 'Aucune table active');
   try {
-    const ev = cal.createEvent(Number(tableId), req.user.id, req.body);
+    const isMJ = isMJOrAdmin(req);
+    const ev = cal.createEvent(Number(tableId), req.user.id, req.body, isMJ, req.user.display_name || req.user.username || null);
     success(res, ev, 201);
   } catch (e) {
     validationError(res, e.message);
@@ -102,10 +103,16 @@ router.post('/events', (req, res) => {
 
 // PUT /api/calendar/events/:id
 router.put('/events/:id', (req, res) => {
-  if (!isMJOrAdmin(req)) return forbidden(res);
+  if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
   const tableId = getTableId(req);
   if (!tableId) return validationError(res, 'Aucune table active');
   try {
+    const mj = isMJOrAdmin(req);
+    if (!mj) {
+      const existing = cal.getEventById(req.params.id, Number(tableId));
+      if (!existing) return notFound(res, 'Événement introuvable');
+      if (existing.created_by !== req.user.id) return forbidden(res);
+    }
     const ev = cal.updateEvent(req.params.id, Number(tableId), req.body);
     success(res, ev);
   } catch (e) {
@@ -116,10 +123,16 @@ router.put('/events/:id', (req, res) => {
 
 // DELETE /api/calendar/events/:id
 router.delete('/events/:id', (req, res) => {
-  if (!isMJOrAdmin(req)) return forbidden(res);
+  if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
   const tableId = getTableId(req);
   if (!tableId) return validationError(res, 'Aucune table active');
   try {
+    const mj = isMJOrAdmin(req);
+    if (!mj) {
+      const existing = cal.getEventById(req.params.id, Number(tableId));
+      if (!existing) return notFound(res, 'Événement introuvable');
+      if (existing.created_by !== req.user.id) return forbidden(res);
+    }
     cal.deleteEvent(req.params.id, Number(tableId));
     success(res, { ok: true });
   } catch (e) {

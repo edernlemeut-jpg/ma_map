@@ -1171,8 +1171,8 @@ function openDetailSheet(entityType, entity) {
           ${Array.isArray(soleil.activiteSolaire) && soleil.activiteSolaire.length ? `
             <p class="text-xs text-gray-400 font-semibold mt-3 mb-1">Activité solaire :</p>
             <table class="w-full text-xs border-collapse">
-              <thead><tr class="border-b border-gray-700"><th class="text-left pb-1 pr-4 text-gray-500">Distance</th><th class="text-left pb-1 text-gray-500">Conséquence</th></tr></thead>
-              <tbody>${soleil.activiteSolaire.map(a => `<tr class="border-b border-gray-800"><td class="py-1 pr-4 text-gray-400">${esc(String(a.distance ?? ''))}</td><td class="py-1 text-gray-400">${esc(String(a.consequence ?? ''))}</td></tr>`).join('')}</tbody>
+              <thead><tr class="border-b border-gray-700"><th class="text-left pb-1 pr-4 text-gray-500">Score</th><th class="text-left pb-1 text-gray-500">Description / Conséquence</th></tr></thead>
+              <tbody>${soleil.activiteSolaire.map(a => `<tr class="border-b border-gray-800"><td class="py-1 pr-4 text-yellow-300 font-mono text-xs font-semibold">${esc(String(a.score ?? a.distance ?? ''))}</td><td class="py-1 text-gray-400">${esc(String(a.description ?? a.consequence ?? ''))}</td></tr>`).join('')}</tbody>
             </table>` : ''}
         `, false) : ''}
         ${corps.length ? buildCollapsible('ds-corps', `🪐 Corps célestes (${corps.length})`,
@@ -1190,7 +1190,7 @@ function openDetailSheet(entityType, entity) {
       <div class="flex gap-4 mb-5">
         <div class="flex-shrink-0">
           ${f.icon_url
-            ? `<div style="width:100px;height:100px;background:#1f2937;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;border:1px solid #374151"><img src="${esc(f.icon_url)}" style="max-width:100%;max-height:100%;object-fit:contain" alt=""></div>`
+            ? `<div style="width:100px;height:100px;background:#1f2937;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;border:1px solid #374151"><img src="${esc(f.icon_url)}" style="max-width:100%;max-height:100%;object-fit:contain" alt="" data-no-lightbox></div>`
             : `<div style="width:100px;height:100px;background:#374151;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:2.5rem">🏴</div>`}
         </div>
         <div class="flex-1 space-y-2 pt-1">
@@ -1359,8 +1359,8 @@ function renderPlanets(panel, _ignore) {
       ${Array.isArray(soleil.activiteSolaire) && soleil.activiteSolaire.length ? `
         <p class="text-xs text-gray-400 font-semibold mb-2">Activité solaire :</p>
         <table class="w-full text-xs border-collapse">
-          <thead><tr class="border-b border-gray-700"><th class="text-left pb-1 pr-6 text-gray-500">Distance</th><th class="text-left pb-1 text-gray-500">Conséquence</th></tr></thead>
-          <tbody>${soleil.activiteSolaire.map(a => `<tr class="border-b border-gray-800"><td class="py-1 pr-6 text-gray-400">${esc(String(a.distance ?? ''))}</td><td class="py-1 text-gray-400">${esc(String(a.consequence ?? ''))}</td></tr>`).join('')}</tbody>
+          <thead><tr class="border-b border-gray-700"><th class="text-left pb-1 pr-6 text-gray-500">Score</th><th class="text-left pb-1 text-gray-500">Description / Conséquence</th></tr></thead>
+          <tbody>${soleil.activiteSolaire.map(a => `<tr class="border-b border-gray-800"><td class="py-1 pr-6 text-yellow-300 font-mono font-semibold">${esc(String(a.score ?? a.distance ?? ''))}</td><td class="py-1 text-gray-400">${esc(String(a.description ?? a.consequence ?? ''))}</td></tr>`).join('')}</tbody>
         </table>` : ''}
     ` : '<p class="text-xs text-gray-500 italic">Aucune donnée stellaire enregistrée.</p>';
 
@@ -1819,7 +1819,7 @@ function renderFactions(panel, factions) {
       row.innerHTML = `
         <td class="py-2 pr-3">
           ${f.icon_url
-            ? `<span style="display:inline-flex;width:100px;height:100px;align-items:center;justify-content:center;overflow:hidden;background:#111827;border-radius:8px;flex-shrink:0"><img src="${esc(f.icon_url)}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain"></span>`
+            ? `<span style="display:inline-flex;width:100px;height:100px;align-items:center;justify-content:center;overflow:hidden;background:#111827;border-radius:8px;flex-shrink:0"><img src="${esc(f.icon_url)}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain" data-no-lightbox></span>`
             : `<span style="display:inline-flex;width:100px;height:100px;align-items:center;justify-content:center;background:#374151;border-radius:8px;font-size:2rem">🏴</span>`}
         </td>
         <td class="py-2 pr-3 font-medium">${esc(f.name)}</td>
@@ -3958,7 +3958,7 @@ function openShipFiche(ship) {
         const installedIds = new Set(systemesEtat.filter(e => e.catalogue_id).map(e => e.catalogue_id));
         const available = (state.secondary_systems || []).filter(s => {
           if (!s.id || installedIds.has(s.id)) return false;
-          if (s.visible === false || s.visible === 0) return false;
+          if (!state.isMJ && (s.visible === false || s.visible === 0)) return false;
           if (q && !s.nom.toLowerCase().includes(q) && !(s.categorie||'').toLowerCase().includes(q)) return false;
           return true;
         });
@@ -4459,11 +4459,18 @@ function openFactionModal(faction) {
 // --- System edit modal (with solar data) ---
 function openSystemModal(system) {
   const isNew = !system?.id;
-  let soleil = {}, corps = [], patrouilles = [];
+  let soleil = {}, corps = [], patrouilles = [], periels = [], activiteSolaire = [];
   if (!isNew) {
     try { soleil = JSON.parse(system.soleil_json || 'null') || {}; } catch { soleil = {}; }
     try { corps = JSON.parse(system.corps_celestes_json || 'null') || []; } catch { corps = []; }
     try { patrouilles = JSON.parse(system.patrouilles_json || 'null') || []; } catch { patrouilles = []; }
+    // Load current peril assignment for this system (fallback: first IP peril)
+    const assignedId = state.peril_assignments?.systems?.[system.nom] || null;
+    const firstIP = (state.perils || []).find(pt => pt.type === 'interplanetaire');
+    const resolvedId = assignedId || (firstIP ? String(firstIP.id) : null);
+    if (resolvedId) periels = [resolvedId];
+    // Load activiteSolaire from soleil (may have old {distance,consequence} or new {description,score} format)
+    if (Array.isArray(soleil.activiteSolaire)) activiteSolaire = soleil.activiteSolaire;
   }
 
   const overlay = document.createElement('div');
@@ -4591,6 +4598,37 @@ function openSystemModal(system) {
         <div id="fms-patr-list" class="space-y-1">${renderPatrList()}</div>
       </div>
 
+      <!-- Périls interplanétaires -->
+      <div class="border-t border-gray-700 pt-4 mb-4">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">⚠️ Périls interplanétaires</h3>
+        <label class="block text-xs text-gray-400 mb-1">Table de périls assignée à ce système</label>
+        <select id="fms-peril-table" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500">
+          ${(state.perils || []).filter(pt => pt.type === 'interplanetaire').map(pt => `<option value="${esc(String(pt.id))}" ${periels[0] === String(pt.id) ? 'selected' : ''}>${esc(pt.name || pt.id)}</option>`).join('')}
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Utilisé pour les tirages de périls lors de l'itinéraire.</p>
+      </div>
+
+      <!-- Activité solaire -->
+      <div class="border-t border-gray-700 pt-4 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-gray-300">☀️ Activité solaire</h3>
+          <button id="btn-add-activite" class="text-xs bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1.5 rounded transition-colors">+ Ajouter</button>
+        </div>
+        <div id="fms-activite-list" class="space-y-2 mb-2"></div>
+        <div id="fms-activite-form" class="hidden bg-gray-700/40 rounded-lg p-3 border border-gray-600">
+          <div class="grid grid-cols-1 gap-2">
+            <textarea id="fms-act-desc" rows="2" placeholder="Description de l'activité…"
+              class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500 resize-none"></textarea>
+            <div class="flex items-center gap-2">
+              <input id="fms-act-score" type="text" placeholder="Score (ex: 2d MF)" maxlength="20"
+                class="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-100 focus:outline-none focus:border-blue-500">
+              <button id="fms-act-save-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs transition-colors whitespace-nowrap">Ajouter</button>
+              <button id="fms-act-cancel-btn" class="bg-gray-600 hover:bg-gray-500 text-white px-3 py-1.5 rounded text-xs transition-colors">✕</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Matrice de distances -->
       <div class="border-t border-gray-700 pt-4 mb-4">
         <div class="flex items-center justify-between mb-3">
@@ -4614,6 +4652,50 @@ function openSystemModal(system) {
   overlay.querySelector('#fms-cancel').addEventListener('click', close);
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   overlay.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+  // ── Activité solaire ─────────────────────────────────────────────────────────
+  function renderActiviteList() {
+    const listEl = overlay.querySelector('#fms-activite-list');
+    if (!listEl) return;
+    if (!activiteSolaire.length) {
+      listEl.innerHTML = '<p class="text-xs text-gray-500 italic">Aucune entrée.</p>';
+      return;
+    }
+    listEl.innerHTML = activiteSolaire.map((a, i) => {
+      const desc = a.description || a.consequence || '';
+      const score = a.score || (a.distance ? a.distance + ' US' : '');
+      return `<div class="flex items-start gap-2 bg-gray-700/40 rounded px-3 py-2">
+        <div class="flex-1 min-w-0">
+          ${score ? `<span class="text-xs text-yellow-300 font-mono font-semibold mr-2">${esc(score)}</span>` : ''}
+          <span class="text-xs text-gray-300">${esc(desc)}</span>
+        </div>
+        <button class="act-del text-red-500 hover:text-red-300 text-xs min-w-[24px] px-1" data-idx="${i}">✕</button>
+      </div>`;
+    }).join('');
+    listEl.querySelectorAll('.act-del').forEach(btn => {
+      btn.addEventListener('click', () => { activiteSolaire.splice(Number(btn.dataset.idx), 1); renderActiviteList(); });
+    });
+  }
+  renderActiviteList();
+
+  overlay.querySelector('#btn-add-activite')?.addEventListener('click', () => {
+    overlay.querySelector('#fms-activite-form')?.classList.remove('hidden');
+  });
+  overlay.querySelector('#fms-act-cancel-btn')?.addEventListener('click', () => {
+    overlay.querySelector('#fms-activite-form')?.classList.add('hidden');
+    overlay.querySelector('#fms-act-desc').value = '';
+    overlay.querySelector('#fms-act-score').value = '';
+  });
+  overlay.querySelector('#fms-act-save-btn')?.addEventListener('click', () => {
+    const desc  = overlay.querySelector('#fms-act-desc')?.value.trim();
+    const score = overlay.querySelector('#fms-act-score')?.value.trim();
+    if (!desc && !score) return;
+    activiteSolaire.push({ description: desc || '', score: score || '' });
+    renderActiviteList();
+    overlay.querySelector('#fms-activite-form')?.classList.add('hidden');
+    overlay.querySelector('#fms-act-desc').value = '';
+    overlay.querySelector('#fms-act-score').value = '';
+  });
 
   // Distance matrix generator (logic from MAmap.html)
   const d6 = () => Math.floor(Math.random() * 6) + 1;
@@ -4770,14 +4852,17 @@ function openSystemModal(system) {
       return sel;
     };
 
-    // Build soleil_json
+    // Build soleil_json (include activiteSolaire from editor)
     const solNom = str('#fms-sol-nom');
     const solClasse = readDropdownAutre('#fms-sol-classe', '#fms-sol-classe-autre');
     const solDiam = num('#fms-sol-diametre'), solSaut = num('#fms-sol-saut');
     const solTexteAmbiance = str('#fms-sol-texte-ambiance'), solDesc = str('#fms-sol-desc');
-    const soleilObj = (solNom || solClasse || solDiam || solSaut || solTexteAmbiance || solDesc)
-      ? { nom: solNom, classe: solClasse, diametre: solDiam, distanceSaut: solSaut, texte_ambiance: solTexteAmbiance, description: solDesc, ...((soleil.activiteSolaire) ? { activiteSolaire: soleil.activiteSolaire } : {}) }
+    const soleilObj = (solNom || solClasse || solDiam || solSaut || solTexteAmbiance || solDesc || activiteSolaire.length)
+      ? { nom: solNom, classe: solClasse, diametre: solDiam, distanceSaut: solSaut, texte_ambiance: solTexteAmbiance, description: solDesc, ...(activiteSolaire.length ? { activiteSolaire } : {}) }
       : {};
+
+    // Read peril assignment
+    const perilTableId = overlay.querySelector('#fms-peril-table')?.value || null;
 
     const body = {
       nom, quadrant: str('#fms-quadrant') || null,
@@ -4790,6 +4875,7 @@ function openSystemModal(system) {
       soleil_json: Object.keys(soleilObj).length ? JSON.stringify(soleilObj) : null,
       corps_celestes_json: corps.length ? JSON.stringify(corps) : null,
       patrouilles_json: patrouilles.length ? JSON.stringify(patrouilles) : null,
+      periels_interstellaires_json: perilTableId ? JSON.stringify([perilTableId]) : null,
     };
 
     try {
@@ -4800,6 +4886,20 @@ function openSystemModal(system) {
       const json = await r.json();
       if (!r.ok) throw new Error(json.error?.message || `Erreur ${r.status}`);
       const updated = json.data;
+
+      // Save peril assignment for this system (keyed by system name)
+      if (state.tableId) {
+        try {
+          await fetchWithTable('/api/perils/assignments', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assign_type: 'interplanetaire', key: nom, peril_table_id: perilTableId || '' }),
+          });
+          if (perilTableId) state.peril_assignments.systems[nom] = perilTableId;
+          else delete state.peril_assignments.systems[nom];
+        } catch {}
+      }
+
       if (isNew) { if (updated) state.systems.push(updated); }
       else {
         const idx = state.systems.findIndex(s => String(s.id) === String(system.id));
@@ -5359,7 +5459,7 @@ function openShipModelModal(model) {
       const addedCatIds = new Set(systemesData.filter(s => typeof s === 'object' && s.catalogue_id).map(s => s.catalogue_id));
       const available = (state.secondary_systems || []).filter(s => {
         if (!s.id || addedCatIds.has(s.id)) return false;
-        if (s.visible === false || s.visible === 0) return false;
+        if (!state.isMJ && (s.visible === false || s.visible === 0)) return false;
         if (q && !s.nom.toLowerCase().includes(q) && !(s.categorie||'').toLowerCase().includes(q)) return false;
         return true;
       });
@@ -6172,3 +6272,22 @@ function openSorcForm(panel, domain) {
 }
 
 init();
+
+// ── Lightbox (click on any content image to enlarge) ─────────────────────────
+document.addEventListener('click', e => {
+  const img = e.target.closest('img');
+  if (!img || img.dataset.noLightbox !== undefined) return;
+  // Skip tiny icons (nav, faction icons, avatars, etc.)
+  if (img.width < 60 && img.height < 60) return;
+  const lb = document.createElement('div');
+  lb.className = 'fixed inset-0 z-[200] bg-black/92 flex items-center justify-center cursor-zoom-out';
+  lb.style.backdropFilter = 'blur(4px)';
+  lb.innerHTML = `
+    <button style="position:absolute;top:1rem;right:1rem;font-size:1.75rem;color:#fff;background:rgba(0,0,0,.5);border:none;cursor:pointer;line-height:1;padding:0 0.4rem;border-radius:0.375rem;" aria-label="Fermer">✕</button>
+    <img src="${img.src}" alt="${img.alt || ''}" style="max-width:90vw;max-height:90vh;object-fit:contain;border-radius:0.5rem;box-shadow:0 0 40px rgba(0,0,0,.8);">`;
+  const removeLb = () => lb.remove();
+  lb.addEventListener('click', removeLb);
+  lb.querySelector('button').addEventListener('click', ev => { ev.stopPropagation(); removeLb(); });
+  document.addEventListener('keydown', function esc(ev) { if (ev.key === 'Escape') { removeLb(); document.removeEventListener('keydown', esc); } });
+  document.body.appendChild(lb);
+});

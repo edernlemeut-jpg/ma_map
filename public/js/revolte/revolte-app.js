@@ -255,20 +255,25 @@ async function updateLocationInfo() {
   if (t === 'ship') {
     const ship = (_worldShips || []).find(s => String(s.id) === String(lr.shipId));
     if (ship) {
-      const meta = [ship.model_name, ship.model_tonnage ? `${Number(ship.model_tonnage).toLocaleString('fr-FR')}t` : ''].filter(Boolean);
+      const tonnage = Number(ship?.model?.tonnage) || 0;
+      const meta = [ship.model_name, tonnage ? `${tonnage.toLocaleString('fr-FR')}t` : ''].filter(Boolean);
       info.innerHTML = `<strong>${escHtml(ship.name || '')}</strong>${meta.length ? ' — ' + meta.map(escHtml).join(' · ') : ''}`;
       info.classList.remove('hidden');
-      // Auto-fill mutinerie tonnage selector
-      const tonnage = Number(ship.model_tonnage) || 0;
+      // Auto-fill mutinerie tonnage selector + verrouille (la donnée vient du vaisseau)
       const closest = tonnage >= 50000 ? 100000 : tonnage >= 5000 ? 10000 : tonnage >= 500 ? 1000 : 100;
       const tonSel  = document.getElementById('mutinerieTonnage');
       if (tonSel) {
-        tonSel.value = closest;
+        tonSel.value = String(closest);
+        tonSel.disabled = true;
+        tonSel.title = `Tonnage verrouillé sur le vaisseau « ${ship.name} » (${tonnage}t)`;
         state.mutinerie.tonnage = closest;
-        tonSel.dispatchEvent(new Event('change', { bubbles: true }));
+        // Déclenche la mise à jour de l'UI Mutinerie
+        if (typeof updateMutinerieUI === 'function') updateMutinerieUI();
       }
     } else {
       info.classList.add('hidden');
+      const tonSel = document.getElementById('mutinerieTonnage');
+      if (tonSel) { tonSel.disabled = false; tonSel.title = ''; }
     }
     return;
   }
@@ -879,26 +884,20 @@ function cancelNewForm() {
 }
 
 async function createSession() {
-  const name     = document.getElementById('ns-name')?.value.trim();
-  const type     = document.getElementById('ns-type')?.value;
-  const scope    = document.getElementById('ns-scope')?.value;
-  const location = document.getElementById('ns-location')?.value.trim();
-
+  const name = document.getElementById('ns-name')?.value.trim();
   if (!name) {
     alert('Le nom est requis');
     return;
   }
-
+  // Tout le paramétrage (type, portée, lieu) se fait dans le panneau "Paramétrage"
+  // de la session. On crée juste l'enveloppe avec un état par défaut.
   try {
     const data = await apiFetch('/api/revolte', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, type, scope: scope || null, location_ref: location || null }),
+      body: JSON.stringify({ name, type: 'emeute', state: defaultState() }),
     });
-
-    // Reset new-form fields
-    ['ns-name', 'ns-location'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-
+    const el = document.getElementById('ns-name'); if (el) el.value = '';
     await selectSession(data.id);
   } catch (err) {
     alert(`Erreur lors de la création : ${err.message}`);
@@ -989,6 +988,15 @@ function applyTypeFilter(type) {
   document.querySelectorAll('[data-types]').forEach(el => {
     const types = el.dataset.types ? el.dataset.types.split(',') : [];
     el.classList.toggle('hidden', types.length > 0 && !types.includes(type));
+  });
+  // Filtre par scope (révolution uniquement) : data-scope="locale,stellaire"
+  const scope = state.revolution?.scope || '';
+  document.querySelectorAll('[data-scope]').forEach(el => {
+    const scopes = el.dataset.scope ? el.dataset.scope.split(',') : [];
+    if (scopes.length === 0) return;
+    // Cumulé avec data-types : ne masque que si déjà visible côté type
+    const visibleByType = !el.classList.contains('hidden') || type === 'revolution';
+    el.classList.toggle('hidden', !(visibleByType && scopes.includes(scope)));
   });
 }
 
@@ -1132,7 +1140,7 @@ function renderPPLedger() {
   }).join('');
 }
 
-/** Render délégués (officiers délégués pour scope locale/stellaire). */
+/** Render délégués (officiers délégués pour scope locale/stellaire). Lecture + Modifier. */
 function renderDelegues() {
   const wrap = document.getElementById('delegues-list');
   if (!wrap) return;
@@ -1141,25 +1149,34 @@ function renderDelegues() {
     wrap.innerHTML = '<p class="text-xs text-gray-500 italic">Aucun délégué. Pour une Révolution locale/stellaire, désigner un délégué par planète.</p>';
     return;
   }
+  const editingIdx = wrap.dataset.editingIdx ? parseInt(wrap.dataset.editingIdx, 10) : -1;
   wrap.innerHTML = list.map((d, i) => {
-    // Bonus selon délai depuis le dernier rendez-vous (en mois)
-    let delaiTxt = '—';
-    let bonusTxt = '';
-    if (d.lastRdvMonth) {
-      const m = parseInt(d.lastRdvMonth, 10) || 0;
-      delaiTxt = `${m} mois`;
-      if (m >= 6)      bonusTxt = '<span class="text-green-300 font-bold">TF</span>';
-      else if (m >= 1) bonusTxt = '<span class="text-green-400">+1d</span>';
+    const m = parseInt(d.lastRdvMonth, 10) || 0;
+    let bonusTxt = '<span class="text-gray-500">—</span>';
+    if (m >= 6)      bonusTxt = '<span class="text-green-300 font-bold">TF (6+ mois)</span>';
+    else if (m >= 1) bonusTxt = `<span class="text-green-400">+1d (${m} mois)</span>`;
+    if (i === editingIdx) {
+      return `<div class="delegue-row bg-gray-800 p-2 rounded text-xs mb-1 border border-blue-700">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+          <input type="text" class="del-edit-nom revolte-input md:col-span-3" data-idx="${i}" value="${escHtml(d.nom || '')}" placeholder="Nom">
+          <input type="text" class="del-edit-planete revolte-input md:col-span-3" data-idx="${i}" value="${escHtml(d.planete || '')}" placeholder="Planète">
+          <label class="md:col-span-2 text-gray-400 flex items-center gap-1">
+            Mois&nbsp;<input type="number" min="0" class="del-edit-rdv revolte-input w-14 text-center" data-idx="${i}" value="${m}">
+          </label>
+          <input type="text" class="del-edit-action revolte-input md:col-span-3" data-idx="${i}" value="${escHtml(d.action || '')}" placeholder="Action en cours">
+          <button class="delegue-save md:col-span-1 text-green-400 hover:text-green-300 text-right" data-idx="${i}" title="Valider">✓</button>
+        </div>
+      </div>`;
     }
     return `<div class="delegue-row bg-gray-800 p-2 rounded text-xs mb-1">
-      <div class="flex items-center gap-2">
-        <strong>${escHtml(d.nom || '?')}</strong>
-        <span class="text-gray-400">${escHtml(d.planete || '')}</span>
+      <div class="flex items-center gap-2 flex-wrap">
+        <strong>${escHtml(d.nom || '(sans nom)')}</strong>
+        <span class="text-gray-400">${escHtml(d.planete || '—')}</span>
         <span class="ml-auto">${bonusTxt}</span>
+        <button class="delegue-edit text-blue-400 hover:text-blue-300" data-idx="${i}" title="Modifier">✎</button>
         <button class="delegue-remove text-red-400 hover:text-red-300" data-idx="${i}" title="Retirer">×</button>
       </div>
-      ${d.action ? `<div class="text-gray-300 mt-1">Action : ${escHtml(d.action)}</div>` : ''}
-      <div class="text-gray-500 mt-1">Dernier RDV : ${delaiTxt}</div>
+      ${d.action ? `<div class="text-gray-300 mt-1 italic">↳ ${escHtml(d.action)}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -1196,47 +1213,82 @@ function renderInsurrection() {
   }).join('');
 }
 
-/** Create a calendar event linked to the current revolt session (MJ only). */
+/** Create a calendar event linked to the current revolt session (MJ only).
+ *  Utilise la date de campagne courante. Évite les mismatch d'année qui
+ *  rendaient l'événement invisible dans le calendrier. */
 async function createCalendarEvent() {
   if (!currentSessionId) return;
   if (!currentUserIsMJ) {
     alert('Réservé au MJ');
     return;
   }
-  const sessName = document.getElementById('editor-session-name')?.textContent || 'Révolte';
-  // Quick inline form via prompts (a richer modal is planned for Lot C).
+  // 1. Récupère la date galactique courante de la campagne
+  let curDate = '0101.01';
+  let curYear = 50429;
+  try {
+    const st = await apiFetch('/api/calendar/state');
+    if (st?.date) curDate = String(st.date);
+    if (st?.year) curYear = Number(st.year);
+  } catch (e) {
+    console.warn('Impossible de récupérer la date courante du calendrier, valeurs par défaut utilisées.', e);
+  }
+
+  const sessName     = document.getElementById('editor-session-name')?.textContent || 'Révolte';
   const titleSuggest = `${TYPE_LABELS[state.revolteType] || 'Révolte'} — ${sessName}`;
   const title = prompt('Titre de l\'événement :', titleSuggest);
   if (!title) return;
-  const year = prompt('Année galactique (entier ex. 2226) :', '2226');
-  if (!year) return;
-  const month = prompt('Mois (1-10) :', '1');
-  if (!month) return;
-  const week = prompt('Semaine (1-5) :', '1');
-  if (!week) return;
-  const day = prompt('Jour (1-5) :', '1');
-  if (!day) return;
-  const mm = String(parseInt(month, 10) || 1).padStart(2, '0');
-  const ww = String(parseInt(week,  10) || 1).padStart(2, '0');
-  const dd = String(parseInt(day,   10) || 1).padStart(2, '0');
-  const date_start = `${mm}${ww}.${dd}`; // format XXYY.ZZ
+  const dateStr = prompt(`Date galactique (XXYY.ZZ)\n(date courante de campagne pré-remplie) :`, curDate);
+  if (!dateStr) return;
+  if (!/^\d{4}\.\d{2}$/.test(dateStr)) {
+    alert('Format de date invalide. Attendu : XXYY.ZZ (ex. 0303.04 pour mois 3 / semaine 3 / jour 4)');
+    return;
+  }
+  // Validation des bornes (mm 01-10, ww 01-05, dd 01-05)
+  const mm = parseInt(dateStr.slice(0, 2), 10);
+  const ww = parseInt(dateStr.slice(2, 4), 10);
+  const dd = parseInt(dateStr.slice(5, 7), 10);
+  if (mm < 1 || mm > 10 || ww < 1 || ww > 5 || dd < 1 || dd > 5) {
+    alert('Date hors-limites : mois 01-10, semaine 01-05, jour 01-05.');
+    return;
+  }
+  const yearStr = prompt(`Année galactique\n(année courante de campagne pré-remplie) :`, String(curYear));
+  if (!yearStr) return;
+  const year = parseInt(yearStr, 10);
+  if (!Number.isInteger(year) || year < 1) {
+    alert('Année invalide.');
+    return;
+  }
+  const visible = confirm('Rendre cet événement visible aux joueurs ?\n(OK = visible / Annuler = privé MJ)');
+
   try {
-    await apiFetch(`/api/revolte/${currentSessionId}/calendar-event`, {
+    const evt = await apiFetch(`/api/revolte/${currentSessionId}/calendar-event`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title,
         description: `Lieu : ${computeLocationRef() || '—'}\nStatut : ${document.getElementById('editor-status')?.value || 'en_cours'}`,
-        date_start,
-        date_end: date_start,
-        galactic_year: parseInt(year, 10),
+        date_start: dateStr,
+        date_end:   dateStr,
+        galactic_year: year,
         color: '#c89c3a',
-        is_public: false,
+        is_public: !!visible,
       }),
     });
-    alert('Événement ajouté au calendrier galactique.');
+    if (!evt || !evt.id) {
+      alert('Événement créé mais réponse inattendue. Vérifie le calendrier.');
+      return;
+    }
+    // Vérifie que l'événement est bien retrouvable par le calendrier
+    let verified = false;
+    try {
+      const list = await apiFetch(`/api/calendar/events?year=${year}`);
+      verified = Array.isArray(list) && list.some(e => e.id === evt.id);
+    } catch (_) { /* ignore */ }
+    const msg = `✓ Événement créé pour ${dateStr} / année ${year}\n(visibilité : ${visible ? 'publique' : 'MJ seulement'})${verified ? '\n✓ Vérifié dans le calendrier' : '\n⚠ Non retrouvé dans la requête de vérification — vérifie manuellement'}.\n\nOuvrir le calendrier galactique ?`;
+    if (confirm(msg)) window.open(`/calendrier.html?year=${year}`, '_blank');
   } catch (err) {
-    alert(`Erreur calendrier : ${err.message}`);
+    console.error('createCalendarEvent failed:', err);
+    alert(`Erreur lors de la création : ${err.message}`);
   }
 }
 
@@ -1661,6 +1713,21 @@ function updateMutinerieUI() {
     `Coût pour déclencher : <strong>${tonnageCosts[s.tonnage] ?? 1} PP</strong> (dépense).`
   );
 
+  // Affiche le vaisseau lié (si référencé) pour rappeler la source du tonnage
+  const lr   = state.locationRef || {};
+  const ship = lr.shipId ? (_worldShips || []).find(x => String(x.id) === String(lr.shipId)) : null;
+  const shipInfoEl = document.getElementById('mutinerie-ship-info');
+  if (shipInfoEl) {
+    if (ship) {
+      const ton = Number(ship?.model?.tonnage) || 0;
+      shipInfoEl.innerHTML = `🔒 Vaisseau lié : <strong>${escHtml(ship.name)}</strong>` +
+        (ton ? ` (${ton.toLocaleString('fr-FR')}t — tonnage verrouillé)` : '');
+      shipInfoEl.classList.remove('hidden');
+    } else {
+      shipInfoEl.classList.add('hidden');
+    }
+  }
+
   // Tracker badges (always visible)
   setTrackerStatus('mutinerieEloquencePoste',   s.eloquencePoste,   3);
   setTrackerStatus('mutinerieEloquenceCambuse', s.eloquenceCambuse, 2);
@@ -1723,28 +1790,59 @@ function updateRevolutionPrepUI() {
   const malus = getMalus();
   const rev   = state.revolution;
 
-  // 1. Lieux de Pouvoir
+  // 1. Lieux de Pouvoir (carte lecture seule + bouton Modifier déverrouille un lieu)
   const powerPlaceList = document.getElementById('powerPlaceList');
   if (powerPlaceList) {
+    // Mémoriser l'index en cours d'édition pour ne pas le perdre au re-render
+    const editingIdx = powerPlaceList.dataset.editingIdx ? parseInt(powerPlaceList.dataset.editingIdx, 10) : -1;
     powerPlaceList.innerHTML = '';
     rev.powerPlaces.forEach((place, index) => {
+      const isEditing = index === editingIdx;
+      const stateBadge = place.isCaptured
+        ? '<span class="text-green-400 text-xs font-bold">✓ Capturé</span>'
+        : '<span class="text-yellow-400 text-xs">⚔ À conquérir</span>';
+      const qgBadge = place.isQG ? '<span class="text-purple-300 text-xs ml-2">★ QG</span>' : '';
+
       const el = document.createElement('div');
-      el.className = 'bg-gray-800 p-2 rounded text-sm';
-      el.innerHTML = `
-        <div class="flex justify-between items-center">
-          <div>
-            <strong>${escHtml(place.name)}</strong>
-            ${place.isQG ? '<span class="text-xs font-bold text-red-400 ml-1">[QG]</span>' : ''}
-            ${place.desc ? `<p class="text-xs text-gray-400 mt-0.5">${escHtml(place.desc)}</p>` : ''}
-          </div>
-          <div class="flex items-center gap-2 ml-2">
-            <label class="text-xs text-gray-300 cursor-pointer">
-              Capturé <input type="checkbox" class="capture-place-check revolte-input" data-index="${index}" ${place.isCaptured ? 'checked' : ''}>
-            </label>
-            <button class="remove-place-btn text-red-400 hover:text-red-300 text-lg leading-none" data-index="${index}">×</button>
-          </div>
-        </div>
-      `;
+      el.className = 'bg-gray-800 p-3 rounded border border-gray-700';
+      if (!isEditing) {
+        el.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <strong class="text-base">${escHtml(place.name || '(sans nom)')}</strong>
+                ${qgBadge}
+                ${stateBadge}
+              </div>
+              ${place.desc ? `<p class="text-xs text-gray-300 mt-1">${escHtml(place.desc)}</p>` : ''}
+            </div>
+            <div class="flex flex-col gap-1 flex-shrink-0">
+              <button class="pp-edit-btn text-xs bg-gray-700 hover:bg-gray-600 text-blue-300 px-2 py-1 rounded" data-index="${index}" title="Modifier ce lieu">✎ Modifier</button>
+              <button class="remove-place-btn text-xs text-red-400 hover:text-red-300" data-index="${index}" title="Retirer">× Retirer</button>
+            </div>
+          </div>`;
+      } else {
+        el.innerHTML = `
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+            <div class="md:col-span-5">
+              <label class="block text-xs text-gray-400">Nom</label>
+              <input type="text" class="pp-edit-name revolte-input w-full" data-index="${index}" value="${escHtml(place.name)}">
+            </div>
+            <div class="md:col-span-5">
+              <label class="block text-xs text-gray-400">Description</label>
+              <input type="text" class="pp-edit-desc revolte-input w-full" data-index="${index}" value="${escHtml(place.desc || '')}">
+            </div>
+            <div class="md:col-span-2 flex flex-col gap-1 pt-4">
+              <label class="text-xs text-gray-300 cursor-pointer flex items-center gap-1">
+                <input type="checkbox" class="pp-edit-qg revolte-input" data-index="${index}" ${place.isQG ? 'checked' : ''}> QG
+              </label>
+              <label class="text-xs text-gray-300 cursor-pointer flex items-center gap-1" title="Marqué capturé manuellement (indépendant des 4 étapes d'assaut)">
+                <input type="checkbox" class="capture-place-check revolte-input" data-index="${index}" ${place.isCaptured ? 'checked' : ''}> Capturé
+              </label>
+              <button class="pp-save-btn text-xs bg-green-700 hover:bg-green-600 text-white px-2 py-1 rounded mt-1" data-index="${index}">✓ OK</button>
+            </div>
+          </div>`;
+      }
       powerPlaceList.appendChild(el);
     });
   }
@@ -1904,7 +2002,10 @@ function buildAssaultSection() {
       dirigeant: a.dirigeant >= stepDiff,
       reddition: a.reddition >= stepDiff,
     };
-    place.isCaptured = stepDone.atteindre && stepDone.entrer && stepDone.dirigeant && stepDone.reddition;
+    const allDone = stepDone.atteindre && stepDone.entrer && stepDone.dirigeant && stepDone.reddition;
+    // Auto-marque "capturé" UNIQUEMENT si les 4 étapes sont validées.
+    // L'utilisateur garde le contrôle manuel (peut décocher après, ou cocher sans faire les 4).
+    if (allDone) place.isCaptured = true;
 
     // Sections lost on each failed step (succès manquants)
     const lostFor = (val) => val > 0 && val < stepDiff ? (stepDiff - val) : 0;
@@ -2127,7 +2228,7 @@ function bindAll() {
   addListener('revolteType', 'change', e => { state.revolteType = e.target.value; navigateTo(state.currentStepIndex); refreshLocationSelects(); scheduleAutosave(); });
   addListener('populationInput', 'input', e => { state.population = parseFloat(e.target.value) || 0; updateUI(); scheduleAutosave(); });
   addListener('securitePlanetaireInput', 'input', e => { state.securitePlanetaire = parseInt(e.target.value, 10) || 0; updateUI(); scheduleAutosave(); });
-  addListener('revolutionScope', 'change', e => { state.revolution.scope = e.target.value; updateUI(); refreshLocationSelects(); scheduleAutosave(); });
+  addListener('revolutionScope', 'change', e => { state.revolution.scope = e.target.value; applyTypeFilter(state.revolteType); updateUI(); refreshLocationSelects(); scheduleAutosave(); });
 
   // Stella Bell
   addListener('stellaPorteDrapeauCheck', 'change', e => { state.stellaPropagande.porteDrapeau = e.target.checked; updateUI(); scheduleAutosave(); });
@@ -2229,14 +2330,47 @@ function bindAll() {
       state.revolution.powerPlaces[idx].isCaptured = e.target.checked;
       updateRevolutionPrepUI();
       scheduleAutosave();
+    } else if (e.target.classList.contains('pp-edit-qg')) {
+      const idx = parseInt(e.target.dataset.index, 10);
+      state.revolution.powerPlaces[idx].isQG = e.target.checked;
+      updateRevolutionPrepUI();
+      scheduleAutosave();
+    }
+  });
+
+  document.getElementById('powerPlaceList')?.addEventListener('input', e => {
+    if (e.target.classList.contains('pp-edit-name')) {
+      const idx = parseInt(e.target.dataset.index, 10);
+      state.revolution.powerPlaces[idx].name = e.target.value;
+      buildAssaultSection();
+      scheduleAutosave();
+    } else if (e.target.classList.contains('pp-edit-desc')) {
+      const idx = parseInt(e.target.dataset.index, 10);
+      state.revolution.powerPlaces[idx].desc = e.target.value;
+      scheduleAutosave();
     }
   });
 
   document.getElementById('powerPlaceList')?.addEventListener('click', e => {
-    const btn = e.target.closest('.remove-place-btn');
-    if (btn) {
-      const idx = parseInt(btn.dataset.index, 10);
+    const list = document.getElementById('powerPlaceList');
+    const editBtn = e.target.closest('.pp-edit-btn');
+    if (editBtn) {
+      list.dataset.editingIdx = editBtn.dataset.index;
+      updateRevolutionPrepUI();
+      return;
+    }
+    const saveBtn = e.target.closest('.pp-save-btn');
+    if (saveBtn) {
+      delete list.dataset.editingIdx;
+      updateRevolutionPrepUI();
+      buildAssaultSection();
+      return;
+    }
+    const removeBtn = e.target.closest('.remove-place-btn');
+    if (removeBtn) {
+      const idx = parseInt(removeBtn.dataset.index, 10);
       state.revolution.powerPlaces.splice(idx, 1);
+      delete list.dataset.editingIdx;
       updateRevolutionPrepUI();
       scheduleAutosave();
     }
@@ -2498,11 +2632,37 @@ function bindAll() {
     scheduleAutosave();
   });
   document.getElementById('delegues-list')?.addEventListener('click', e => {
-    const btn = e.target.closest('.delegue-remove');
-    if (!btn) return;
-    const idx = parseInt(btn.dataset.idx, 10);
-    if (!Number.isNaN(idx)) state.revolution.delegues.splice(idx, 1);
-    renderDelegues();
+    const wrap = document.getElementById('delegues-list');
+    const editBtn = e.target.closest('.delegue-edit');
+    if (editBtn) {
+      wrap.dataset.editingIdx = editBtn.dataset.idx;
+      renderDelegues();
+      return;
+    }
+    const saveBtn = e.target.closest('.delegue-save');
+    if (saveBtn) {
+      delete wrap.dataset.editingIdx;
+      renderDelegues();
+      return;
+    }
+    const rmBtn = e.target.closest('.delegue-remove');
+    if (rmBtn) {
+      const idx = parseInt(rmBtn.dataset.idx, 10);
+      if (!Number.isNaN(idx)) state.revolution.delegues.splice(idx, 1);
+      delete wrap.dataset.editingIdx;
+      renderDelegues();
+      scheduleAutosave();
+    }
+  });
+  document.getElementById('delegues-list')?.addEventListener('input', e => {
+    const idx = parseInt(e.target.dataset.idx, 10);
+    if (Number.isNaN(idx)) return;
+    const d = state.revolution.delegues[idx];
+    if (!d) return;
+    if (e.target.classList.contains('del-edit-nom'))     d.nom = e.target.value;
+    else if (e.target.classList.contains('del-edit-planete')) d.planete = e.target.value;
+    else if (e.target.classList.contains('del-edit-action'))  d.action = e.target.value;
+    else if (e.target.classList.contains('del-edit-rdv'))     d.lastRdvMonth = parseInt(e.target.value, 10) || 0;
     scheduleAutosave();
   });
 
@@ -2638,9 +2798,27 @@ async function init() {
   }
 
   bindAll();
+  expandRuleTipsInline();   // affiche les règles sous chaque test (au lieu de tooltip)
   ensureWorldSystems(); // preload for location picker
   ensureCharacters();   // preload for PD participant selects
   await loadSessionList();
+}
+
+/**
+ * Convertit chaque <abbr class="rule-tip" title="..."> en bloc d'aide visible
+ * inséré dans la même tracker-row. Le ⓘ est masqué (la règle est désormais
+ * affichée directement sous le label).
+ */
+function expandRuleTipsInline() {
+  document.querySelectorAll('.tracker-row .rule-tip[title]').forEach(tip => {
+    const row = tip.closest('.tracker-row');
+    if (!row || row.querySelector('.tracker-help')) return;
+    const help = document.createElement('span');
+    help.className = 'tracker-help';
+    help.textContent = tip.getAttribute('title');
+    row.appendChild(help);
+    tip.style.display = 'none';
+  });
 }
 
 init();
