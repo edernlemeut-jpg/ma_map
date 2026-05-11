@@ -2243,7 +2243,22 @@ function bindAll() {
   addListener('calendar-event-btn', 'click', () => createCalendarEvent());
 
   // Paramétrage
-  addListener('revolteType', 'change', e => { state.revolteType = e.target.value; navigateTo(state.currentStepIndex); refreshLocationSelects(); scheduleAutosave(); });
+  addListener('revolteType', 'change', e => {
+    state.revolteType = e.target.value;
+    navigateTo(state.currentStepIndex);
+    refreshLocationSelects();
+    // Mise à jour instantanée du libellé dans la liste de sessions (sans attendre l'autosave)
+    const item = document.querySelector(`.session-item[data-id="${currentSessionId}"] .text-xs.flex-shrink-0`);
+    if (item) {
+      const sel = document.getElementById('revolteType');
+      const opt = sel?.options[sel.selectedIndex];
+      const label = opt ? opt.textContent.trim() : (TYPE_LABELS[state.revolteType] || state.revolteType);
+      item.textContent = label;
+      // mettre à jour aussi la couleur
+      item.className = `text-xs flex-shrink-0 ${TYPE_COLORS[state.revolteType] || 'text-gray-400'}`;
+    }
+    scheduleAutosave();
+  });
   addListener('populationInput', 'input', e => { state.population = parseFloat(e.target.value) || 0; updateUI(); scheduleAutosave(); });
   addListener('securitePlanetaireInput', 'input', e => { state.securitePlanetaire = parseInt(e.target.value, 10) || 0; updateUI(); scheduleAutosave(); });
   addListener('revolutionScope', 'change', e => { state.revolution.scope = e.target.value; applyTypeFilter(state.revolteType); updateUI(); refreshLocationSelects(); scheduleAutosave(); });
