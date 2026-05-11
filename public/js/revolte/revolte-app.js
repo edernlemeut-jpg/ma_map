@@ -729,6 +729,14 @@ async function selectSession(id) {
   applyStateToUI(data);
   navigateTo(state.currentStepIndex || 0);
   await loadSessionList(); // refresh active highlight
+
+  // Self-heal: si la colonne type/scope du DB ne reflète plus l'état (cache JS périmé sur une session ancienne),
+  // déclencher un autosave pour la resynchroniser sans intervention manuelle.
+  const expectedScope = state.revolteType === 'revolution' ? (state.revolution?.scope || null) : null;
+  if (data.type !== state.revolteType || (data.scope || null) !== expectedScope) {
+    console.info('[revolte] type/scope DB hors sync avec state — autosave de rattrapage');
+    scheduleAutosave();
+  }
 }
 
 function applyStateToUI(session) {
@@ -839,8 +847,6 @@ async function saveSession() {
   const body = {
     state,
     status: statusEl?.value || 'en_cours',
-    type: state.revolteType,
-    scope: state.revolteType === 'revolution' ? (state.revolution?.scope || null) : null,
     ...(locationRef ? { location_ref: locationRef } : {}),
   };
   try {
