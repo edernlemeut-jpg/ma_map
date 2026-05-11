@@ -574,7 +574,7 @@ function renderSessionList(sessions) {
            data-id="${s.id}">
         <div class="flex items-start justify-between gap-1">
           <span class="font-medium text-sm truncate flex-1" style="color:var(--text)">${escHtml(s.name)}</span>
-          <span class="text-xs flex-shrink-0 ${typeColor}">${labelOf(s.type)}</span>
+          <span class="text-xs flex-shrink-0 ${typeColor}" data-type-badge="${s.id}">${labelOf(s.type)}</span>
         </div>
         ${location}
         <div class="flex items-center justify-between mt-1.5">
@@ -2247,8 +2247,14 @@ function bindAll() {
     state.revolteType = e.target.value;
     navigateTo(state.currentStepIndex);
     refreshLocationSelects();
-    // Sauvegarde immédiate (avant débounce) puis rechargement de la liste
-    // pour que le libellé reflète instantanément le type choisi.
+    // Mise à jour instantanée du badge dans la liste — direct DOM, sans aller-retour serveur.
+    const badge = document.querySelector(`[data-type-badge="${currentSessionId}"]`);
+    if (badge) {
+      const sel = e.target;
+      const opt = sel.options[sel.selectedIndex];
+      badge.textContent = opt ? opt.textContent.trim() : (TYPE_LABELS[state.revolteType] || state.revolteType);
+      badge.className = `text-xs flex-shrink-0 ${TYPE_COLORS[state.revolteType] || 'text-gray-400'}`;
+    }
     clearTimeout(autosaveTimer);
     await saveSession();
   });
