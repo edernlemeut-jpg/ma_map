@@ -744,7 +744,6 @@ async function selectSession(id) {
   // déclencher un autosave pour la resynchroniser sans intervention manuelle.
   const expectedScope = state.revolteType === 'revolution' ? (state.revolution?.scope || null) : null;
   if (data.type !== state.revolteType || (data.scope || null) !== expectedScope) {
-    console.info('[revolte] type/scope DB hors sync avec state — autosave de rattrapage');
     scheduleAutosave();
   }
 }

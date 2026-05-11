@@ -68,11 +68,15 @@ export function updateSession(id, tableId, { name, type, scope, location_ref, st
   if (type && !VALID_TYPES.includes(type)) throw Object.assign(new Error('Type invalide'), { status: 400 });
   if (status && !VALID_STATUSES.includes(status)) throw Object.assign(new Error('Statut invalide'), { status: 400 });
 
+  // scope peut être explicitement null (effacement) ou absent (conserver) — on distingue les deux.
+  const scopeClause = scope !== undefined ? '?' : 'COALESCE(?, scope)';
+  const scopeParam  = scope !== undefined ? (scope || null) : null;
+
   let parentClause = '';
   const params = [
     name?.trim() || null,
     type || null,
-    scope !== undefined ? (scope || null) : null,
+    scopeParam,
     location_ref !== undefined ? (location_ref || null) : null,
     status || null,
     state !== undefined ? JSON.stringify(state) : null,
@@ -92,7 +96,7 @@ export function updateSession(id, tableId, { name, type, scope, location_ref, st
     UPDATE revolte_sessions SET
       name         = COALESCE(?, name),
       type         = COALESCE(?, type),
-      scope        = COALESCE(?, scope),
+      scope        = ${scopeClause},
       location_ref = COALESCE(?, location_ref),
       status       = COALESCE(?, status),
       state_json   = COALESCE(?, state_json)${parentClause},
