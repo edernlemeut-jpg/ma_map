@@ -839,6 +839,8 @@ async function saveSession() {
   const body = {
     state,
     status: statusEl?.value || 'en_cours',
+    type: state.revolteType,
+    scope: state.revolteType === 'revolution' ? (state.revolution?.scope || null) : null,
     ...(locationRef ? { location_ref: locationRef } : {}),
   };
   try {
