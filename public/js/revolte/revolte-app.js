@@ -856,6 +856,8 @@ async function saveSession() {
   const locationRef = computeLocationRef();
   const body = {
     state,
+    type: state.revolteType,
+    scope: state.revolteType === 'revolution' ? (state.revolution?.scope || null) : null,
     status: statusEl?.value || 'en_cours',
     ...(locationRef ? { location_ref: locationRef } : {}),
   };
@@ -2247,16 +2249,16 @@ function bindAll() {
     state.revolteType = e.target.value;
     navigateTo(state.currentStepIndex);
     refreshLocationSelects();
-    // Mise à jour instantanée du badge dans la liste — direct DOM, sans aller-retour serveur.
+    clearTimeout(autosaveTimer);
+    await saveSession();
+    // Mise à jour du badge après saveSession (qui re-rend la liste via loadSessionList).
     const badge = document.querySelector(`[data-type-badge="${currentSessionId}"]`);
     if (badge) {
-      const sel = e.target;
-      const opt = sel.options[sel.selectedIndex];
+      const sel = document.getElementById('revolteType');
+      const opt = sel?.options[sel.selectedIndex];
       badge.textContent = opt ? opt.textContent.trim() : (TYPE_LABELS[state.revolteType] || state.revolteType);
       badge.className = `text-xs flex-shrink-0 ${TYPE_COLORS[state.revolteType] || 'text-gray-400'}`;
     }
-    clearTimeout(autosaveTimer);
-    await saveSession();
   });
   addListener('populationInput', 'input', e => { state.population = parseFloat(e.target.value) || 0; updateUI(); scheduleAutosave(); });
   addListener('securitePlanetaireInput', 'input', e => { state.securitePlanetaire = parseInt(e.target.value, 10) || 0; updateUI(); scheduleAutosave(); });
