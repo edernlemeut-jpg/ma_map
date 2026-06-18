@@ -238,7 +238,7 @@
           </select>
           <!-- Aperçu stats du vaisseau sélectionné -->
           <div id="fleet-ship-preview" class="hidden mt-2 px-3 py-2 rounded text-xs" style="background:var(--bg2);border:1px solid var(--border)">
-            <span id="preview-classe" class="font-medium mr-3"></span><span id="preview-coque" class="text-gray-400 mr-3"></span><span id="preview-senseurs" class="text-gray-400"></span>
+            <span id="preview-classe" class="font-medium mr-3"></span><span id="preview-vitesse" class="text-cyan-400 mr-3"></span><span id="preview-coque" class="text-gray-400 mr-3"></span><span id="preview-senseurs" class="text-gray-400"></span>
           </div>
         </div>
 
@@ -305,6 +305,60 @@
             <input id="ship-avantage" type="number" min="1"
               class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500"
               placeholder="Aucun">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Vitesse actuelle (K/t)</label>
+            <input id="ship-vitesse-actuelle" type="number" step="25" min="0"
+              class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500"
+              placeholder="0">
+          </div>
+          <div class="col-span-2">
+            <label class="text-xs text-gray-400 uppercase tracking-wide block mb-2">Arcs de tir</label>
+            <div class="flex gap-4 flex-wrap">
+              <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer select-none">
+                <input type="checkbox" id="arc-proue" class="w-4 h-4 accent-amber-500"> Proue
+              </label>
+              <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer select-none">
+                <input type="checkbox" id="arc-poupe" class="w-4 h-4 accent-amber-500"> Poupe
+              </label>
+              <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer select-none">
+                <input type="checkbox" id="arc-flancs" class="w-4 h-4 accent-amber-500"> Flancs
+              </label>
+              <label class="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer select-none">
+                <input type="checkbox" id="arc-tourelles" class="w-4 h-4 accent-amber-500"> Tourelles
+              </label>
+            </div>
+            <p class="text-xs mt-1" style="color:var(--text-muted)">Proue : devant même traj · Poupe : derrière même traj · Flancs : autre traj · Tourelles : toutes cibles</p>
+          </div>
+          <!-- Équipage par rôle -->
+          <div class="col-span-2">
+            <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Équipage</label>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-xs text-gray-500 block mb-0.5">Pilote</label>
+                <select id="crew-pilote" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-amber-500">
+                  <option value="">— Non assigné —</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-gray-500 block mb-0.5">Canonnier</label>
+                <select id="crew-canonnier" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-amber-500">
+                  <option value="">— Non assigné —</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-gray-500 block mb-0.5">Vigie</label>
+                <select id="crew-vigie" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-amber-500">
+                  <option value="">— Non assigné —</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-gray-500 block mb-0.5">Ingénieur</label>
+                <select id="crew-ingenieur" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-amber-500">
+                  <option value="">— Non assigné —</option>
+                </select>
+              </div>
+            </div>
           </div>
           <div class="col-span-2">
             <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Contact visuel</label>

@@ -18,6 +18,8 @@ let viewMonth = 1;
 let categories = [];
 let events = [];
 let isMJ = false;
+let isMJReal = false;   // valeur originale (non affectée par la bascule)
+let viewAsPlayer = false;
 let currentUserId = null;
 
 // ── Date helpers ───────────────────────────────────────────────────────────────
@@ -56,6 +58,7 @@ function eventsForDay(dateStr, year) {
   const idx = dateToIndex(dateStr);
   return events.filter(ev => {
     if (ev.galactic_year !== year) return false;
+    if (viewAsPlayer && !ev.is_public) return false;
     const start = dateToIndex(ev.date_start);
     const end = ev.date_end ? dateToIndex(ev.date_end) : start;
     return idx >= start && idx <= end;
@@ -85,7 +88,8 @@ async function init() {
 
   // Detect MJ from header
   const roleEl = document.getElementById('header-table-role');
-  isMJ = roleEl?.textContent?.includes('MJ') === true;
+  isMJReal = roleEl?.textContent?.includes('MJ') === true;
+  isMJ = isMJReal;
   currentUserId = user.id ?? null;
 
   try {
@@ -134,6 +138,29 @@ function setupMJControls() {
     playerAddBtn.addEventListener('click', () => isMJ
       ? openEventModal(null, null)
       : openPlayerEventModal(null));
+  }
+
+  // Vue joueur toggle (MJ only) — always available to switch back
+  const vueBtn = document.getElementById('btn-vue-joueur');
+  if (vueBtn && isMJReal) {
+    vueBtn.classList.remove('hidden');
+    vueBtn.addEventListener('click', () => {
+      viewAsPlayer = !viewAsPlayer;
+      isMJ = isMJReal && !viewAsPlayer;
+      // Update button label & style
+      if (viewAsPlayer) {
+        vueBtn.textContent = '👁 Vue MJ';
+        vueBtn.classList.add('bg-amber-700', 'text-white', 'border-amber-500');
+        vueBtn.classList.remove('text-gray-400', 'border-gray-600');
+        document.getElementById('mj-date-form')?.classList.add('hidden');
+      } else {
+        vueBtn.textContent = '👤 Vue joueur';
+        vueBtn.classList.remove('bg-amber-700', 'text-white', 'border-amber-500');
+        vueBtn.classList.add('text-gray-400', 'border-gray-600');
+        document.getElementById('mj-date-form')?.classList.remove('hidden');
+      }
+      render();
+    });
   }
 
   if (!isMJ) return;
@@ -288,7 +315,9 @@ function render() {
   // Events list for this month
   const monthEvs = events.filter(ev => {
     const p = parseDate(ev.date_start);
-    return p && p.month === viewMonth;
+    if (!p || p.month !== viewMonth) return false;
+    if (viewAsPlayer && !ev.is_public) return false;
+    return true;
   });
   if (monthEvs.length > 0) {
     listWrap.classList.remove('hidden');

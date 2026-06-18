@@ -81,6 +81,7 @@ function parseCombat(row, ships = []) {
     journal,
     crew,
     notes:         row.notes ?? null,
+    ecart_k:       row.ecart_k ?? null,
     created_by:    row.created_by,
     created_at:    row.created_at,
     updated_at:    row.updated_at,
@@ -104,17 +105,28 @@ function parseShip(row) {
     contact_visuel:    Boolean(row.contact_visuel),
     structure_actuelle: row.structure_actuelle,
     structure_max:     row.structure_max,
-    senseurs_k:        row.model_senseurs_k != null
-                         ? (parseInt(String(row.model_senseurs_k), 10) || null)
-                         : null,
-    destroyed:         Boolean(row.destroyed),
-    sort_order:        row.sort_order,
+    senseurs_k:           row.model_senseurs_k != null
+                            ? (parseInt(String(row.model_senseurs_k), 10) || null)
+                            : null,
+    vitesse_tactique_max: row.model_vitesse_tactique != null
+                            ? (parseInt(String(row.model_vitesse_tactique), 10) || null)
+                            : null,
+    vitesse_actuelle:     row.vitesse_actuelle ?? 0,
+    arcs_tir: (() => {
+      try { return row.arcs_tir ? JSON.parse(row.arcs_tir) : ['tourelles']; } catch { return ['tourelles']; }
+    })(),
+    crew: (() => {
+      try { return row.crew_json ? JSON.parse(row.crew_json) : {}; } catch { return {}; }
+    })(),
+    destroyed:            Boolean(row.destroyed),
+    sort_order:           row.sort_order,
   };
 }
 
 const SHIP_WITH_MODEL_SQL = `
   SELECT cs.*,
-    COALESCE(sm.senseurs_k, sm_fleet.senseurs_k) AS model_senseurs_k
+    COALESCE(sm.senseurs_k, sm_fleet.senseurs_k) AS model_senseurs_k,
+    COALESCE(sm.vitesse_tactique, sm_fleet.vitesse_tactique) AS model_vitesse_tactique
   FROM combat_ships cs
   LEFT JOIN ship_models sm ON sm.id = cs.ship_model_id
   LEFT JOIN ships fleet_s ON fleet_s.id = cs.fleet_ship_id
@@ -241,15 +253,22 @@ router.patch('/:id', (req, res) => {
   if (!existing) return notFound(res);
 
   const updates = {};
-  const { phase, statut, configuration, champ_bataille, notes, combat_json, crew_json } = req.body;
+  const { phase, statut, configuration, champ_bataille, notes, combat_json, crew_json, ecart_k } = req.body;
 
   if (phase !== undefined) {
     if (!VALID_PHASES.includes(phase)) return validationError(res, `Phase invalide : ${phase}`);
-    const isRegression = PHASE_ORDER[phase] < PHASE_ORDER[existing.phase];
+    const transitionKey = `${existing.phase}\u2192${phase}`;
+    const validTransitions = new Set([
+      'approche\u2192tournoyant', 'approche\u2192poursuite',
+      'tournoyant\u2192poursuite', 'tournoyant\u2192abordage', 'tournoyant\u2192approche',
+      'poursuite\u2192tournoyant', 'poursuite\u2192approche',
+      'abordage\u2192tournoyant', 'abordage\u2192approche',
+    ]);
     const force = req.body.force === true;
-    if (isRegression && !force) {
-      return validationError(res, `Utilisez force:true pour revenir à la phase "${phase}"`);
+    if (!validTransitions.has(transitionKey) && !force) {
+      return validationError(res, `Transition "${existing.phase}" \u2192 "${phase}" invalide. Utilisez force:true pour forcer.`);
     }
+    const isRegression = PHASE_ORDER[phase] < PHASE_ORDER[existing.phase];
     updates.phase = phase;
     updates._journal_action = isRegression ? `retour_phase:${existing.phase}:${phase}` : `avance_phase:${existing.phase}:${phase}`;
   }
@@ -266,6 +285,15 @@ router.patch('/:id', (req, res) => {
     updates.champ_bataille = champ_bataille;
   }
   if (notes !== undefined) updates.notes = notes ? String(notes).trim() : null;
+  if (ecart_k !== undefined) {
+    if (ecart_k !== null) {
+      const e = Number(ecart_k);
+      if (!Number.isFinite(e) || e < 0) return validationError(res, 'ecart_k invalide');
+      updates.ecart_k = e;
+    } else {
+      updates.ecart_k = null;
+    }
+  }
   if (combat_json !== undefined) {
     try { JSON.parse(typeof combat_json === 'string' ? combat_json : JSON.stringify(combat_json)); }
     catch { return validationError(res, 'combat_json invalide'); }
@@ -445,7 +473,8 @@ router.patch('/:id/ships/:shipId', (req, res) => {
 
   const updates = {};
   const { position_k, trajectoire, orientation, avantage, contact_visuel,
-          structure_actuelle, destroyed, nom, camp, classe } = req.body;
+          structure_actuelle, destroyed, nom, camp, classe,
+          vitesse_actuelle, arcs_tir } = req.body;
 
   if (position_k !== undefined) {
     const pos = Number(position_k);
@@ -493,6 +522,24 @@ router.patch('/:id/ships/:shipId', (req, res) => {
   if (classe !== undefined) {
     if (!VALID_CLASSES.includes(classe)) return validationError(res, 'classe invalide');
     updates.classe = classe;
+  }
+  if (vitesse_actuelle !== undefined) {
+    const v = Number(vitesse_actuelle);
+    if (!Number.isInteger(v) || v < 0 || v % 25 !== 0) {
+      return validationError(res, 'vitesse_actuelle doit être un multiple de 25 ≥ 0');
+    }
+    updates.vitesse_actuelle = v;
+  }
+  if (arcs_tir !== undefined) {
+    const VALID_ARCS = ['proue', 'poupe', 'flancs', 'tourelles'];
+    const arcs = Array.isArray(arcs_tir) ? arcs_tir.filter(a => VALID_ARCS.includes(a)) : [];
+    updates.arcs_tir = JSON.stringify(arcs);
+  }
+  const { crew_json } = req.body;
+  if (crew_json !== undefined) {
+    try { JSON.parse(typeof crew_json === 'string' ? crew_json : JSON.stringify(crew_json)); }
+    catch { return validationError(res, 'crew_json invalide'); }
+    updates.crew_json = typeof crew_json === 'string' ? crew_json : JSON.stringify(crew_json);
   }
 
   if (Object.keys(updates).length === 0) return validationError(res, 'Aucun champ à mettre à jour');

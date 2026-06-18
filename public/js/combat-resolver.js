@@ -38,7 +38,7 @@ const ACTIONS = [
   // ── Pilote ──────────────────────────────────────────────────────────────────
   { value: 'Engagement', label: 'Engagement (Pilote)',
     role: 'Pilote', duree: 'Complexe', competence: 'Pilotage (Vaisseau spatial)',
-    effet: 'Engager le combat tournoyant. Avantage = succès excédentaires. Difficulté = distance ÷ 25.',
+    effet: 'Engager le combat tournoyant. Diff = distance ÷ 25. Si un seul réussit : il a l’Avantage et le contact visuel. Si égalité de succès et d’initiative : face-à-face, les deux ont le CV, Avantage = 1 pour les deux. Si aucun ne réussit : pas de CT. (TF) pour engager un vaisseau immobile.',
     violent: true },
   { value: 'Accrocher', label: 'Accrocher (Pilote)',
     role: 'Pilote', duree: 'Complexe', competence: 'Pilotage (Vaisseau spatial)',
@@ -75,7 +75,7 @@ const ACTIONS = [
   // ── Canonnier ───────────────────────────────────────────────────────────────
   { value: 'Tirer', label: 'Tirer (Canonnier)',
     role: 'Canonnier', duree: 'Complexe', competence: 'Armes embarquées',
-    effet: 'Tir sur cible (contact visuel requis). Diff : CT=1 · ≤portée=3 · ≤2×portée=5 · au-delà=impossible.',
+    effet: 'Tir sur cible (contact visuel requis). Diff : CT=1 · ≤portée=3 · ≤2×portée=5 · au-delà=impossible. Arcs autorisés : Proue → devant même traj · Poupe → derrière même traj · Flancs → autre traj · Tourelles → toutes cibles. Pour un arc non autorisé : ne pas bouger + action Pivoter.',
     violent: true },
   { value: 'Viser', label: 'Viser (Canonnier)',
     role: 'Canonnier', duree: 'Simple', competence: '—',
@@ -120,6 +120,7 @@ export class CombatResolver {
     this._pmf         = 0;
     this._lastRoll    = null;
     this._el          = null;
+    this._ships       = [];          // vaisseaux du combat courant
     // Metal Faktor
     this._mfPool      = null;        // { pj_pool, mj_pool } — null = non chargé
     this._mfViolent   = false;       // case Violent ? — réduit le transfert de 1
@@ -130,8 +131,9 @@ export class CombatResolver {
 
   // ── API publique ─────────────────────────────────────────────────────────────
 
-  async open(combatId) {
+  async open(combatId, ships = []) {
     this._combatId    = combatId;
+    this._ships       = ships ?? [];
     this._lastRoll    = null;
     this._diff        = 'normal';
     this._e2f = this._sc = this._pmf = 0;
@@ -141,6 +143,7 @@ export class CombatResolver {
     this._mfActor     = 'pj';
     this._mfDirection = 'pj_to_mj';
     this._reset();
+    this._populateShipDropdown();
     this._el.classList.remove('hidden');
     // Chargement asynchrone du pool MF
     try {
@@ -229,6 +232,13 @@ export class CombatResolver {
                 class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500">
             </div>
             <div>
+              <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Vaisseau (optionnel)</label>
+              <select id="res-vaisseau"
+                class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500 mb-1">
+                <option value="">— Sélectionner un vaisseau —</option>
+              </select>
+              <!-- Infos vaisseau sélectionné -->
+              <div id="res-ship-info" class="hidden bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs space-y-1 mb-1"></div>
               <label class="text-xs text-gray-400 uppercase tracking-wide block mb-1">Acteur (optionnel)</label>
               <input id="res-acteur" type="text" maxlength="60" placeholder="Ex : Hawk, Vaisseau A…"
                 class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500">
@@ -415,6 +425,46 @@ export class CombatResolver {
           <button id="res-cancel" class="px-4 py-2 text-sm text-gray-400 hover:text-gray-200">Fermer</button>
         </div>
       </div>`;
+  }
+
+  _populateShipDropdown() {
+    const sel = this._el?.querySelector('#res-vaisseau');
+    if (!sel) return;
+    const ships = this._ships ?? [];
+    sel.innerHTML = '<option value="">— Sélectionner un vaisseau —</option>' +
+      ships.map(s => `<option value="${s.id}">${this._esc(s.nom)}${s.camp ? ' (' + s.camp + ')' : ''}</option>`).join('');
+    sel.value = '';
+    document.getElementById('res-ship-info')?.classList.add('hidden');
+    sel.addEventListener('change', () => this._onShipSelect(sel.value));
+  }
+
+  _onShipSelect(shipId) {
+    const infoEl = document.getElementById('res-ship-info');
+    const acteurEl = document.getElementById('res-acteur');
+    if (!shipId) { infoEl?.classList.add('hidden'); return; }
+    const ship = (this._ships ?? []).find(s => s.id === shipId);
+    if (!ship) { infoEl?.classList.add('hidden'); return; }
+    // Pré-remplir acteur avec le nom du vaisseau
+    if (acteurEl) acteurEl.value = ship.nom;
+    if (!infoEl) return;
+    const model = ship.model ?? {};
+    const rows = [];
+    if (ship.vitesse_actuelle) rows.push(`Vitesse actuelle : <strong>${ship.vitesse_actuelle} K/t</strong>`);
+    if (model.vitesse_tactique) rows.push(`Vitesse tactique max : <strong>${model.vitesse_tactique} K/t</strong>`);
+    if (model.blindage)  rows.push(`Blindage : <strong>${model.blindage}</strong>`);
+    if (model.senseurs_k) rows.push(`Portée senseurs : <strong>${model.senseurs_k} K</strong>`);
+    if (model.manoeuvrabilite) rows.push(`Manoeuvrabilité : <strong>${model.manoeuvrabilite}</strong>`);
+    const crew = ship.crew ?? {};
+    const crewRoles = ['pilote', 'canonnier', 'vigie', 'ingenieur'];
+    const crewLines = crewRoles.map(r => crew[r] ? `${r.charAt(0).toUpperCase() + r.slice(1)} : <strong>${crew[r].nom ?? crew[r]}</strong>` : null).filter(Boolean);
+    if (crewLines.length) rows.push(...crewLines);
+    if (rows.length) {
+      infoEl.innerHTML = rows.map(r => `<div class="text-gray-300">${r}</div>`).join('');
+      infoEl.classList.remove('hidden');
+    } else {
+      infoEl.classList.add('hidden');
+    }
+    this._updateInscireBtn();
   }
 
   _bindModalEvents() {

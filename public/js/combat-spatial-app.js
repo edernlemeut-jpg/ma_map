@@ -256,13 +256,11 @@ class CombatSpatialApp {
     } else if (phase === 'poursuite') {
       phaseBody.innerHTML = `
         <div class="flex-1 p-4 flex flex-col gap-4 overflow-y-auto">
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-wide mb-3" style="color:var(--gold)">Phase : Poursuite</p>
-            ${this._renderEcartCounter(ships)}
-          </div>
+          ${this._renderEcartPanel(combat)}
           ${radarWrapHtml}
         </div>
         ${shipSidebarHtml}`;
+      if (this._mj && combat.statut === 'en_cours') this._bindEcartControls(combat);
     } else { // abordage
       phaseBody.innerHTML = `
         <div class="flex-1 p-4 flex flex-col gap-4 overflow-y-auto">
@@ -427,34 +425,43 @@ class CombatSpatialApp {
     const controls = document.getElementById('mj-controls');
     if (!this._mj) { controls.innerHTML = ''; return; }
 
-    const phaseIdx   = PHASE_ORDER[combat.phase];
-    const nextPhase  = PHASES[phaseIdx + 1];
-    const prevPhase  = PHASES[phaseIdx - 1];
-    const canAdvance = Boolean(nextPhase) && combat.statut === 'en_cours';
-    const canRegress = Boolean(prevPhase) && combat.statut === 'en_cours';
-    const canResolve = combat.statut === 'en_cours';
+    const canAct = combat.statut === 'en_cours';
+
+    // Transitions de phase contextuelles (selon la phase courante)
+    const PHASE_TRANSITIONS = {
+      approche:   [
+        { target: 'tournoyant', label: '\u2694\ufe0f Engagement \u2192 Tournoyant', cls: 'bg-red-700 hover:bg-red-600 text-white' },
+        { target: 'poursuite',  label: '\ud83c\udfc3 Fuite \u2192 Poursuite',       cls: 'bg-orange-700 hover:bg-orange-600 text-white' },
+      ],
+      tournoyant: [
+        { target: 'poursuite',  label: '\ud83c\udfc3 Break! \u2192 Poursuite',      cls: 'bg-orange-700 hover:bg-orange-600 text-white' },
+        { target: 'abordage',   label: '\ud83e\ude9d \u2192 Abordage',              cls: 'bg-purple-700 hover:bg-purple-600 text-white' },
+        { target: 'approche',   label: '\u21a9 Abandon \u2192 Approche',            cls: 'bg-gray-600 hover:bg-gray-500 text-white' },
+      ],
+      poursuite:  [
+        { target: 'tournoyant', label: '\u2694\ufe0f R\u00e9engagement \u2192 Tournoyant', cls: 'bg-red-700 hover:bg-red-600 text-white' },
+        { target: 'approche',   label: '\u21a9 Abandon \u2192 Approche',            cls: 'bg-gray-600 hover:bg-gray-500 text-white' },
+      ],
+      abordage:   [
+        { target: 'tournoyant', label: '\u2694\ufe0f Retour combat tournoyant',    cls: 'bg-red-700 hover:bg-red-600 text-white' },
+        { target: 'approche',   label: '\u21a9 Abandon \u2192 Approche',            cls: 'bg-gray-600 hover:bg-gray-500 text-white' },
+      ],
+    };
+    const transitions = canAct ? (PHASE_TRANSITIONS[combat.phase] ?? []) : [];
 
     controls.innerHTML = `
       <div class="flex flex-wrap gap-2">
-        ${canRegress ? `
-          <button id="btn-prev-phase"
-            class="px-3 py-1.5 rounded text-xs font-medium bg-gray-700 hover:bg-gray-600 text-gray-200"
-            title="Revenir à la phase précédente (annule le journal de cette phase)">
-            ← ${PHASE_LABELS[prevPhase]}
-          </button>` : ''}
-        ${canAdvance ? `
-          <button id="btn-next-phase"
-            class="px-3 py-1.5 rounded text-xs font-medium bg-blue-700 hover:bg-blue-600 text-white">
-            → ${PHASE_LABELS[nextPhase]}
-          </button>` : ''}
+        ${transitions.map((t, i) => `
+          <button id="btn-phase-${i}"
+            class="px-3 py-1.5 rounded text-xs font-medium ${t.cls}">${t.label}</button>`).join('')}
         <button id="btn-add-ship"
           class="px-3 py-1.5 rounded text-xs font-medium bg-green-800 hover:bg-green-700 text-white">
           + Vaisseau
         </button>
-        ${canResolve ? `
+        ${canAct ? `
           <button id="btn-resolve"
             class="px-3 py-1.5 rounded text-xs font-medium bg-indigo-700 hover:bg-indigo-600 text-white">
-            🎲 Résoudre
+            \ud83c\udfb2 R\u00e9soudre
           </button>` : ''}
         <button id="btn-delete-combat"
           class="px-3 py-1.5 rounded text-xs font-medium bg-red-900 hover:bg-red-800 text-white ml-auto">
@@ -462,27 +469,12 @@ class CombatSpatialApp {
         </button>
       </div>`;
 
-    if (canRegress) {
-      document.getElementById('btn-prev-phase').addEventListener('click', () => {
-        this._regressPhase(combat.id, prevPhase);
-      });
-    }
-    if (canAdvance) {
-      document.getElementById('btn-next-phase').addEventListener('click', () => {
-        this._advancePhase(combat.id, nextPhase);
-      });
-    }
-    document.getElementById('btn-add-ship').addEventListener('click', () => {
-      this._openAddShipModal(combat.id);
+    transitions.forEach((t, i) => {
+      document.getElementById(`btn-phase-${i}`)?.addEventListener('click', () => this._transitionPhase(combat.id, t.target));
     });
-    if (document.getElementById('btn-resolve')) {
-      document.getElementById('btn-resolve').addEventListener('click', () => {
-        this._resolver.open(combat.id);
-      });
-    }
-    document.getElementById('btn-delete-combat').addEventListener('click', () => {
-      this._deleteCombat(combat.id);
-    });
+    document.getElementById('btn-add-ship').addEventListener('click', () => this._openAddShipModal(combat.id));
+    document.getElementById('btn-resolve')?.addEventListener('click', () => this._resolver.open(combat.id, combat.vaisseaux ?? []));
+    document.getElementById('btn-delete-combat').addEventListener('click', () => this._deleteCombat(combat.id));
   }
 
   _renderShipList(ships) {
@@ -524,10 +516,12 @@ class CombatSpatialApp {
           ${dot}
           <span class="font-medium text-gray-200 truncate flex-1">${this._esc(ship.nom)}</span>
           <span class="text-gray-500 text-xs font-mono">${traj} ${pos}</span>
+          ${ship.vitesse_actuelle > 0 ? `<span class="text-xs font-mono text-cyan-400" title="Vitesse actuelle">${ship.vitesse_actuelle}K/t</span>` : ''}
           ${av}${cv}
+          ${(ship.arcs_tir ?? []).length > 0 ? `<span class="text-[10px] text-gray-600" title="Arcs de tir">${(ship.arcs_tir).map(a=>({proue:'\u2191P',poupe:'\u2193P',flancs:'\u2194F',tourelles:'\u25ce'})[a]??a).join('\u00a0')}</span>` : ''}
           ${this._mj && this._currentCombat?.statut === 'en_cours' ? `
-            <button class="btn-edit-ship text-gray-500 hover:text-gray-200 text-xs ml-1" data-ship-id="${ship.id}">✎</button>
-            <button class="btn-remove-ship text-gray-600 hover:text-red-400 text-xs" data-ship-id="${ship.id}">✕</button>
+            <button class="btn-edit-ship text-gray-500 hover:text-gray-200 text-xs ml-1" data-ship-id="${ship.id}">\u270e</button>
+            <button class="btn-remove-ship text-gray-600 hover:text-red-400 text-xs" data-ship-id="${ship.id}">\u2715</button>
           ` : ''}`;
       }
 
@@ -653,7 +647,7 @@ class CombatSpatialApp {
   }
 
   // ── Actions MJ ───────────────────────────────────────────────────────────────
-  async _advancePhase(combatId, newPhase) {
+  async _transitionPhase(combatId, newPhase) {
     try {
       const res = await fetchWithTable(`/api/combat-spatial/${combatId}`, {
         method: 'PATCH',
@@ -668,20 +662,94 @@ class CombatSpatialApp {
     } catch (err) { this._showError(err.message); }
   }
 
+  async _advancePhase(combatId, newPhase) { return this._transitionPhase(combatId, newPhase); }
+
   async _regressPhase(combatId, prevPhase) {
-    const label = PHASE_LABELS[prevPhase] ?? prevPhase;
-    if (!confirm(`Revenir à la phase « ${label} » ?\nLes entrées du journal depuis la dernière transition seront supprimées.`)) return;
+    return this._transitionPhase(combatId, prevPhase);
+  }
+
+  // Calcule l'écart courant depuis les positions des vaisseaux de camps opposés.
+  // Retourne null si moins de 2 camps présents ou si aucune position définie.
+  _computeEcartFromPositions(ships) {
+    const active = (ships ?? []).filter(s => !s.destroyed);
+    const camps = [...new Set(active.map(s => s.camp))];
+    if (camps.length < 2) return null;
+    // Pour chaque paire de camps opposés, trouver l'écart maximal (cas multi-camp → paire 0-1)
+    const campA = active.filter(s => s.camp === camps[0]).map(s => s.position_k);
+    const campB = active.filter(s => s.camp === camps[1]).map(s => s.position_k);
+    if (!campA.length || !campB.length) return null;
+    const avgA = campA.reduce((a, b) => a + b, 0) / campA.length;
+    const avgB = campB.reduce((a, b) => a + b, 0) / campB.length;
+    return Math.round(Math.abs(avgA - avgB));
+  }
+
+  _renderEcartPanel(combat) {
+    const canEdit = this._mj && combat.statut === 'en_cours';
+    // Écart calculé automatiquement depuis les positions
+    const ecartAuto  = this._computeEcartFromPositions(combat.vaisseaux);
+    const ecartManuel = combat.ecart_k;   // override MJ (null = pas de surcharge)
+    const ecartRef   = ecartManuel ?? ecartAuto;
+
+    const autoLine = ecartAuto != null
+      ? `<span class="text-xs ml-2" style="color:var(--text-muted)">(calculé depuis positions : ${ecartAuto}&nbsp;K)</span>`
+      : '';
+
+    const ecartDisplay = ecartRef == null
+      ? `<span class="italic" style="color:var(--text-muted)">Non calculable</span>`
+      : `<span class="text-2xl font-bold tabular-nums" style="color:var(--gold)">${ecartRef}&nbsp;K</span>${autoLine}`;
+
+    const overrideHint = canEdit && ecartManuel != null
+      ? `<button id="ecart-clear" class="px-2 py-0.5 rounded text-xs text-gray-400 hover:text-red-300 border border-gray-600 hover:border-red-700">✕ Retirer surcharge</button>`
+      : '';
+
+    const ctrlsHtml = canEdit ? `
+      <div class="flex items-center gap-2 mt-2 flex-wrap">
+        <span class="text-xs text-gray-500">Surcharge MJ :</span>
+        <button id="ecart-minus" class="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-sm font-bold text-gray-200">− 25K</button>
+        <button id="ecart-plus"  class="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-sm font-bold text-gray-200">+ 25K</button>
+        <input id="ecart-input" type="number" step="25" min="0" value="${ecartRef ?? 0}"
+          class="w-24 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-center focus:outline-none focus:border-amber-500">
+        <button id="ecart-set" class="px-3 py-1 rounded text-sm text-white bg-amber-700 hover:bg-amber-600">Définir</button>
+        ${overrideHint}
+      </div>
+      <p class="text-xs mt-2 leading-relaxed" style="color:var(--text-muted)">L'écart est calculé automatiquement depuis les positions. Utilisez la surcharge pour l'ajuster manuellement. Écart = 0 → réengagement · Écart > portée senseurs → liberté.</p>` : `
+      <p class="text-xs mt-2" style="color:var(--text-muted)">Écart = 0 → réengagement · Écart > portée senseurs → liberté</p>`;
+    return `
+      <div class="p-4 rounded-lg" style="background:var(--bg2);border:1px solid var(--border)">
+        <p class="text-xs font-semibold uppercase tracking-wide mb-2" style="color:var(--gold)">Phase : Poursuite — Écart</p>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-sm" style="color:var(--text-muted)">Écart :</span>
+          ${ecartDisplay}
+        </div>
+        ${ctrlsHtml}
+      </div>`;
+  }
+
+  _bindEcartControls(combat) {
+    const ecartRef = combat.ecart_k ?? this._computeEcartFromPositions(combat.vaisseaux) ?? 0;
+    document.getElementById('ecart-minus')?.addEventListener('click', () =>
+      this._patchEcart(combat.id, Math.max(0, ecartRef - 25)));
+    document.getElementById('ecart-plus')?.addEventListener('click', () =>
+      this._patchEcart(combat.id, ecartRef + 25));
+    document.getElementById('ecart-set')?.addEventListener('click', () => {
+      const v = parseInt(document.getElementById('ecart-input')?.value ?? '0', 10);
+      if (Number.isFinite(v) && v >= 0 && v % 25 === 0) this._patchEcart(combat.id, v);
+    });
+    document.getElementById('ecart-clear')?.addEventListener('click', () =>
+      this._patchEcart(combat.id, null));
+  }
+
+  async _patchEcart(combatId, ecartK) {
     try {
       const res = await fetchWithTable(`/api/combat-spatial/${combatId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase: prevPhase, force: true }),
+        body: JSON.stringify({ ecart_k: ecartK }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? res.statusText);
       this._currentCombat = json.data;
       this._renderCombat(json.data);
-      await this._loadList();
     } catch (err) { this._showError(err.message); }
   }
 
@@ -799,10 +867,11 @@ class CombatSpatialApp {
     this._populateShipForm({});
 
     await this._loadFleetSelect();
+    await this._loadCrewDropdowns();
     this._openModal('ship-modal');
   }
 
-  _openEditShipModal(shipId) {
+  async _openEditShipModal(shipId) {
     if (!this._currentCombat) return;
     const ship = (this._currentCombat.vaisseaux ?? []).find(s => s.id === shipId);
     if (!ship) return;
@@ -820,12 +889,38 @@ class CombatSpatialApp {
     document.getElementById('ship-info-nom').textContent = ship.nom;
     const classeLabel = ship.classe ? ship.classe.charAt(0).toUpperCase() + ship.classe.slice(1) : '';
     const sensLabel = ship.senseurs_k ? ` · Senseurs ${ship.senseurs_k} K` : '';
+    const vitTacLabel = ship.vitesse_tactique_max ? ` · Vit.tac. ${ship.vitesse_tactique_max} K/t` : '';
     document.getElementById('ship-info-details').textContent =
-      `${classeLabel} · Coque ${ship.structure_max}${sensLabel}`;
+      `${classeLabel} · Coque ${ship.structure_max}${sensLabel}${vitTacLabel}`;
 
     this._populateShipForm(ship);
     document.getElementById('modal-ship-title').textContent = `Modifier : ${ship.nom}`;
+    await this._loadCrewDropdowns();
     this._openModal('ship-modal');
+  }
+
+  async _loadCrewDropdowns() {
+    const roles = ['pilote', 'canonnier', 'vigie', 'ingenieur'];
+    const emptyOpt = () => '<option value="">— Non assigné —</option>';
+    try {
+      const res = await fetchWithTable('/api/characters');
+      const json = await res.json();
+      const chars = (json.data ?? json ?? []).filter(c => c.name || c.nom);
+      const opts = emptyOpt() + chars.map(c => {
+        const nom = c.name ?? c.nom ?? c.id;
+        const type = c.type === 'pnj' ? ' [PNJ]' : '';
+        return `<option value="${c.id}">${nom}${type}</option>`;
+      }).join('');
+      roles.forEach(role => {
+        const sel = document.getElementById(`crew-${role}`);
+        if (sel) { const prev = sel.value; sel.innerHTML = opts; sel.value = prev || ''; }
+      });
+    } catch {
+      roles.forEach(role => {
+        const sel = document.getElementById(`crew-${role}`);
+        if (sel) sel.innerHTML = emptyOpt();
+      });
+    }
   }
 
   async _loadFleetSelect() {
@@ -864,6 +959,7 @@ class CombatSpatialApp {
     const classeRaw = (s.model?.classe ?? '').toLowerCase();
     const classeIcon = classeIcons[classeRaw] ?? '●';
     document.getElementById('preview-classe').textContent = `${classeIcon} ${s.model?.classe ?? 'Inconnu'}`;
+    document.getElementById('preview-vitesse').textContent = s.model?.vitesse_tactique ? `${s.model.vitesse_tactique}` : '';
     document.getElementById('preview-coque').textContent  = `Coque ${s.model?.coque ?? '?'}`;
     document.getElementById('preview-senseurs').textContent =
       s.model?.senseurs_k ? `Senseurs ${s.model.senseurs_k} K` : '';
@@ -883,6 +979,18 @@ class CombatSpatialApp {
     document.getElementById('ship-position').value           = ship.position_k ?? 200;
     document.getElementById('ship-structure-actuelle').value = ship.structure_actuelle ?? (ship.structure_max ?? 100);
     document.getElementById('ship-avantage').value           = ship.avantage ?? '';
+    document.getElementById('ship-vitesse-actuelle').value   = ship.vitesse_actuelle ?? 0;
+    const arcs = ship.arcs_tir ?? ['tourelles'];
+    ['proue', 'poupe', 'flancs', 'tourelles'].forEach(arc => {
+      const el = document.getElementById(`arc-${arc}`);
+      if (el) el.checked = arcs.includes(arc);
+    });
+    // Crew
+    const crew = ship.crew ?? {};
+    ['pilote', 'canonnier', 'vigie', 'ingenieur'].forEach(role => {
+      const sel = document.getElementById(`crew-${role}`);
+      if (sel) sel.value = crew[role]?.id ?? '';
+    });
   }
 
   async _submitShipForm() {
@@ -910,7 +1018,21 @@ class CombatSpatialApp {
                             ? Number(document.getElementById('ship-avantage').value)
                             : null,
       contact_visuel:     document.getElementById('ship-contact-visuel').value === '1',
+      vitesse_actuelle:   Math.round(Number(document.getElementById('ship-vitesse-actuelle').value) / 25) * 25 || 0,
+      arcs_tir:           ['proue', 'poupe', 'flancs', 'tourelles'].filter(a => document.getElementById(`arc-${a}`)?.checked),
     };
+    // Crew
+    const crewMap = {};
+    ['pilote', 'canonnier', 'vigie', 'ingenieur'].forEach(role => {
+      const sel = document.getElementById(`crew-${role}`);
+      if (sel?.value) {
+        const opt = sel.options[sel.selectedIndex];
+        crewMap[role] = { id: sel.value, nom: opt?.text ?? sel.value };
+      } else {
+        crewMap[role] = null;
+      }
+    });
+    payload.crew_json = JSON.stringify(crewMap);
 
     if (mode === 'add') payload.fleet_ship_id = fleet_ship_id;
 

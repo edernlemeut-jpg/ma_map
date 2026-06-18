@@ -157,6 +157,18 @@ export class CombatRadar {
     clip.appendChild(clipCircle);
     defs.appendChild(clip);
 
+    // Pointe de flèche pour les lignes de contact visuel directionnelles
+    const arrowMarker = document.createElementNS(ns, 'marker');
+    arrowMarker.setAttribute('id', 'cv-arrow');
+    arrowMarker.setAttribute('markerWidth', '6'); arrowMarker.setAttribute('markerHeight', '6');
+    arrowMarker.setAttribute('refX', '5'); arrowMarker.setAttribute('refY', '3');
+    arrowMarker.setAttribute('orient', 'auto');
+    const arrowTip = document.createElementNS(ns, 'polygon');
+    arrowTip.setAttribute('points', '0 0, 6 3, 0 6');
+    arrowTip.setAttribute('fill', '#f59e0b'); arrowTip.setAttribute('fill-opacity', '0.85');
+    arrowMarker.appendChild(arrowTip);
+    defs.appendChild(arrowMarker);
+
     svg.appendChild(defs);
     return svg;
   }
@@ -449,29 +461,35 @@ export class CombatRadar {
     this._shipEls[ship.id] = g;
   }
 
-  // ── Lignes de contact visuel ─────────────────────────────────────────────────
+  // ── Lignes de contact visuel (flèches directionnelles) ────────────────────
+  // Chaque vaisseau ayant contact_visuel=true trace une flèche vers chaque adversaire.
   _drawContactLines(svg, ships) {
     const g = document.createElementNS(CombatRadar.NS, 'g');
     g.setAttribute('class', 'contact-lines-group');
 
-    const pairs = new Set();
     for (const ship of ships) {
-      if (!ship.contact_visuel) continue;
+      if (!ship.contact_visuel || ship.destroyed) continue;
       for (const other of ships) {
-        if (other.id === ship.id) continue;
-        const key = [ship.id, other.id].sort().join('|');
-        if (pairs.has(key)) continue;
-        pairs.add(key);
+        if (other.id === ship.id || other.destroyed) continue;
+        if (other.camp === ship.camp) continue; // même camp = pas adversaire
 
         const [ax, ay] = this._shipPx(ship);
         const [bx, by] = this._shipPx(other);
+        const dx = bx - ax, dy = by - ay;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len < 1) continue;
+        // S'arrêter 14px avant le centre du token cible
+        const endX = bx - (dx / len) * 14;
+        const endY = by - (dy / len) * 14;
+
         const line = document.createElementNS(CombatRadar.NS, 'line');
         line.setAttribute('x1', ax); line.setAttribute('y1', ay);
-        line.setAttribute('x2', bx); line.setAttribute('y2', by);
+        line.setAttribute('x2', endX); line.setAttribute('y2', endY);
         line.setAttribute('stroke', '#f59e0b');
         line.setAttribute('stroke-width', '1.5');
         line.setAttribute('stroke-dasharray', '4,3');
         line.setAttribute('stroke-opacity', '0.8');
+        line.setAttribute('marker-end', 'url(#cv-arrow)');
         g.appendChild(line);
       }
     }

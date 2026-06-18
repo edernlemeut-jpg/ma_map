@@ -28,3 +28,5 @@ _bmad/
 # Divers
 .tmp_query.mjs
 src/database.js.bak
+
+tmp_*

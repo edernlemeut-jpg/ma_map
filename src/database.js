@@ -609,6 +609,9 @@ function ensureCombatSpatial() {
 
   // Migrations incrémentales
   try { db.exec(`ALTER TABLE combat_ships ADD COLUMN fleet_ship_id TEXT`); } catch { /* colonne existe déjà */ }
+  try { db.exec(`ALTER TABLE combat_ships ADD COLUMN vitesse_actuelle INTEGER NOT NULL DEFAULT 0`); } catch {}
+  try { db.exec(`ALTER TABLE combat_ships ADD COLUMN arcs_tir TEXT`); } catch {}
+  try { db.exec(`ALTER TABLE combats_spatiaux ADD COLUMN ecart_k INTEGER`); } catch {}
 }
 ensureCombatSpatial();
 
