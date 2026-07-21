@@ -96,8 +96,17 @@ export function createSystem(fields) {
   const cols = entries.map(([k]) => k).join(', ');
   const placeholders = entries.map(() => '?').join(', ');
   const values = entries.map(([, v]) => v);
-  const result = db.prepare(`INSERT INTO systems (${cols}) VALUES (${placeholders})`).run(...values);
-  return db.prepare(`SELECT ${SYSTEMS_COLS} FROM systems WHERE id = ?`).get(result.lastInsertRowid);
+  // Upsert : si (quadrant, nom) existe déjà, on met à jour les autres colonnes
+  const updateCols = entries
+    .filter(([k]) => k !== 'quadrant' && k !== 'nom')
+    .map(([k]) => `${k} = excluded.${k}`)
+    .join(', ');
+  const sql = updateCols
+    ? `INSERT INTO systems (${cols}) VALUES (${placeholders}) ON CONFLICT(quadrant, nom) DO UPDATE SET ${updateCols}`
+    : `INSERT OR IGNORE INTO systems (${cols}) VALUES (${placeholders})`;
+  db.prepare(sql).run(...values);
+  return db.prepare(`SELECT ${SYSTEMS_COLS} FROM systems WHERE quadrant = ? AND nom = ?`)
+    .get(fields.quadrant, fields.nom);
 }
 
 export function createSystemsBulk(items) {
